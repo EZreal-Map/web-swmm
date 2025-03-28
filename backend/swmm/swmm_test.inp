@@ -1,0 +1,90 @@
+[TITLE]
+;;工程标题/注释
+
+[OPTIONS]
+;;选项             数值
+FLOW_UNITS           CFS
+INFILTRATION         HORTON
+FLOW_ROUTING         KINWAVE
+LINK_OFFSETS         DEPTH
+MIN_SLOPE            0
+ALLOW_PONDING        NO
+SKIP_STEADY_STATE    NO
+
+START_DATE           03/28/2025
+START_TIME           00:00:00
+REPORT_START_DATE    03/28/2025
+REPORT_START_TIME    00:00:00
+END_DATE             03/28/2025
+END_TIME             06:00:00
+SWEEP_START          1/1
+SWEEP_END            12/31
+DRY_DAYS             0
+REPORT_STEP          00:15:00
+WET_STEP             00:05:00
+DRY_STEP             01:00:00
+ROUTING_STEP         0:00:30 
+
+INERTIAL_DAMPING     PARTIAL
+NORMAL_FLOW_LIMITED  BOTH
+FORCE_MAIN_EQUATION  H-W
+VARIABLE_STEP        0.75
+LENGTHENING_STEP     0
+MIN_SURFAREA         0
+MAX_TRIALS           0
+HEAD_TOLERANCE       0
+SYS_FLOW_TOL         5
+LAT_FLOW_TOL         5
+MINIMUM_STEP         0.5
+THREADS              1
+
+[EVAPORATION]
+;;蒸发数据      参数
+;;-------------- ----------------
+CONSTANT         0.0
+DRY_ONLY         NO
+
+[JUNCTIONS]
+;;汇接点       Invert     MaxDepth   InitDepth  SurDepth   Aponded   
+;;-------------- ---------- ---------- ---------- ---------- ----------
+节点1              0          0          0          0          0         
+节点2              0          0          0          0          0         
+节点3              0          0          0          0          0         
+
+[CONDUITS]
+;;管渠        From Node        To Node          Length     Roughness  InOffset   OutOffset  InitFlow   MaxFlow   
+;;-------------- ---------------- ---------------- ---------- ---------- ---------- ---------- ---------- ----------
+1                节点1              节点2              800        0.01       0          0          0          0         
+2                节点2              节点3              400        0.01       0          0          0          0         
+
+[XSECTIONS]
+;;管段           Shape        Geom1            Geom2      Geom3      Geom4      Barrels   
+;;-------------- ------------ ---------------- ---------- ---------- ---------- ---------- ----------
+1                CIRCULAR     1                0          0          0          1                    
+2                CIRCULAR     1                0          0          0          1                    
+
+[REPORT]
+;;报告选项
+INPUT      NO
+CONTROLS   NO
+SUBCATCHMENTS ALL
+NODES ALL
+LINKS ALL
+
+[TAGS]
+
+[MAP]
+DIMENSIONS 0.000 0.000 10000.000 10000.000
+Units      None
+
+[COORDINATES]
+;;Node           X-Coord            Y-Coord           
+;;-------------- ------------------ ------------------
+节点1              379424.108         3276218.951       
+节点2              380920.125         3272693.464       
+节点3              380701.415         3269832.765       
+
+[VERTICES]
+;;Link           X-Coord            Y-Coord           
+;;-------------- ------------------ ------------------
+

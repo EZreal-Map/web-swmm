@@ -18,6 +18,11 @@ export default [
     languageOptions: {
       globals: {
         ...globals.browser,
+        // 配置免得 eslint 报错 （no-undef）
+        // 这些是 vue 3 中的全局变量
+        ElMessage: 'readonly',
+        ElMessageBox: 'readonly',
+        ElLoading: 'readonly',
       },
     },
   },

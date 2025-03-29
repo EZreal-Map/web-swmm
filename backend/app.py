@@ -4,8 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 # 路由
-from apis.coordinate import coordinatesRouter
 from apis.conduit import conduitRouter
+from apis.junction import junctionsRouter
 
 application = FastAPI(
     debug=Config.APP_DEBUG,
@@ -24,7 +24,7 @@ application.add_middleware(
 
 
 # 路由
-application.include_router(coordinatesRouter, prefix="/swmm", tags=["节点"])
+application.include_router(junctionsRouter, prefix="/swmm", tags=["节点"])
 application.include_router(conduitRouter, prefix="/swmm", tags=["管道"])
 
 

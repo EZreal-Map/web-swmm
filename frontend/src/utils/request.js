@@ -25,6 +25,7 @@ instance.interceptors.response.use(
     // return Promise.reject(res.data)
   },
   (err) => {
+    ElMessage.error(err.response.data.detail)
     return Promise.reject(err)
   },
 )

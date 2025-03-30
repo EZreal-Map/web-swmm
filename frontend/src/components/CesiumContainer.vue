@@ -17,6 +17,7 @@ import useCesium from '@/utils/useCesium'
 import JunctionDialog from '@/components/JunctionDialog.vue'
 import ConduitDialog from '@/components/ConduitDialog.vue'
 
+// TODO: 解决默认导出/命名导出的问题，useCesium.js 默认导出的机制，重复加载initViewer，会不会浪费不必要的内存
 const { initViewer, clickedEntity } = useCesium()
 const showJunctionDialog = ref(false)
 const showConduitDialog = ref(false)

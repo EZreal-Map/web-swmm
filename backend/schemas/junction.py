@@ -6,8 +6,8 @@ class JunctionModel(BaseModel):
     name: str
     lon: float
     lat: float
-    elevation: float
-    depth_max: float
-    depth_init: float
-    depth_surcharge: float
-    area_ponded: float
+    elevation: float = 0.0
+    depth_max: float = 0.0
+    depth_init: float = 0.0
+    depth_surcharge: float = 0.0
+    area_ponded: float = 0.0

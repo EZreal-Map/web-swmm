@@ -40,6 +40,7 @@
         </el-form-item>
       </el-form>
       <div class="popup-footer">
+        <el-button type="danger" @click="deleteJunctionEntity">删除</el-button>
         <el-button type="primary" @click="saveJunctionEntity">保存</el-button>
       </div>
     </el-card>
@@ -48,7 +49,7 @@
 
 <script setup>
 import { CloseBold } from '@element-plus/icons-vue'
-import { updateJunctionByIdAxios } from '@/apis/junction'
+import { updateJunctionByIdAxios, deleteJunctionByIdAxios } from '@/apis/junction'
 import { convertKeysToKebabCase } from '@/utils/convert'
 import { useViewerStore } from '@/stores/viewer'
 
@@ -70,7 +71,24 @@ const saveJunctionEntity = () => {
     // 更新 Cesium 中的实体数据
     viewerStore.viewer.entities.removeAll()
     viewerStore.initData(viewerStore.viewer)
+    // 更新 id，解决不关闭弹窗时候，重复保存时，selectedEntity的id还是原来旧id的问题
+    junctionEntity.value.id = '#' + junctionEntity.value.name
   })
+}
+
+const deleteJunctionEntity = () => {
+  deleteJunctionByIdAxios(junctionEntity.value.id)
+    .then((res) => {
+      ElMessage.success(res.message)
+      // 更新 Cesium 中的实体数据
+      viewerStore.viewer.entities.removeAll()
+      viewerStore.initData(viewerStore.viewer)
+      // 删除结束后，关闭弹窗
+      showDialog.value = false
+    })
+    .catch((error) => {
+      console.log(error)
+    })
 }
 </script>
 

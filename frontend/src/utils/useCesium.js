@@ -2,12 +2,11 @@ import * as Cesium from 'cesium'
 import { useViewerStore } from '@/stores/viewer'
 import { getAllJunctionsAxios } from '@/apis/junction'
 import { getAllConduitsAxios } from '@/apis/conduit'
+import { createJunctionEntity, createConduitEntity } from '@/utils/entity'
 import { ref } from 'vue'
 
-export default function useCesium() {
+const useCesium = () => {
   let viewer = null
-  let junctionEntities = []
-  let conduitEntities = []
   const clickedEntity = ref(null)
 
   const initViewer = async (containerId) => {
@@ -85,6 +84,12 @@ export default function useCesium() {
             toNode: pickedObject.id.properties.toNode.getValue(),
             length: pickedObject.id.properties.length.getValue(),
             roughness: pickedObject.id.properties.roughness.getValue(),
+            transect: pickedObject.id.properties.transect.getValue(),
+            shape: pickedObject.id.properties.shape.getValue(),
+            height: pickedObject.id.properties.height.getValue(),
+            parameter_2: pickedObject.id.properties.parameter_2.getValue(),
+            parameter_3: pickedObject.id.properties.parameter_3.getValue(),
+            parameter_4: pickedObject.id.properties.parameter_4.getValue(),
           }
         }
       }
@@ -168,31 +173,18 @@ export default function useCesium() {
     const junctionDatas = await getAllJunctionsAxios()
 
     junctionDatas.forEach((junctionData) => {
-      const junctionEntity = viewer.entities.add({
-        id: 'junction#' + junctionData.name,
-        name: junctionData.name,
-        position: Cesium.Cartesian3.fromDegrees(
-          junctionData.lon,
-          junctionData.lat,
-          junctionData.elevation,
-        ), // 经度, 纬度, 高度
-        point: {
-          color: Cesium.Color.YELLOW,
-          pixelSize: 10,
-          outlineColor: Cesium.Color.WHITE,
-          outlineWidth: 2,
-          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-        },
-        properties: {
-          type: junctionData.type,
-          depthMax: junctionData.depth_max,
-          depthInit: junctionData.depth_init,
-          depthSurcharge: junctionData.depth_surcharge,
-          areaPonded: junctionData.area_ponded,
-        },
-      })
-
-      junctionEntities.push(junctionEntity)
+      createJunctionEntity(
+        viewer,
+        junctionData.name,
+        junctionData.lon,
+        junctionData.lat,
+        junctionData.elevation,
+        junctionData.type,
+        junctionData.depth_max,
+        junctionData.depth_init,
+        junctionData.depth_surcharge,
+        junctionData.area_ponded,
+      )
     })
   }
 
@@ -200,42 +192,21 @@ export default function useCesium() {
   const conduitsInit = async () => {
     const conduitDatas = await getAllConduitsAxios()
     conduitDatas.forEach((conduitData) => {
-      const fromNode = viewer.entities.getById('junction#' + conduitData.from_node)
-      const toNode = viewer.entities.getById('junction#' + conduitData.to_node)
-
-      if (fromNode && toNode) {
-        const conduitEntiy = viewer.entities.add({
-          id: 'conduit#' + conduitData.name,
-          name: conduitData.name,
-          polyline: {
-            positions: new Cesium.CallbackProperty(() => {
-              // 再次获取节点，防止节点被删除
-              const fromNodeUpdated = viewer.entities.getById('junction#' + conduitData.from_node)
-              const toNodeUpdated = viewer.entities.getById('junction#' + conduitData.to_node)
-
-              if (!fromNodeUpdated || !toNodeUpdated) {
-                return [] // 返回空数组，Cesium 会自动移除线
-              }
-
-              const fromPosition = fromNodeUpdated.position.getValue()
-              const toPosition = toNodeUpdated.position.getValue()
-
-              return [fromPosition, toPosition]
-            }, false), // false 表示不会每一帧都强制更新，节省性能
-            width: 10,
-            material: Cesium.Color.BLUE.withAlpha(0.5),
-            clampToGround: true,
-          },
-          properties: {
-            type: conduitData.type,
-            fromNode: conduitData.from_node,
-            toNode: conduitData.to_node,
-            length: conduitData.length,
-            roughness: conduitData.roughness,
-          },
-        })
-        conduitEntities.push(conduitEntiy)
-      }
+      createConduitEntity(
+        viewer,
+        conduitData.name,
+        conduitData.from_node,
+        conduitData.to_node,
+        conduitData.type,
+        conduitData.length,
+        conduitData.roughness,
+        conduitData.transect,
+        conduitData.shape,
+        conduitData.height,
+        conduitData.parameter_2,
+        conduitData.parameter_3,
+        conduitData.parameter_4,
+      )
     })
   }
 
@@ -245,11 +216,13 @@ export default function useCesium() {
   }
 
   return {
-    junctionEntities,
-    conduitEntities,
     initViewer,
     initData,
     startDragHandlers,
     clickedEntity,
   }
 }
+
+// 默认导出 useCesium 工具函数
+// 该函数用于初始化 Cesium Viewer、初始化数据、初始化处理鼠标事件
+export default useCesium

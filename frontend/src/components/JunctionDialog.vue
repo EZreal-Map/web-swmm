@@ -52,6 +52,7 @@ import { CloseBold } from '@element-plus/icons-vue'
 import { updateJunctionByIdAxios, deleteJunctionByIdAxios } from '@/apis/junction'
 import { convertKeysToKebabCase } from '@/utils/convert'
 import { useViewerStore } from '@/stores/viewer'
+import { initEntities } from '@/utils/useCesium'
 
 const viewerStore = useViewerStore()
 
@@ -60,6 +61,7 @@ const junctionEntity = defineModel('junctionEntity')
 
 const closeDialog = () => {
   showDialog.value = false
+  viewerStore.clickedEntityDict = {}
 }
 
 const saveJunctionEntity = () => {
@@ -70,9 +72,12 @@ const saveJunctionEntity = () => {
     ElMessage.success(res.message)
     // 更新 Cesium 中的实体数据
     viewerStore.viewer.entities.removeAll()
-    viewerStore.initData(viewerStore.viewer)
+    initEntities(viewerStore.viewer)
     // 更新 id，解决不关闭弹窗时候，重复保存时，selectedEntity的id还是原来旧id的问题
-    junctionEntity.value.id = '#' + junctionEntity.value.name
+    const id = res.data.type + '#' + res.data.id
+    junctionEntity.value.id = id
+    // 解决保存后，窗口任然没关闭，继续保持实体高亮
+    viewerStore.clickedEntityDict = { id: id, type: res.data.type }
   })
 }
 
@@ -82,7 +87,7 @@ const deleteJunctionEntity = () => {
       ElMessage.success(res.message)
       // 更新 Cesium 中的实体数据
       viewerStore.viewer.entities.removeAll()
-      viewerStore.initData(viewerStore.viewer)
+      initEntities(viewerStore.viewer)
       // 删除结束后，关闭弹窗
       showDialog.value = false
     })

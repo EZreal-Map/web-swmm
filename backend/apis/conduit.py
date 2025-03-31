@@ -6,6 +6,7 @@ from swmm_api.input_file.sections.link_component import CrossSection
 from schemas.conduit import ConduitResponseModel, ConduitRequestModel
 from schemas.result import Result
 
+# TODO 修改post 和 put 中的创建和更新的逻辑（使用Conduit类和CrossSection类）
 
 conduitRouter = APIRouter()
 SWMM_FILE_PATH = "./swmm/swmm_test.inp"
@@ -118,7 +119,10 @@ async def update_conduit(conduit_id: str, conduit_update: ConduitRequestModel):
         print(f"xsection.parameter_3: {xsection.parameter_3}")
         print(f"xsection.parameter_4: {xsection.parameter_4}")
         INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
-        return Result.success(message=f"渠道 [ {conduit_update.name} ] 信息更新成功")
+        return Result.success(
+            message=f"渠道 [ {conduit_update.name} ] 信息更新成功",
+            data={"id": conduit_update.name, type: "conduit"},
+        )
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -126,7 +130,6 @@ async def update_conduit(conduit_id: str, conduit_update: ConduitRequestModel):
         )
 
 
-# TODO: 1.需要添加 添加管道 的接口
 @conduitRouter.post(
     "/conduit",
     response_model=Result,
@@ -216,7 +219,6 @@ async def create_conduit(conduit_data: ConduitRequestModel):
         )
 
 
-# TODO: 2.需要添加 删除管道 的接口
 @conduitRouter.delete(
     "/conduit/{conduit_id}",
     response_model=Result,
@@ -256,6 +258,3 @@ async def delete_conduit(conduit_id: str):
             status_code=500,
             detail=f"删除失败，发生未知错误: {str(e)}",
         )
-
-
-# TODO: 3.完成出口的接口

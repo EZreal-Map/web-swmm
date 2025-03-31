@@ -12,54 +12,38 @@
         label-width="70px"
         style="max-width: 300px"
         :size="'default'"
-        v-model="conduitEntity"
+        v-model="outfallEntity"
       >
         <el-form-item label="名字">
-          <el-input v-model="conduitEntity.name" type="string"></el-input>
+          <el-input v-model="outfallEntity.name" type="string"></el-input>
         </el-form-item>
-        <el-form-item label="进水节点">
-          <el-input v-model="conduitEntity.fromNode" type="string"></el-input>
+        <el-form-item label="经度">
+          <el-input v-model="outfallEntity.lon" type="number"></el-input>
         </el-form-item>
-        <el-form-item label="出水节点">
-          <el-input v-model="conduitEntity.toNode" type="string"></el-input>
+        <el-form-item label="纬度">
+          <el-input v-model="outfallEntity.lat" type="number"></el-input>
         </el-form-item>
-        <el-form-item label="长度">
-          <el-input v-model="conduitEntity.length" type="number"></el-input>
+        <el-form-item label="高度">
+          <el-input v-model="outfallEntity.elevation" type="number"></el-input>
         </el-form-item>
-        <el-form-item label="断面形状">
-          <el-select v-model="conduitEntity.shape" type="string">
+        <el-form-item label="出口类型">
+          <el-select v-model="outfallEntity.kind" type="string">
             <el-option
-              v-for="item in CrossSectionShape"
+              v-for="item in OutfallKind"
               :key="item.value"
               :label="item.label"
               :value="item.value"
             ></el-option
           ></el-select>
         </el-form-item>
-        <div v-if="conduitEntity.shape === 'TRAPEZOIDAL'">
-          <el-form-item label="最大高度">
-            <el-input v-model="conduitEntity.height" type="number"></el-input>
-          </el-form-item>
-          <el-form-item label="底宽">
-            <el-input v-model="conduitEntity.parameter_2" type="number"></el-input>
-          </el-form-item>
-          <el-form-item label="左侧边坡">
-            <el-input v-model="conduitEntity.parameter_3" type="number"></el-input>
-          </el-form-item>
-          <el-form-item label="右侧边坡">
-            <el-input v-model="conduitEntity.parameter_4" type="number"></el-input>
-          </el-form-item>
-        </div>
-        <div v-else>
-          <!-- TODO 不规则断面的弹窗 -->
-          <el-form-item label="待完成...">
-            <el-input v-model="conduitEntity.roughness" type="number"></el-input>
-          </el-form-item>
-        </div>
+
+        <el-form-item label="出口水位" v-if="outfallEntity.kind === 'FIXED'">
+          <el-input v-model="outfallEntity.data" type="number"></el-input>
+        </el-form-item>
       </el-form>
       <div class="popup-footer">
-        <el-button type="danger" @click="deleteConduitEntity">删除</el-button>
-        <el-button type="primary" @click="saveConduitEntity">保存</el-button>
+        <el-button type="danger" @click="deleteOutfallEntity">删除</el-button>
+        <el-button type="primary" @click="saveOutfallEntity">保存</el-button>
       </div>
     </el-card>
   </div>
@@ -67,49 +51,47 @@
 
 <script setup>
 import { CloseBold } from '@element-plus/icons-vue'
+import { updateOutfallByIdAxios, deleteOutfallByIdAxios } from '@/apis/outfall'
 import { convertKeysToKebabCase } from '@/utils/convert'
-import { updateConduitByIdAxios, deleteConduitByIdAxios } from '@/apis/conduit'
 import { useViewerStore } from '@/stores/viewer'
 import { initEntities } from '@/utils/useCesium'
+
+import { ref } from 'vue'
+
+const OutfallKind = ref([
+  { value: 'FREE', label: '自由出流' },
+  { value: 'NORMAL', label: '正常水力控制' },
+  { value: 'FIXED', label: '固定水位' },
+])
 
 const viewerStore = useViewerStore()
 
 const showDialog = defineModel('showDialog')
-const conduitEntity = defineModel('conduitEntity')
-
-import { ref } from 'vue'
-
-const CrossSectionShape = ref([
-  { value: 'TRAPEZOIDAL', label: '梯形断面' },
-  { value: 'IRREGULAR', label: '不规则断面' },
-])
+const outfallEntity = defineModel('outfallEntity')
 
 const closeDialog = () => {
   showDialog.value = false
   viewerStore.clickedEntityDict = {}
 }
 
-const saveConduitEntity = () => {
-  updateConduitByIdAxios(conduitEntity.value.id, convertKeysToKebabCase(conduitEntity.value))
-    .then((res) => {
-      console.log(res)
+const saveOutfallEntity = () => {
+  updateOutfallByIdAxios(outfallEntity.value.id, convertKeysToKebabCase(outfallEntity.value)).then(
+    (res) => {
       ElMessage.success(res.message)
       // 更新 Cesium 中的实体数据
       viewerStore.viewer.entities.removeAll()
       initEntities(viewerStore.viewer)
-      const id = res.data.type + '#' + res.data.id
       // 更新 id，解决不关闭弹窗时候，重复保存时，selectedEntity的id还是原来旧id的问题
-      conduitEntity.value.id = id
+      const id = res.data.type + '#' + res.data.id
+      outfallEntity.value.id = id
       // 解决保存后，窗口任然没关闭，继续保持实体高亮
       viewerStore.clickedEntityDict = { id: id, type: res.data.type }
-    })
-    .catch((error) => {
-      console.log(error)
-    })
+    },
+  )
 }
 
-const deleteConduitEntity = () => {
-  deleteConduitByIdAxios(conduitEntity.value.id)
+const deleteOutfallEntity = () => {
+  deleteOutfallByIdAxios(outfallEntity.value.id)
     .then((res) => {
       ElMessage.success(res.message)
       // 更新 Cesium 中的实体数据

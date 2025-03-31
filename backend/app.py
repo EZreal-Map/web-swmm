@@ -6,6 +6,7 @@ import uvicorn
 # 路由
 from apis.conduit import conduitRouter
 from apis.junction import junctionsRouter
+from apis.outfall import outfallRouter
 
 application = FastAPI(
     debug=Config.APP_DEBUG,
@@ -26,7 +27,8 @@ application.add_middleware(
 # 路由
 application.include_router(junctionsRouter, prefix="/swmm", tags=["节点"])
 application.include_router(conduitRouter, prefix="/swmm", tags=["管道"])
+application.include_router(outfallRouter, prefix="/swmm", tags=["出口"])
 
 
 if __name__ == "__main__":
-    uvicorn.run("app:application", host="127.0.0.1", port=8080, reload=True)
+    uvicorn.run("app:application", host="0.0.0.0", port=8080, reload=True)

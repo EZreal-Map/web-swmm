@@ -6,17 +6,26 @@
         <span>新增</span>
       </template>
 
-      <el-menu-item index="1-1" @click="createJunction" :disabled="createConduitHandler !== null"
-        >节点</el-menu-item
+      <el-menu-item
+        index="1-1"
+        @click="createJunction"
+        :disabled="createConduitHandler !== null || createOutfallHandler !== null"
+      >
+        节点</el-menu-item
       >
       <el-menu-item
         index="1-2"
         @click="selectTwoJunctions"
-        :disabled="createJunctionHandler !== null"
+        :disabled="createJunctionHandler !== null || createOutfallHandler !== null"
         >管道</el-menu-item
       >
 
-      <el-menu-item index="1-3">出口</el-menu-item>
+      <el-menu-item
+        index="1-3"
+        @click="createOutfall"
+        :disabled="createJunctionHandler !== null || createConduitHandler !== null"
+        >出口</el-menu-item
+      >
     </el-sub-menu>
     <el-sub-menu index="2-1">
       <template #title>拖拽</template>
@@ -46,12 +55,14 @@
 
 <script setup>
 import { useViewerStore } from '@/stores/viewer'
-import { createJunctionEntity, createConduitEntity } from '@/utils/entity'
+import { createJunctionEntity, createConduitEntity, createOutfallEntity } from '@/utils/entity'
 import { createJunctionAxios } from '@/apis/junction'
 import { createConduitAxios } from '@/apis/conduit'
+import { createOutfallAxios } from '@/apis/outfall'
 import * as Cesium from 'cesium'
 import { ref } from 'vue'
 import { getStringAfterFirstDash } from '@/utils/convert'
+import { startDragHandlers, stopDragHandlers, initEntities } from '@/utils/useCesium'
 
 const viewerStore = useViewerStore()
 
@@ -67,14 +78,15 @@ const startDrag = () => {
     return
   }
   draggable.value = true
-  dragHandler = viewerStore.startDragHandlers(viewerStore.viewer)
+  dragHandler = startDragHandlers(viewerStore.viewer)
 }
 
 // 2.2 停止拖拽
 const stopDrag = () => {
   draggable.value = false
+  restoreDrag() // 还原未保存的拖拽
   if (dragHandler) {
-    viewerStore.stopDragHandlers(dragHandler)
+    stopDragHandlers(dragHandler)
     dragHandler.destroy()
     dragHandler = null
   } else {
@@ -85,7 +97,7 @@ const stopDrag = () => {
 // 2.3 还原未保存拖拽
 const restoreDrag = () => {
   viewerStore.viewer.entities.removeAll()
-  viewerStore.initData(viewerStore.viewer)
+  initEntities(viewerStore.viewer)
 }
 
 // 1. 新增事件
@@ -121,24 +133,64 @@ const createJunction = () => {
     const elevation = cartographic.height
     // 创建节点实体
     const name = '节点_' + Date.now() // 用时间戳作为节点名称
-
-    // TODO: 要完成后端的节点添加
-    createJunctionAxios({ name, lon, lat, elevation })
-      .then((res) => {
-        ElMessage.success(res.message)
-        // 前端创建节点实体
-        createJunctionEntity(viewer, name, lon, lat, elevation)
-      })
-      .catch((err) => {
-        // TODO: 重新更新地图 调用 initData
-        ElMessage.error(err.message)
-      })
+    createJunctionAxios({ name, lon, lat, elevation }).then((res) => {
+      ElMessage.success(res.message)
+      // 前端创建节点实体
+      createJunctionEntity(viewer, name, lon, lat, elevation)
+    })
 
     // 移除监听器，防止继续添加
     createJunctionHandler.value.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK)
     // 销毁 handler，防止继续监听
     createJunctionHandler.value.destroy()
     createJunctionHandler.value = null
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+}
+
+// 1. 新增事件
+const createOutfallHandler = ref(null)
+// 1.1 创建出口
+const createOutfall = () => {
+  // 如果已经有 handler，说明已经在创建出口了
+  if (createOutfallHandler.value) {
+    ElMessage.warning('已取消出口创建')
+    createOutfallHandler.value.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK)
+    createOutfallHandler.value.destroy()
+    createOutfallHandler.value = null
+    return
+  } else {
+    ElMessage.success('请点击地图选择出口位置')
+  }
+  const viewer = viewerStore.viewer
+  // 创建点击事件监听器
+  createOutfallHandler.value = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
+  createOutfallHandler.value.setInputAction((click) => {
+    // 获取点击的坐标
+    const cartesian = viewer.scene.pickPosition(click.position)
+    if (!cartesian) {
+      console.log('未能拾取坐标')
+      return
+    }
+
+    // 将 Cartesian3 转换为 Cartographic（弧度单位）
+    const cartographic = Cesium.Cartographic.fromCartesian(cartesian)
+    // 转换为度数
+    const lon = Cesium.Math.toDegrees(cartographic.longitude)
+    const lat = Cesium.Math.toDegrees(cartographic.latitude)
+    const elevation = cartographic.height
+    // 创建出口实体
+    const name = '出口_' + Date.now() // 用时间戳作为出口名称
+    createOutfallAxios({ name, lon, lat, elevation }).then((res) => {
+      ElMessage.success(res.message)
+      // 前端创建出口实体
+      createOutfallEntity(viewer, name, lon, lat, elevation)
+    })
+
+    // 移除监听器，防止继续添加
+    createOutfallHandler.value.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK)
+    // 销毁 handler，防止继续监听
+    createOutfallHandler.value.destroy()
+    createOutfallHandler.value = null
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 }
 
@@ -182,18 +234,14 @@ const selectTwoJunctions = () => {
     // 选中两个后停止监听
     if (selectedNodes.length === 2) {
       // 处理选中的两个点，例如创建管道
-      // TODO: 调用后端接口创建管道
       const name = '管道_' + Date.now() // 用时间戳作为节点名称
       const fromNode = getStringAfterFirstDash(selectedNodes[0])
       const toNode = getStringAfterFirstDash(selectedNodes[1])
-      createConduitAxios({ name, from_node: fromNode, to_node: toNode })
-        .then((res) => {
-          ElMessage.success(res.message)
-          createConduitEntity(viewer, name, fromNode, toNode) // 前端创建管道实体
-        })
-        .catch((err) => {
-          ElMessage.error(err.message)
-        })
+      createConduitAxios({ name, from_node: fromNode, to_node: toNode }).then((res) => {
+        ElMessage.success(res.message)
+        createConduitEntity(viewer, name, fromNode, toNode) // 前端创建管道实体
+      })
+
       // 移除监听
       createConduitHandler.value.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK)
       createConduitHandler.value.destroy()

@@ -4,6 +4,8 @@ from swmm_api.input_file.sections import Junction
 from swmm_api.input_file.sections.node_component import Coordinate
 from swmm_api.input_file.sections.link import Conduit
 from swmm_api.input_file.sections.link_component import CrossSection
+from swmm_api.input_file.sections import Outfall
+
 
 from utils.coordinate_converter import utm_to_wgs84, wgs84_to_utm
 from schemas.junction import JunctionModel
@@ -68,6 +70,7 @@ async def update_junction(junction_id: str, junction_update: JunctionModel):
         inp_junctions = INP.check_for_section(Junction)
         inp_coordinates = INP.check_for_section(Coordinate)
         inp_conduits = INP.check_for_section(Conduit)
+        inp_outfalls = INP.check_for_section(Outfall)
 
         # 检查节点ID是否存在
         if junction_id not in inp_junctions:
@@ -85,6 +88,11 @@ async def update_junction(junction_id: str, junction_update: JunctionModel):
                 status_code=400,
                 detail=f"修改失败，节点名称 [ {junction_update.name} ] 已存在，请使用不同的节点名称",
             )
+        if junction_update.name in inp_outfalls:
+            raise HTTPException(
+                status_code=400,
+                detail=f"保存失败，节点名称与出口名称不能重复，请使用其他名称",
+            )
         if (
             junction_update.name in inp_coordinates
             and junction_update.name != junction_id
@@ -95,21 +103,21 @@ async def update_junction(junction_id: str, junction_update: JunctionModel):
             )
 
         # 1.更新JUNCTIONS数据
-        junction = inp_junctions.pop(junction_id)
-        inp_junctions[junction_update.name] = junction
-        junction.name = junction_update.name
-        junction.elevation = junction_update.elevation
-        junction.depth_max = junction_update.depth_max
-        junction.depth_init = junction_update.depth_init
-        junction.depth_surcharge = junction_update.depth_surcharge
-        junction.area_ponded = junction_update.area_ponded
+        del inp_junctions[junction_id]
+        inp_junctions[junction_update.name] = Junction(
+            name=junction_update.name,
+            elevation=junction_update.elevation,
+            depth_max=junction_update.depth_max,
+            depth_init=junction_update.depth_init,
+            depth_surcharge=junction_update.depth_surcharge,
+            area_ponded=junction_update.area_ponded,
+        )
 
         # 2.更新COORDINATES数据
-        coordinate = inp_coordinates.pop(junction_id)
-        inp_coordinates[junction_update.name] = coordinate
-        coordinate.node = junction_update.name
-        coordinate.x, coordinate.y = wgs84_to_utm(
-            junction_update.lon, junction_update.lat
+        del inp_coordinates[junction_id]
+        utm_x, utm_y = wgs84_to_utm(junction_update.lon, junction_update.lat)
+        inp_coordinates[junction_update.name] = Coordinate(
+            node=junction_update.name, x=utm_x, y=utm_y
         )
 
         # 3.更新CONDUITS的起点和终点的名称
@@ -126,7 +134,10 @@ async def update_junction(junction_id: str, junction_update: JunctionModel):
             SWMM_FILE_PATH,
             encoding="GB2312",
         )
-        return Result.success(message=f"节点 [ {junction_update.name} ] 信息更新成功")
+        return Result.success(
+            message=f"节点 [ {junction_update.name} ] 信息更新成功",
+            data={id: junction_update.name, type: "junction"},
+        )
     except Exception as e:
         raise HTTPException(
             status_code=e.status_code if hasattr(e, "status_code") else 500,
@@ -145,6 +156,7 @@ async def create_junction(junction_data: JunctionModel):
         INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
         inp_junctions = INP.check_for_section(Junction)
         inp_coordinates = INP.check_for_section(Coordinate)
+        inp_outfalls = INP.check_for_section(Outfall)
 
         # 检查节点是否已存在
         if junction_data.name in inp_junctions or junction_data.name in inp_coordinates:
@@ -152,9 +164,14 @@ async def create_junction(junction_data: JunctionModel):
                 status_code=400,
                 detail=f"创建失败，节点名称 [ {junction_data.name} ] 已存在，请使用不同的名称",
             )
+        if junction_data.name in inp_outfalls:
+            raise HTTPException(
+                status_code=400,
+                detail=f"保存失败，节点名称与出口名称不能重复，请使用其他名称",
+            )
 
         # 1. 创建新的 Junction 并添加到 JUNCTIONS
-        new_junction = Junction(
+        inp_junctions[junction_data.name] = Junction(
             name=junction_data.name,
             elevation=junction_data.elevation,
             depth_max=junction_data.depth_max,
@@ -162,7 +179,6 @@ async def create_junction(junction_data: JunctionModel):
             depth_surcharge=junction_data.depth_surcharge,
             area_ponded=junction_data.area_ponded,
         )
-        inp_junctions[junction_data.name] = new_junction
 
         # 2. 计算 UTM 坐标并创建 Coordinate
         utm_x, utm_y = wgs84_to_utm(junction_data.lon, junction_data.lat)
@@ -196,8 +212,6 @@ async def create_junction(junction_data: JunctionModel):
 async def delete_junction(junction_id: str):
     try:
         INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
-        # TODO: 把所有的INP.JUNCTIONS, INP.CONDUITS, INP.COORDINATES 都要前处理成字典，防止为空的时候报错
-        # TODO： 优化：SWMM_FILE_PATH， INP 的读取
         inp_junctions = INP.check_for_section(Junction)
         inp_coordinates = INP.check_for_section(Coordinate)
         inp_conduits = INP.check_for_section(Conduit)
@@ -237,7 +251,6 @@ async def delete_junction(junction_id: str):
         message = f"节点 [ {junction_id} ] 删除成功"
         if related_conduits:
             message += f"，同时删除 {len(related_conduits)} 条关联管道"
-
         return Result.success(message=message)
 
     except Exception as e:

@@ -8,6 +8,7 @@ import {
   createConduitEntity,
   createOutfallEntity,
   fillClickedEntityDict,
+  highlightClickedEntityColor,
 } from '@/utils/entity'
 
 export const initCesium = async (containerId) => {
@@ -85,7 +86,7 @@ export const startDragHandlers = (viewer) => {
       draggedEntity.id.position = cartesian
       // 更新填充 clickedEntityDict 数据，为了存储和显示弹窗信息
       const viewerStore = useViewerStore()
-      viewerStore.clickedEntityDict.value = fillClickedEntityDict(draggedEntity)
+      viewerStore.clickedEntityDict = fillClickedEntityDict(draggedEntity)
     }
   }, Cesium.ScreenSpaceEventType.MOUSE_MOVE)
 
@@ -164,7 +165,13 @@ const conduitsInit = async (viewer) => {
 }
 
 export const initEntities = async (viewer) => {
+  // 清除所有实体
+  viewer.entities.removeAll()
+  // 创建所有实体
   await junctionsInit(viewer) // 先加载节点
   await outfallsInit(viewer) // 再加载出口
   await conduitsInit(viewer) // 最后加载管道
+  // 设置默认高亮颜色
+  const viewerStore = useViewerStore() // 获取 Pinia store 实例
+  highlightClickedEntityColor(viewer, viewerStore.clickedEntityDict)
 }

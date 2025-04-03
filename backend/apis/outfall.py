@@ -28,9 +28,6 @@ async def get_outfalls():
         INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
         inp_outfalls = INP.check_for_section(Outfall)
         inp_coordinates = INP.check_for_section(Coordinate)
-
-        print(f"data:", inp_outfalls)
-
         outfalls = [
             OutfallModel(
                 name=outfall.name,
@@ -46,7 +43,6 @@ async def get_outfalls():
             and (lon := lon_lat[0])
             and (lat := lon_lat[1])
         ]
-        print(outfalls)
         return outfalls
     except Exception as e:
         raise HTTPException(
@@ -120,10 +116,9 @@ async def update_outfall(outfall_id: str, outfall_update: OutfallModel):
         INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
         return Result.success(
             message=f"出口 [ {outfall_update.name} ] 更新成功",
-            data={"id": outfall_update.name, type: "outfall"},
+            data={"id": outfall_update.name, "type": "outfall"},
         )
     except Exception as e:
-        print(e)
         raise HTTPException(
             status_code=e.status_code if hasattr(e, "status_code") else 500,
             detail=f"{str(e.detail) if hasattr(e, 'detail') else '修改失败，发生未知错误'}",

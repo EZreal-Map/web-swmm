@@ -96,7 +96,6 @@ const stopDrag = () => {
 
 // 2.3 还原未保存拖拽
 const restoreDrag = () => {
-  viewerStore.viewer.entities.removeAll()
   initEntities(viewerStore.viewer)
 }
 

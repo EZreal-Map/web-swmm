@@ -7,6 +7,7 @@ import uvicorn
 from apis.conduit import conduitRouter
 from apis.junction import junctionsRouter
 from apis.outfall import outfallRouter
+from apis.transect import transectsRouter
 
 application = FastAPI(
     debug=Config.APP_DEBUG,
@@ -28,6 +29,7 @@ application.add_middleware(
 application.include_router(junctionsRouter, prefix="/swmm", tags=["节点"])
 application.include_router(conduitRouter, prefix="/swmm", tags=["管道"])
 application.include_router(outfallRouter, prefix="/swmm", tags=["出口"])
+application.include_router(transectsRouter, prefix="/swmm", tags=["不规则断面"])
 
 
 if __name__ == "__main__":

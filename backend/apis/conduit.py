@@ -3,10 +3,12 @@ from swmm_api import SwmmInput
 from swmm_api.input_file.sections.node_component import Coordinate
 from swmm_api.input_file.sections.link import Conduit
 from swmm_api.input_file.sections.link_component import CrossSection
+from swmm_api.input_file.sections.others import Transect
 from schemas.conduit import ConduitResponseModel, ConduitRequestModel
 from schemas.result import Result
 
-# TODO 修改post 和 put 中的创建和更新的逻辑（使用Conduit类和CrossSection类）
+# TODO 修改post 和 put 中的创建和更新的逻辑（使用Conduit类和CrossSection类）(已完成，下次提交删除)
+# TODO 完善新增加断面之后的 post 和 put（重点有bug） 逻辑，可以再检查一下 get 和 delete 的逻辑 (已完成，下次提交删除)
 
 conduitRouter = APIRouter()
 SWMM_FILE_PATH = "./swmm/swmm_test.inp"
@@ -27,7 +29,6 @@ async def get_conduits():
     conduits = []
     for conduit in inp_conduits.values():
         xsection = inp_xsections.get(conduit.name)
-        print(f"xsection: {xsection.shape}")
         conduit_model = ConduitResponseModel(
             name=conduit.name,
             from_node=conduit.from_node,
@@ -41,7 +42,6 @@ async def get_conduits():
             parameter_3=xsection.parameter_3,
             parameter_4=xsection.parameter_4,
         )
-        print(f"conduit_model: {conduit_model}")
         conduits.append(conduit_model)
     return conduits
 
@@ -60,6 +60,7 @@ async def update_conduit(conduit_id: str, conduit_update: ConduitRequestModel):
     inp_conduits = INP.check_for_section(Conduit)
     inp_coordinates = INP.check_for_section(Coordinate)
     inp_xsections = INP.check_for_section(CrossSection)
+    inp_transects = INP.check_for_section(Transect)
 
     # 检查管道ID是否存在
     if conduit_id not in inp_conduits:
@@ -93,6 +94,15 @@ async def update_conduit(conduit_id: str, conduit_update: ConduitRequestModel):
             status_code=404,
             detail=f"保存失败，终点节点 [ {conduit_update.to_node} ] 不存在，请检查节点名称是否正确",
         )
+
+    # 如果是不规则断面，检查断面是否存在
+    if conduit_update.shape == "IRREGULAR":
+        if conduit_update.transect not in inp_transects:
+            raise HTTPException(
+                status_code=404,
+                detail=f"保存失败，断面 [ {conduit_update.transect} ] 不存在，请检查断面名称是否正确",
+            )
+
     try:
         conduit = inp_conduits.pop(conduit_id)
         inp_conduits[conduit_update.name] = conduit
@@ -102,26 +112,24 @@ async def update_conduit(conduit_id: str, conduit_update: ConduitRequestModel):
         conduit.length = conduit_update.length
         conduit.roughness = conduit_update.roughness
 
-        # 更新断面数据
-        xsection = inp_xsections.pop(conduit_id)
+        del inp_xsections[conduit_id]
+        xsection = CrossSection(
+            link=conduit_update.name,
+            transect=conduit_update.transect,
+            shape=conduit_update.shape,
+            height=conduit_update.height,
+            parameter_2=conduit_update.parameter_2,
+            parameter_3=conduit_update.parameter_3,
+            parameter_4=conduit_update.parameter_4,
+        )
         inp_xsections[conduit_update.name] = xsection
-        xsection.link = conduit_update.name
-        xsection.transect = conduit_update.transect
-        xsection.shape = conduit_update.shape
-        xsection.height = conduit_update.height
-        xsection.parameter_2 = conduit_update.parameter_2
-        xsection.parameter_3 = conduit_update.parameter_3
-        xsection.parameter_4 = conduit_update.parameter_4
-        print(f"conduit: {conduit}")
-        print(f"xsection: {xsection}")
-        print(f"xsection.height: {xsection.height}")
-        print(f"xsection.parameter_2: {xsection.parameter_2}")
-        print(f"xsection.parameter_3: {xsection.parameter_3}")
-        print(f"xsection.parameter_4: {xsection.parameter_4}")
         INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
         return Result.success(
             message=f"渠道 [ {conduit_update.name} ] 信息更新成功",
-            data={"id": conduit_update.name, type: "conduit"},
+            data={
+                "id": conduit_update.name,
+                "type": "conduit",
+            },
         )
     except Exception as e:
         raise HTTPException(

@@ -1,5 +1,5 @@
 <template>
-  <div v-if="showDialog" class="popup-container">
+  <div class="popup-container">
     <el-card class="popup-card">
       <div class="popup-header">
         <span class="popup-title">信息详情</span>
@@ -18,25 +18,25 @@
           <el-input v-model="junctionEntity.name" type="string"></el-input>
         </el-form-item>
         <el-form-item label="经度">
-          <el-input v-model="junctionEntity.lon" type="number"></el-input>
+          <el-input v-model.number="junctionEntity.lon" type="number"></el-input>
         </el-form-item>
         <el-form-item label="纬度">
-          <el-input v-model="junctionEntity.lat" type="number"></el-input>
+          <el-input v-model.number="junctionEntity.lat" type="number"></el-input>
         </el-form-item>
         <el-form-item label="高度">
-          <el-input v-model="junctionEntity.elevation" type="number"></el-input>
+          <el-input v-model.number="junctionEntity.elevation" type="number"></el-input>
         </el-form-item>
         <el-form-item label="最大水深">
-          <el-input v-model="junctionEntity.depthMax" type="number"></el-input>
+          <el-input v-model.number="junctionEntity.depthMax" type="number"></el-input>
         </el-form-item>
         <el-form-item label="初始水深">
-          <el-input v-model="junctionEntity.depthInit" type="number"></el-input>
+          <el-input v-model.number="junctionEntity.depthInit" type="number"></el-input>
         </el-form-item>
         <el-form-item label="超额水深">
-          <el-input v-model="junctionEntity.depthSurcharge" type="number"></el-input>
+          <el-input v-model.number="junctionEntity.depthSurcharge" type="number"></el-input>
         </el-form-item>
         <el-form-item label="积水面积">
-          <el-input v-model="junctionEntity.areaPonded" type="number"></el-input>
+          <el-input v-model.number="junctionEntity.areaPonded" type="number"></el-input>
         </el-form-item>
       </el-form>
       <div class="popup-footer">
@@ -69,27 +69,23 @@ const saveJunctionEntity = () => {
     junctionEntity.value.id,
     convertKeysToKebabCase(junctionEntity.value),
   ).then((res) => {
-    ElMessage.success(res.message)
-    // 更新 Cesium 中的实体数据
-    viewerStore.viewer.entities.removeAll()
-    initEntities(viewerStore.viewer)
     // 更新 id，解决不关闭弹窗时候，重复保存时，selectedEntity的id还是原来旧id的问题
     const id = res.data.type + '#' + res.data.id
     junctionEntity.value.id = id
-    // 解决保存后，窗口任然没关闭，继续保持实体高亮
-    viewerStore.clickedEntityDict = { id: id, type: res.data.type }
+    // 更新 Cesium 中的实体数据
+    initEntities(viewerStore.viewer)
+    ElMessage.success(res.message)
   })
 }
 
 const deleteJunctionEntity = () => {
   deleteJunctionByIdAxios(junctionEntity.value.id)
     .then((res) => {
-      ElMessage.success(res.message)
       // 更新 Cesium 中的实体数据
-      viewerStore.viewer.entities.removeAll()
       initEntities(viewerStore.viewer)
       // 删除结束后，关闭弹窗
       showDialog.value = false
+      ElMessage.success(res.message)
     })
     .catch((error) => {
       console.log(error)

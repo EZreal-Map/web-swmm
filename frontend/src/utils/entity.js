@@ -56,6 +56,7 @@ export const createOutfallEntity = (
 ) => {
   // 先创建对象
   const outfallObject = {
+    // outfall 也用 junction# 命名，这样方便后续通过 junction# 进行查找
     id: 'junction#' + name,
     name: name,
     position: Cesium.Cartesian3.fromDegrees(lon, lat, elevation),

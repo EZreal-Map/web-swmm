@@ -1,26 +1,25 @@
 <template>
   <div id="cesiumContainer"></div>
   <!-- 节点信息弹窗 -->
-  <div v-if="showJunctionDialog">
-    <JunctionDialog
-      v-model:show-dialog="showJunctionDialog"
-      v-model:junction-entity="viewerStore.clickedEntityDict"
-    />
-  </div>
+  <JunctionDialog
+    v-if="showJunctionDialog"
+    v-model:show-dialog="showJunctionDialog"
+    v-model:junction-entity="viewerStore.clickedEntityDict"
+  />
+
   <!-- 出口信息弹窗 -->
-  <div v-if="showOutfallDialog">
-    <OutfallDialog
-      v-model:show-dialog="showOutfallDialog"
-      v-model:outfall-entity="viewerStore.clickedEntityDict"
-    />
-  </div>
+  <OutfallDialog
+    v-if="showOutfallDialog"
+    v-model:show-dialog="showOutfallDialog"
+    v-model:outfall-entity="viewerStore.clickedEntityDict"
+  />
+
   <!-- 管道信息弹窗 -->
-  <div v-if="showConduitDialog">
-    <ConduitDialog
-      v-model:show-dialog="showConduitDialog"
-      v-model:conduit-entity="viewerStore.clickedEntityDict"
-    />
-  </div>
+  <ConduitDialog
+    v-if="showConduitDialog"
+    v-model:show-dialog="showConduitDialog"
+    v-model:conduit-entity="viewerStore.clickedEntityDict"
+  />
 </template>
 
 <script setup>
@@ -44,8 +43,7 @@ onMounted(async () => {
   watch(
     () => viewerStore.clickedEntityDict,
     (newEntityDict, oldEntityDict) => {
-      console.log('clickedEntityDict', oldEntityDict, newEntityDict)
-      // TODO：加粗变红选择实体
+      // 高亮变红选择实体
       highlightClickedEntityColor(viewerStore.viewer, oldEntityDict, true)
       highlightClickedEntityColor(viewerStore.viewer, newEntityDict, false)
 

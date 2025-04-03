@@ -1,5 +1,5 @@
 <template>
-  <div v-if="showDialog" class="popup-container">
+  <div class="popup-container">
     <el-card class="popup-card">
       <div class="popup-header">
         <span class="popup-title">信息详情</span>
@@ -13,6 +13,7 @@
         style="max-width: 300px"
         :size="'default'"
         v-model="conduitEntity"
+        :inline="true"
       >
         <el-form-item label="名字">
           <el-input v-model="conduitEntity.name" type="string"></el-input>
@@ -24,7 +25,12 @@
           <el-input v-model="conduitEntity.toNode" type="string"></el-input>
         </el-form-item>
         <el-form-item label="长度">
-          <el-input v-model="conduitEntity.length" type="number"></el-input>
+          <el-input v-model.number="conduitEntity.length" type="number" class="el-form-length">
+          </el-input>
+          <el-button @click="calculateLength" class="el-form-length-button">计算</el-button>
+        </el-form-item>
+        <el-form-item label="粗糙度">
+          <el-input v-model.number="conduitEntity.roughness" type="number"></el-input>
         </el-form-item>
         <el-form-item label="断面形状">
           <el-select v-model="conduitEntity.shape" type="string">
@@ -36,24 +42,38 @@
             ></el-option
           ></el-select>
         </el-form-item>
-        <div v-if="conduitEntity.shape === 'TRAPEZOIDAL'">
-          <el-form-item label="最大高度">
-            <el-input v-model="conduitEntity.height" type="number"></el-input>
-          </el-form-item>
-          <el-form-item label="底宽">
-            <el-input v-model="conduitEntity.parameter_2" type="number"></el-input>
-          </el-form-item>
-          <el-form-item label="左侧边坡">
-            <el-input v-model="conduitEntity.parameter_3" type="number"></el-input>
-          </el-form-item>
-          <el-form-item label="右侧边坡">
-            <el-input v-model="conduitEntity.parameter_4" type="number"></el-input>
+        <div v-if="conduitEntity.shape !== 'IRREGULAR'">
+          <el-form-item label="断面高度">
+            <el-input v-model.number="conduitEntity.height" type="number"></el-input>
           </el-form-item>
         </div>
-        <div v-else>
-          <!-- TODO 不规则断面的弹窗 -->
-          <el-form-item label="待完成...">
-            <el-input v-model="conduitEntity.roughness" type="number"></el-input>
+        <div v-if="conduitEntity.shape === 'TRAPEZOIDAL'">
+          <el-form-item label="断面底宽">
+            <el-input v-model.number="conduitEntity.parameter_2" type="number"></el-input>
+          </el-form-item>
+          <el-form-item label="左侧边坡">
+            <el-input v-model.number="conduitEntity.parameter_3" type="number"></el-input>
+          </el-form-item>
+          <el-form-item label="右侧边坡">
+            <el-input v-model.number="conduitEntity.parameter_4" type="number"></el-input>
+          </el-form-item>
+        </div>
+        <div v-if="conduitEntity.shape === 'IRREGULAR'">
+          <el-form-item label="断面选择">
+            <el-input
+              v-model="conduitEntity.transect"
+              type="string"
+              class="el-form-length"
+            ></el-input>
+            <!-- TODO 更多弹窗 -> 不规则断面编辑弹窗 (已完成，下次提交删除)-->
+            <el-button @click="showXsectionDialog = true" class="el-form-length-button"
+              >更多</el-button
+            >
+            <TransectDialog
+              v-model:show-dialog="showXsectionDialog"
+              v-if="showXsectionDialog"
+              :transectName="conduitEntity.transect"
+            ></TransectDialog>
           </el-form-item>
         </div>
       </el-form>
@@ -71,6 +91,8 @@ import { convertKeysToKebabCase } from '@/utils/convert'
 import { updateConduitByIdAxios, deleteConduitByIdAxios } from '@/apis/conduit'
 import { useViewerStore } from '@/stores/viewer'
 import { initEntities } from '@/utils/useCesium'
+import * as Cesium from 'cesium'
+import TransectDialog from '@/components/TransectDialog.vue'
 
 const viewerStore = useViewerStore()
 
@@ -80,6 +102,7 @@ const conduitEntity = defineModel('conduitEntity')
 import { ref } from 'vue'
 
 const CrossSectionShape = ref([
+  { value: 'CIRCULAR', label: '圆形断面' },
   { value: 'TRAPEZOIDAL', label: '梯形断面' },
   { value: 'IRREGULAR', label: '不规则断面' },
 ])
@@ -95,13 +118,10 @@ const saveConduitEntity = () => {
       console.log(res)
       ElMessage.success(res.message)
       // 更新 Cesium 中的实体数据
-      viewerStore.viewer.entities.removeAll()
       initEntities(viewerStore.viewer)
       const id = res.data.type + '#' + res.data.id
       // 更新 id，解决不关闭弹窗时候，重复保存时，selectedEntity的id还是原来旧id的问题
       conduitEntity.value.id = id
-      // 解决保存后，窗口任然没关闭，继续保持实体高亮
-      viewerStore.clickedEntityDict = { id: id, type: res.data.type }
     })
     .catch((error) => {
       console.log(error)
@@ -113,7 +133,6 @@ const deleteConduitEntity = () => {
     .then((res) => {
       ElMessage.success(res.message)
       // 更新 Cesium 中的实体数据
-      viewerStore.viewer.entities.removeAll()
       initEntities(viewerStore.viewer)
       // 删除结束后，关闭弹窗
       showDialog.value = false
@@ -122,6 +141,32 @@ const deleteConduitEntity = () => {
       console.log(error)
     })
 }
+
+// 计算长度的函数
+const calculateLength = () => {
+  // 获取管道的起点和终点坐标
+  const fromNodePostion = viewerStore.viewer.entities
+    .getById('junction#' + conduitEntity.value.fromNode)
+    ?.position.getValue()
+  if (!fromNodePostion) {
+    ElMessage.error(`计算失败，${conduitEntity.value.fromNode} 坐标获取失败`)
+    return
+  }
+  const toNodePostion = viewerStore.viewer.entities
+    .getById('junction#' + conduitEntity.value.toNode)
+    ?.position.getValue()
+  if (!toNodePostion) {
+    ElMessage.error(`计算失败，${conduitEntity.value.toNode} 坐标获取失败`)
+    return
+  }
+  // 计算两点的直线距离
+  const distance = Cesium.Cartesian3.distance(fromNodePostion, toNodePostion)
+  // 节点保留2位小数
+  conduitEntity.value.length = distance.toFixed(2)
+  ElMessage.success('长度计算成功')
+}
+
+const showXsectionDialog = ref(false)
 </script>
 
 <style scoped>
@@ -154,5 +199,12 @@ const deleteConduitEntity = () => {
   justify-content: flex-end;
   padding-top: 10px;
   border-top: 1px solid #ebeef5;
+}
+
+.popup-form .el-form-length {
+  --el-input-width: 128px;
+}
+.popup-form .el-form-length-button {
+  margin-left: 10px;
 }
 </style>

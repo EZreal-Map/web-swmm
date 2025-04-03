@@ -49,7 +49,6 @@ async def get_junctions():
 
         return junctions
     except Exception as e:
-        print(e)
         # 捕获异常并返回错误信息
         raise HTTPException(
             status_code=e.status_code if hasattr(e, "status_code") else 500,
@@ -136,7 +135,7 @@ async def update_junction(junction_id: str, junction_update: JunctionModel):
         )
         return Result.success(
             message=f"节点 [ {junction_update.name} ] 信息更新成功",
-            data={id: junction_update.name, type: "junction"},
+            data={"id": junction_update.name, "type": "junction"},
         )
     except Exception as e:
         raise HTTPException(
@@ -252,7 +251,6 @@ async def delete_junction(junction_id: str):
         if related_conduits:
             message += f"，同时删除 {len(related_conduits)} 条关联管道"
         return Result.success(message=message)
-
     except Exception as e:
         raise HTTPException(
             status_code=e.status_code if hasattr(e, "status_code") else 500,

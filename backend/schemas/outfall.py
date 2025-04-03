@@ -17,6 +17,6 @@ class OutfallModel(BaseModel):
     @model_validator(mode="after")
     def check_data_required_for_FIXED(cls, values):
         """当 shape 为 IRREGULAR 时，transect 不能为空"""
-        if values.kind == "FIXED" and (values.data is None or values.data is np.nan):
+        if values.kind == "FIXED" and (values.data is None or np.isnan(values.data)):
             values.data = 0.0
         return values

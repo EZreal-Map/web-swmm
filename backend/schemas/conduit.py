@@ -9,8 +9,8 @@ class ConduitResponseModel(BaseModel):
     name: str
     from_node: str
     to_node: str
-    length: float  # 管道长度
-    roughness: float  # 管道粗糙度
+    length: float  # 渠道长度
+    roughness: float  # 渠道粗糙度
     # 断面引用，只有在断面类型为"IRREGULAR"时才有意义
     transect: Union[str, None] = None
     shape: Literal["TRAPEZOIDAL", "IRREGULAR", "CIRCULAR"] = "TRAPEZOIDAL"  #  断面形状
@@ -38,8 +38,8 @@ class ConduitRequestModel(BaseModel):
     name: str
     from_node: str
     to_node: str
-    length: float = 100  # 管道长度
-    roughness: float = 0.01  # 管道粗糙度
+    length: float = 100  # 渠道长度
+    roughness: float = 0.01  # 渠道粗糙度
     # 断面引用，只有在断面类型为"IRREGULAR"时才有意义
     transect: Union[str, None] = None
     shape: Literal["TRAPEZOIDAL", "IRREGULAR", "CIRCULAR"] = "TRAPEZOIDAL"  #  断面形状
@@ -66,10 +66,10 @@ class ConduitRequestModel(BaseModel):
                     status_code=400,
                     detail="保存失败，断面类型为 '不规则断面' 时候，断面选择不能为空！",
                 )
-            values["height"] = np.nan
-            values["parameter_2"] = np.nan
-            values["parameter_3"] = np.nan
-            values["parameter_4"] = np.nan
+            values["height"] = 0
+            values["parameter_2"] = 0
+            values["parameter_3"] = 0
+            values["parameter_4"] = 0
 
         if values.get("shape") != "IRREGULAR":
             # 其他形状的断面，transect 为空
@@ -77,9 +77,9 @@ class ConduitRequestModel(BaseModel):
 
         if values.get("shape") == "CIRCULAR":
             # 圆形断面，参数2、3、4 为空
-            values["parameter_2"] = np.nan
-            values["parameter_3"] = np.nan
-            values["parameter_4"] = np.nan
+            values["parameter_2"] = 0
+            values["parameter_3"] = 0
+            values["parameter_4"] = 0
             if not values.get("height"):
                 raise HTTPException(
                     status_code=400,
@@ -119,7 +119,7 @@ class ConduitRequestModel(BaseModel):
         elif info.field_name == "height":
             field_name_alias = "断面高度"
         elif info.field_name == "parameter_2":
-            field_name_alias = "断面低宽"
+            field_name_alias = "断面底宽"
         elif info.field_name == "parameter_3":
             field_name_alias = "左侧边坡"
         elif info.field_name == "parameter_4":
@@ -133,9 +133,18 @@ class ConduitRequestModel(BaseModel):
                 status_code=400,
                 detail=f"{field_name_alias  } 必须是数值类型",
             )
-        if value <= 0 and not np.isnan(value):
+        if value < 0:
             raise HTTPException(
                 status_code=400,
-                detail=f"{field_name_alias } 必须大于 0",
+                detail=f"{field_name_alias } 必须是非负数",
             )
         return value
+
+    @field_validator("name", mode="before")
+    def name_must_not_be_empty(cls, v):
+        if not v.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="渠道名称不能为空",
+            )
+        return v

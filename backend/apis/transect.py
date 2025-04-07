@@ -72,7 +72,6 @@ async def get_transects():
     return transects
 
 
-# TODO： 完成 put post delete 的逻辑 (已完成，下次提交删除)
 @transectsRouter.put(
     "/transect/{transect_id}",
     summary="更新指定断面的相关信息",

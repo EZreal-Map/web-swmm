@@ -23,8 +23,13 @@
         <el-form-item label="纬度">
           <el-input v-model.number="junctionEntity.lat" type="number"></el-input>
         </el-form-item>
-        <el-form-item label="高度">
-          <el-input v-model.number="junctionEntity.elevation" type="number"></el-input>
+        <el-form-item label="高程">
+          <el-input
+            v-model.number="junctionEntity.elevation"
+            type="number"
+            class="el-form-length"
+          ></el-input>
+          <el-button @click="calculateElevation" class="el-form-length-button">计算</el-button>
         </el-form-item>
         <el-form-item label="最大水深">
           <el-input v-model.number="junctionEntity.depthMax" type="number"></el-input>
@@ -53,6 +58,7 @@ import { updateJunctionByIdAxios, deleteJunctionByIdAxios } from '@/apis/junctio
 import { convertKeysToKebabCase } from '@/utils/convert'
 import { useViewerStore } from '@/stores/viewer'
 import { initEntities } from '@/utils/useCesium'
+import * as Cesium from 'cesium'
 
 const viewerStore = useViewerStore()
 
@@ -91,6 +97,23 @@ const deleteJunctionEntity = () => {
       console.log(error)
     })
 }
+
+const calculateElevation = async () => {
+  const { lon, lat } = junctionEntity.value
+  const terrainProvider = viewerStore.viewer.terrainProvider
+
+  const positions = [Cesium.Cartographic.fromDegrees(lon, lat)]
+
+  try {
+    const updatedPositions = await Cesium.sampleTerrainMostDetailed(terrainProvider, positions)
+    const height = Number(updatedPositions[0].height.toFixed(2))
+    junctionEntity.value.elevation = height
+    ElMessage.success('高程计算成功')
+  } catch (error) {
+    ElMessage.error(`计算失败，请检查经纬度坐标`)
+    console.error('计算高程时发生错误:', error)
+  }
+}
 </script>
 
 <style scoped>
@@ -123,5 +146,12 @@ const deleteJunctionEntity = () => {
   justify-content: flex-end;
   padding-top: 10px;
   border-top: 1px solid #ebeef5;
+}
+
+.popup-form .el-form-length {
+  --el-input-width: 128px;
+}
+.popup-form .el-form-length-button {
+  margin-left: 10px;
 }
 </style>

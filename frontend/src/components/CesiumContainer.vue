@@ -14,7 +14,7 @@
     v-model:outfall-entity="viewerStore.clickedEntityDict"
   />
 
-  <!-- 管道信息弹窗 -->
+  <!-- 渠道信息弹窗 -->
   <ConduitDialog
     v-if="showConduitDialog"
     v-model:show-dialog="showConduitDialog"
@@ -43,31 +43,38 @@ onMounted(async () => {
   watch(
     () => viewerStore.clickedEntityDict,
     (newEntityDict, oldEntityDict) => {
-      // 高亮变红选择实体
-      highlightClickedEntityColor(viewerStore.viewer, oldEntityDict, true)
-      highlightClickedEntityColor(viewerStore.viewer, newEntityDict, false)
+      if (!viewerStore.extractFlag) {
+        highlightClickedEntityColor(viewerStore.viewer, oldEntityDict, true)
+        highlightClickedEntityColor(viewerStore.viewer, newEntityDict, false)
 
-      // 弹窗处理
-      if (newEntityDict?.type) {
-        if (newEntityDict.type === 'junction') {
-          showJunctionDialog.value = true
+        // 弹窗处理
+        if (newEntityDict?.type) {
+          if (newEntityDict.type === 'junction') {
+            showJunctionDialog.value = true
+            showOutfallDialog.value = false
+            showConduitDialog.value = false
+          }
+          if (newEntityDict.type === 'outfall') {
+            showJunctionDialog.value = false
+            showOutfallDialog.value = true
+            showConduitDialog.value = false
+          }
+          if (newEntityDict.type === 'conduit') {
+            showJunctionDialog.value = false
+            showOutfallDialog.value = false
+            showConduitDialog.value = true
+          }
+        } else {
+          showJunctionDialog.value = false
           showOutfallDialog.value = false
           showConduitDialog.value = false
-        }
-        if (newEntityDict.type === 'outfall') {
-          showJunctionDialog.value = false
-          showOutfallDialog.value = true
-          showConduitDialog.value = false
-        }
-        if (newEntityDict.type === 'conduit') {
-          showJunctionDialog.value = false
-          showOutfallDialog.value = false
-          showConduitDialog.value = true
         }
       } else {
-        showJunctionDialog.value = false
-        showOutfallDialog.value = false
-        showConduitDialog.value = false
+        // 提取模式下，点击不改变高亮，弹窗的信息
+        if (viewerStore.extractPoints.length === 0) {
+          viewerStore.remeberclickedEntityDict = oldEntityDict
+        }
+        viewerStore.extractPoints.push(newEntityDict)
       }
     },
   )

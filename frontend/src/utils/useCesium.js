@@ -23,14 +23,13 @@ export const initCesium = async (containerId) => {
     animation: false, //隐藏动画控件
     timeline: false, //隐藏时间线控件
     fullscreenButton: false, //隐藏全屏
-    terrainProvider: Cesium.CesiumTerrainProvider.fromIonAssetId(3263550),
   })
 
   viewer.scene.setTerrain(new Cesium.Terrain(Cesium.CesiumTerrainProvider.fromIonAssetId(3263550)))
 
   // 开始时设置相机位置
   viewer.camera.setView({
-    destination: Cesium.Cartesian3.fromDegrees(103.76472222222222, 29.552777777777777, 27000),
+    destination: Cesium.Cartesian3.fromDegrees(103.77346807693011, 29.5048309132203, 40000),
     orientation: {
       heading: Cesium.Math.toRadians(0),
       pitch: Cesium.Math.toRadians(-90),
@@ -42,14 +41,17 @@ export const initCesium = async (containerId) => {
   viewer.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK)
   viewer.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK)
 
-  let clickHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
   // 监听鼠标点击事件
-
+  let clickHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
   clickHandler.setInputAction((movement) => {
+    const worldPosition = viewer.scene.pickPosition(movement.position)
+
     const pickedObject = viewer.scene.pick(movement.position)
     // 更新填充 clickedEntityDict 数据，为了存储和显示弹窗信息
-    viewerStore.clickedEntityDict = fillClickedEntityDict(pickedObject)
-    console.log('pickedObject', pickedObject) // 将 clickedEntityDict 存储到 Pinia 中
+    viewerStore.clickedEntityDict = fillClickedEntityDict(pickedObject, worldPosition)
+    console.log('pickedObject', pickedObject)
+    console.log('lon', viewerStore.clickedEntityDict.lon)
+    console.log('lat', viewerStore.clickedEntityDict.lat)
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 
   // 初始化数据
@@ -142,7 +144,7 @@ const outfallsInit = async (viewer) => {
   })
 }
 
-// 管道初始化
+// 渠道初始化
 const conduitsInit = async (viewer) => {
   const conduitDatas = await getAllConduitsAxios()
   conduitDatas.forEach((conduitData) => {
@@ -170,7 +172,7 @@ export const initEntities = async (viewer) => {
   // 创建所有实体
   await junctionsInit(viewer) // 先加载节点
   await outfallsInit(viewer) // 再加载出口
-  await conduitsInit(viewer) // 最后加载管道
+  await conduitsInit(viewer) // 最后加载渠道
   // 设置默认高亮颜色
   const viewerStore = useViewerStore() // 获取 Pinia store 实例
   highlightClickedEntityColor(viewer, viewerStore.clickedEntityDict)

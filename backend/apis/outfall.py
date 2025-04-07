@@ -105,7 +105,7 @@ async def update_outfall(outfall_id: str, outfall_update: OutfallModel):
         )
 
         # 3.更新CONDUITS的起点和终点的名称
-        # 如果出口名称发生变化，则需要更新所有与该节点相关的管道的出口和终点名称
+        # 如果出口名称发生变化，则需要更新所有与该节点相关的渠道的出口和终点名称
         if outfall_id != outfall_update.name:
             for conduit in inp_conduits.values():
                 if conduit.from_node == outfall_id:
@@ -196,14 +196,14 @@ async def delete_outfall(outfall_id: str):
                 detail=f"删除失败，出口 [ {outfall_id} ] 不存在",
             )
 
-        # 1. 检查关联管道并记录
+        # 1. 检查关联渠道并记录
         related_conduits = [
             conduit.name
             for conduit in inp_conduits.values()
             if conduit.from_node == outfall_id or conduit.to_node == outfall_id
         ]
 
-        # 2. 删除关联管道（强制级联删除）
+        # 2. 删除关联渠道（强制级联删除）
         for conduit_id in related_conduits:
             del inp_conduits[conduit_id]
             # 删除断面信息（如果存在）
@@ -222,7 +222,7 @@ async def delete_outfall(outfall_id: str):
         # 构建响应信息
         message = f"节点 [ {outfall_id} ] 删除成功"
         if related_conduits:
-            message += f"，同时删除 {len(related_conduits)} 条关联管道"
+            message += f"，同时删除 {len(related_conduits)} 条关联渠道"
 
         return Result.success(message=message)
     except Exception as e:

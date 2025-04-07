@@ -1,134 +1,166 @@
 <template>
-  <el-dialog
-    v-model="showDialog"
-    :modal="false"
-    :lock-scroll="false"
-    width="70%"
-    draggable
-    overflow
-  >
-    <div class="dialog-container">
-      <!-- 左侧菜单 -->
-      <el-aside class="sidebar">
-        <div
-          v-for="(item, index) in transectNames"
-          :key="index"
-          :class="['menu-item', { active: selectedTransectName === item }]"
-          @click="updateTransect(item)"
-        >
-          {{ item }}
-        </div>
-      </el-aside>
-
-      <!-- 右侧内容区域 -->
-      <div class="content">
-        <div class="content-left">
-          <div class="content-left-top">
-            <el-form
-              :inline="false"
-              :model="transectDatas"
-              label-width="80px"
-              class="content-left-top-form"
-            >
-              <el-row :gutter="10">
-                <!-- 设置行间距 -->
-                <el-col :span="8">
-                  <el-form-item label="断面名称">
-                    <el-input v-model="transectDatas.name" placeholder="请输入断面名称" />
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="左岸编号">
-                    <el-input
-                      v-model="transectDatas.bank_station_left"
-                      placeholder="请输入左岸编号"
-                    />
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="右岸编号">
-                    <el-input
-                      v-model="transectDatas.bank_station_right"
-                      placeholder="请输入右岸编号"
-                    />
-                  </el-form-item>
-                </el-col>
-              </el-row>
-
-              <el-row :gutter="10">
-                <el-col :span="8">
-                  <el-form-item label="渠道糙率">
-                    <el-input
-                      v-model="transectDatas.roughness_channel"
-                      placeholder="请输入渠道糙率"
-                    />
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="左岸糙率">
-                    <el-input v-model="transectDatas.roughness_left" placeholder="请输入左岸糙率" />
-                  </el-form-item>
-                </el-col>
-                <el-col :span="8">
-                  <el-form-item label="右岸糙率">
-                    <el-input
-                      v-model="transectDatas.roughness_right"
-                      placeholder="请输入右岸糙率"
-                    />
-                  </el-form-item>
-                </el-col>
-              </el-row>
-            </el-form>
+  <div v-show="!viewerStore.extractFlag">
+    <el-dialog
+      v-model="showDialog"
+      :modal="false"
+      :lock-scroll="false"
+      width="70%"
+      draggable
+      overflow
+      :before-close="beforeClose"
+      :close-on-click-modal="!viewerStore.extractFlag"
+    >
+      <div class="dialog-container">
+        <!-- 左侧菜单 -->
+        <el-aside class="sidebar">
+          <div
+            v-for="(item, index) in transectNames"
+            :key="index"
+            :class="['menu-item', { active: selectedTransectName === item }]"
+            @click="updateTransect(item)"
+          >
+            {{ item }}
           </div>
-          <!-- TODO：完成 echarts 部分 (已完成，下次提交删除) -->
-          <div class="content-left-bottom" ref="refChartDom"></div>
-        </div>
-        <div class="content-right">
-          <el-table :data="transectDatas.station_elevations" border>
-            <el-table-column label="X 坐标">
-              <template #default="{ row }">
-                <el-input
-                  v-model.number="row[1]"
-                  placeholder="X 坐标"
-                  type="number"
-                  @mousewheel.prevent
-                  @input="checkLastRow(transectDatas.station_elevations)"
-                />
-              </template>
-            </el-table-column>
-            <el-table-column label="Y 坐标">
-              <template #default="{ row }">
-                <el-input
-                  v-model.number="row[0]"
-                  placeholder="Y 坐标"
-                  type="number"
-                  @mousewheel.prevent
-                  @input="checkLastRow(transectDatas.station_elevations)"
-                />
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
-      </div>
-    </div>
+        </el-aside>
 
-    <template #footer>
-      <div class="dialog-footer">
-        <div>
-          <el-button type="success" @click="createTransect">新建</el-button>
-          <el-button type="warning" @click="extractTransect">提取</el-button>
-        </div>
-        <div>
-          <el-button type="danger" @click="deleteTransect">删除</el-button>
-          <el-button type="primary" @click="saveTransect">保存</el-button>
+        <!-- 右侧内容区域 -->
+        <div class="content">
+          <div class="content-left">
+            <div class="content-left-top">
+              <el-form
+                :inline="false"
+                :model="transectDatas"
+                label-width="80px"
+                class="content-left-top-form"
+              >
+                <el-row :gutter="10">
+                  <!-- 设置行间距 -->
+                  <el-col :span="8">
+                    <el-form-item label="断面名称">
+                      <el-input v-model="transectDatas.name" placeholder="请输入断面名称" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="8">
+                    <el-form-item label="左岸编号">
+                      <el-input
+                        v-model="transectDatas.bank_station_left"
+                        placeholder="请输入左岸编号"
+                        type="number"
+                        @blur="
+                          transectDatas.bank_station_left = parseFloat(
+                            transectDatas.bank_station_left,
+                          )
+                        "
+                      />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="8">
+                    <el-form-item label="右岸编号">
+                      <el-input
+                        v-model="transectDatas.bank_station_right"
+                        placeholder="请输入右岸编号"
+                        type="number"
+                        @blur="
+                          transectDatas.bank_station_right = parseFloat(
+                            transectDatas.bank_station_right,
+                          )
+                        "
+                      />
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+
+                <el-row :gutter="10">
+                  <el-col :span="8">
+                    <el-form-item label="渠道糙率">
+                      <el-input
+                        v-model="transectDatas.roughness_channel"
+                        placeholder="请输入渠道糙率"
+                        type="number"
+                        @blur="
+                          transectDatas.roughness_channel = parseFloat(
+                            transectDatas.roughness_channel,
+                          )
+                        "
+                      />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="8">
+                    <el-form-item label="左岸糙率">
+                      <el-input
+                        v-model="transectDatas.roughness_left"
+                        placeholder="请输入左岸糙率"
+                        type="number"
+                        @blur="
+                          transectDatas.roughness_left = parseFloat(transectDatas.roughness_left)
+                        "
+                      />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="8">
+                    <el-form-item label="右岸糙率">
+                      <el-input
+                        v-model="transectDatas.roughness_right"
+                        placeholder="请输入右岸糙率"
+                        type="number"
+                        @blur="
+                          transectDatas.roughness_right = parseFloat(transectDatas.roughness_right)
+                        "
+                      />
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+              </el-form>
+            </div>
+            <div class="content-left-bottom" ref="refChartDom"></div>
+          </div>
+          <div class="content-right">
+            <el-table :data="transectDatas.station_elevations" border>
+              <el-table-column label="X 坐标">
+                <template #default="{ row }">
+                  <el-input
+                    v-model.number="row[1]"
+                    placeholder="X 坐标"
+                    type="number"
+                    @mousewheel.prevent
+                    @input="checkLastRow(transectDatas.station_elevations)"
+                  />
+                </template>
+              </el-table-column>
+              <el-table-column label="Y 坐标">
+                <template #default="{ row }">
+                  <el-input
+                    v-model.number="row[0]"
+                    placeholder="Y 坐标"
+                    type="number"
+                    @mousewheel.prevent
+                    @input="checkLastRow(transectDatas.station_elevations)"
+                  />
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
         </div>
       </div>
-    </template>
-  </el-dialog>
+
+      <template #footer>
+        <div class="dialog-footer">
+          <div>
+            <el-button type="success" @click="createTransect">新建</el-button>
+            <el-button type="warning" @click="extractTransect">提取</el-button>
+          </div>
+          <div>
+            <el-button type="danger" @click="deleteTransect">删除</el-button>
+            <el-button type="primary" @click="saveTransect">保存</el-button>
+          </div>
+        </div>
+      </template>
+    </el-dialog>
+  </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, onUnmounted } from 'vue'
 import {
   getAllTransectsNameAxios,
   getTransectByIdAxios,
@@ -136,6 +168,7 @@ import {
   createTransectAxios,
   deleteTransectByIdAxios,
 } from '@/apis/transect'
+import { getElevationProfile } from '@/utils/entity'
 import { useViewerStore } from '@/stores/viewer'
 import * as echarts from 'echarts' // TODO: 这里是全部导入，功能完善以后，修改为按需导入
 import { ElMessage } from 'element-plus'
@@ -201,10 +234,13 @@ const updateChart = () => {
       const selectedTransect = transectDatas.value
       const leftThreshold = selectedTransect.bank_station_left
       const rightThreshold = selectedTransect.bank_station_right
+      // 此处的 stationElevations 已做了处理，1. yx -> xy 2. 去除无效值 3.排序
       const stationElevations = selectedTransect.station_elevations
         .map(([y, x]) => [x, y]) // 交换坐标
         .filter(([x, y]) => x && y) // 排除 undefined / '' / null 的数据
         .sort((a, b) => a[0] - b[0]) // 按照 X 坐标升序排序
+      // 为设置y坐标刻度
+      const yData = stationElevations.map((xy) => xy[1])
 
       const leftBankData = stationElevations.filter((xy) => xy[0] <= leftThreshold)
 
@@ -246,6 +282,8 @@ const updateChart = () => {
         yAxis: {
           type: 'value',
           name: 'Y',
+          min: Math.floor(Math.min(...yData)),
+          max: Math.ceil(Math.max(...yData)),
           splitLine: { lineStyle: { type: 'dashed', color: '#ddd' } },
         },
         series: [
@@ -376,12 +414,24 @@ const saveTransect = () => {
     })
 }
 
-// TODO 提取断面操作
 // 4. 提取
+const showExtractDialog = ref(true)
 const extractTransect = () => {
   console.log('提取断面')
+  viewerStore.extractFlag = true // 设置提取模式
+  showExtractDialog.value = false
 }
 
+const beforeClose = (done) => {
+  // 如果是提取模式，则不关闭弹窗
+  if (!viewerStore.extractFlag) {
+    showDialog.value = false
+    done()
+  }
+  return
+}
+
+let extractWatch
 onMounted(async () => {
   await transectInit()
   // 初始化图表
@@ -390,6 +440,7 @@ onMounted(async () => {
     myChart.resize()
   }
 
+  // 监听 transectDatas 的变化，更新图表
   watch(
     () => transectDatas.value,
     () => {
@@ -397,6 +448,45 @@ onMounted(async () => {
     },
     { deep: true }, // 深度监听 transectDatas
   )
+
+  // 监听提取成功的事件
+  // 同步语句创建的侦听器，会自动绑定到宿主组件实例上，并且会在宿主组件卸载时自动停止
+  // 如果用异步回调创建一个侦听器，那么它不会绑定到当前组件上，你必须手动停止它，以防内存泄漏
+  extractWatch = watch(
+    () => viewerStore.extractPoints.length,
+    async (newValue) => {
+      console.log('提取模式', newValue)
+      console.log('提取点', viewerStore.extractPoints)
+      if (newValue === 1) {
+        ElMessage.warning('已经选中一个点，请再选中另外一个点')
+      }
+      if (newValue >= 2) {
+        try {
+          // 提取成功，关闭弹窗
+          const result = await getElevationProfile(
+            viewerStore.viewer,
+            viewerStore.extractPoints[0],
+            viewerStore.extractPoints[1],
+          )
+          transectDatas.value.station_elevations = result // 更新断面数据
+          ElMessage.success('断面提取成功！')
+        } catch (error) {
+          console.error('提取失败', error)
+          ElMessage.error('提取失败，请试着刷新页面，重新提取')
+        } finally {
+          viewerStore.extractPoints = [] // 清空提取点
+          viewerStore.extractFlag = false // 关闭提取模式
+          viewerStore.clickedEntityDict = viewerStore.remeberclickedEntityDict // 恢复之前的点击实体
+          viewerStore.remeberclickedEntityDict = {} // 清空之前的点击实体
+        }
+      }
+    },
+  )
+})
+
+onUnmounted(() => {
+  extractWatch() // 需要主动取消异步监听事件
+  console.log('组件已被卸载')
 })
 </script>
 

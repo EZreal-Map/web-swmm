@@ -77,7 +77,7 @@ export const createOutfallEntity = (
   viewer.entities.add(outfallObject)
 }
 
-// 创建统一管道实体
+// 创建统一渠道实体
 export const createConduitEntity = (
   viewer,
   name,
@@ -94,13 +94,13 @@ export const createConduitEntity = (
   parameter_4 = 0.5,
 ) => {
   console.log('createConduitEntity', name, fromNodeId, toNodeId)
-  // 创建管道对象
+  // 创建渠道对象
   const fromNode = viewer.entities.getById('junction#' + fromNodeId)
   const toNode = viewer.entities.getById('junction#' + toNodeId)
 
   if (!fromNode || !toNode) {
-    ElMessage.error(`无法找到连接管道的节点: [${fromNodeId}] → [${toNodeId}]`)
-    return null // 不继续往下执行 创建管道对象
+    ElMessage.error(`无法找到连接渠道的节点: [${fromNodeId}] → [${toNodeId}]`)
+    return null // 不继续往下执行 创建渠道对象
   }
   const conduitObject = {
     id: 'conduit#' + name,
@@ -111,7 +111,7 @@ export const createConduitEntity = (
         const toNode = viewer.entities.getById('junction#' + toNodeId)
 
         if (!fromNode || !toNode) {
-          console.error(`CallbackProperty:无法找到连接管道的节点: ${fromNodeId} 或 ${toNodeId}`)
+          console.error(`CallbackProperty:无法找到连接渠道的节点: ${fromNodeId} 或 ${toNodeId}`)
           return [] // 重要：返回空数组，避免 Cesium 报错
         }
 
@@ -147,7 +147,7 @@ export const createConduitEntity = (
 }
 
 // 更新填充 clickedEntity 数据，clickedEntity 为了存储和显示弹窗信息
-export const fillClickedEntityDict = (pickedObject) => {
+export const fillClickedEntityDict = (pickedObject, cartesianPosition = null) => {
   let clickedEntityDict = {}
   if (Cesium.defined(pickedObject) && pickedObject.id) {
     // 如果是点（Node）
@@ -156,7 +156,7 @@ export const fillClickedEntityDict = (pickedObject) => {
       const cartographic = Cesium.Cartographic.fromCartesian(cartesianPosition)
       const lon = Cesium.Math.toDegrees(cartographic.longitude)
       const lat = Cesium.Math.toDegrees(cartographic.latitude)
-      const height = cartographic.height
+      const height = Number(cartographic.height.toFixed(2)) // 保留两位小数
       const type = pickedObject.id.properties.type.getValue()
       // 如果是节点（Junction）
       if (type === 'junction') {
@@ -206,6 +206,15 @@ export const fillClickedEntityDict = (pickedObject) => {
       }
     }
   }
+  // 如果没有点击到任何对象，且有传入的 cartesianPosition
+  // 则根据 cartesianPosition 获取经纬度
+  if ((!clickedEntityDict?.lon || !clickedEntityDict?.lat) && cartesianPosition) {
+    const cartographic = Cesium.Cartographic.fromCartesian(cartesianPosition)
+    const lon = Cesium.Math.toDegrees(cartographic.longitude)
+    const lat = Cesium.Math.toDegrees(cartographic.latitude)
+    clickedEntityDict.lon = lon
+    clickedEntityDict.lat = lat
+  }
   return clickedEntityDict
 }
 
@@ -237,4 +246,40 @@ export const highlightClickedEntityColor = (viewer, entityDict, reverse = false)
       }
       break
   }
+}
+
+// 通过传入2个经纬度坐标点，获取高程剖面过程线数据（提取不规则断面）
+export const getElevationProfile = async (
+  viewer,
+  startCartographic,
+  endCartographic,
+  sampleCount = 20,
+) => {
+  const positions = []
+
+  // 如果传入的 startCartographic 和 endCartographic 是度制，经纬度要先转换为弧度
+  const startLon = Cesium.Math.toRadians(startCartographic.lon)
+  const startLat = Cesium.Math.toRadians(startCartographic.lat)
+  const endLon = Cesium.Math.toRadians(endCartographic.lon)
+  const endLat = Cesium.Math.toRadians(endCartographic.lat)
+
+  for (let i = 0; i <= sampleCount; i++) {
+    const lon = Cesium.Math.lerp(startLon, endLon, i / sampleCount)
+    const lat = Cesium.Math.lerp(startLat, endLat, i / sampleCount)
+    const point = new Cesium.Cartographic(lon, lat)
+    positions.push(point)
+  }
+
+  // 获取地形高程（使用最详细地形）
+  const terrainProvider = viewer.terrainProvider
+  const updatedPositions = await Cesium.sampleTerrainMostDetailed(terrainProvider, positions)
+
+  // 转成 [Y, X] 格式，符合SWMM存储过程
+  const result = updatedPositions.map((p, index) => {
+    // 保留小数点后两位
+    const height = parseFloat(p.height.toFixed(2)) // 保留两位小数并转换为数字
+    return [height, index + 1] // index + 1 是为了从1开始
+  })
+
+  return result // 这是最终的高程剖面线数据
 }

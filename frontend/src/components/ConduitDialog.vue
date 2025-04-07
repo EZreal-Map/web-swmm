@@ -1,5 +1,5 @@
 <template>
-  <div class="popup-container">
+  <div class="popup-container" v-show="!viewerStore.extractFlag">
     <el-card class="popup-card">
       <div class="popup-header">
         <span class="popup-title">信息详情</span>
@@ -30,7 +30,11 @@
           <el-button @click="calculateLength" class="el-form-length-button">计算</el-button>
         </el-form-item>
         <el-form-item label="粗糙度">
-          <el-input v-model.number="conduitEntity.roughness" type="number"></el-input>
+          <el-input
+            v-model="conduitEntity.roughness"
+            type="number"
+            @blur="conduitEntity.roughness = parseFloat(conduitEntity.roughness)"
+          ></el-input>
         </el-form-item>
         <el-form-item label="断面形状">
           <el-select v-model="conduitEntity.shape" type="string">
@@ -65,15 +69,9 @@
               type="string"
               class="el-form-length"
             ></el-input>
-            <!-- TODO 更多弹窗 -> 不规则断面编辑弹窗 (已完成，下次提交删除)-->
             <el-button @click="showXsectionDialog = true" class="el-form-length-button"
               >更多</el-button
             >
-            <TransectDialog
-              v-model:show-dialog="showXsectionDialog"
-              v-if="showXsectionDialog"
-              :transectName="conduitEntity.transect"
-            ></TransectDialog>
           </el-form-item>
         </div>
       </el-form>
@@ -82,6 +80,11 @@
         <el-button type="primary" @click="saveConduitEntity">保存</el-button>
       </div>
     </el-card>
+    <TransectDialog
+      v-model:show-dialog="showXsectionDialog"
+      v-if="showXsectionDialog"
+      :transectName="conduitEntity.transect"
+    ></TransectDialog>
   </div>
 </template>
 
@@ -144,7 +147,7 @@ const deleteConduitEntity = () => {
 
 // 计算长度的函数
 const calculateLength = () => {
-  // 获取管道的起点和终点坐标
+  // 获取渠道的起点和终点坐标
   const fromNodePostion = viewerStore.viewer.entities
     .getById('junction#' + conduitEntity.value.fromNode)
     ?.position.getValue()
@@ -162,7 +165,7 @@ const calculateLength = () => {
   // 计算两点的直线距离
   const distance = Cesium.Cartesian3.distance(fromNodePostion, toNodePostion)
   // 节点保留2位小数
-  conduitEntity.value.length = distance.toFixed(2)
+  conduitEntity.value.length = Number(distance.toFixed(2))
   ElMessage.success('长度计算成功')
 }
 

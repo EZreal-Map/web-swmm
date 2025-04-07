@@ -27,7 +27,7 @@ application.add_middleware(
 
 # 路由
 application.include_router(junctionsRouter, prefix="/swmm", tags=["节点"])
-application.include_router(conduitRouter, prefix="/swmm", tags=["管道"])
+application.include_router(conduitRouter, prefix="/swmm", tags=["渠道"])
 application.include_router(outfallRouter, prefix="/swmm", tags=["出口"])
 application.include_router(transectsRouter, prefix="/swmm", tags=["不规则断面"])
 

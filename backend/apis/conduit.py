@@ -7,8 +7,6 @@ from swmm_api.input_file.sections.others import Transect
 from schemas.conduit import ConduitResponseModel, ConduitRequestModel
 from schemas.result import Result
 
-# TODO 修改post 和 put 中的创建和更新的逻辑（使用Conduit类和CrossSection类）(已完成，下次提交删除)
-# TODO 完善新增加断面之后的 post 和 put（重点有bug） 逻辑，可以再检查一下 get 和 delete 的逻辑 (已完成，下次提交删除)
 
 conduitRouter = APIRouter()
 SWMM_FILE_PATH = "./swmm/swmm_test.inp"
@@ -16,8 +14,8 @@ SWMM_FILE_PATH = "./swmm/swmm_test.inp"
 
 @conduitRouter.get(
     "/conduits",
-    summary="获取所有管道信息",
-    description="获取所有管道信息",
+    summary="获取所有渠道信息",
+    description="获取所有渠道信息",
 )
 async def get_conduits():
     """
@@ -49,12 +47,12 @@ async def get_conduits():
 @conduitRouter.put(
     "/conduit/{conduit_id}",
     response_model=Result,
-    summary="更新指定管道的相关信息",
-    description="通过指定管道ID，更新管道的相关信息",
+    summary="更新指定渠道的相关信息",
+    description="通过指定渠道ID，更新渠道的相关信息",
 )
 async def update_conduit(conduit_id: str, conduit_update: ConduitRequestModel):
     """
-    更新管道信息
+    更新渠道信息
     """
     INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
     inp_conduits = INP.check_for_section(Conduit)
@@ -62,28 +60,28 @@ async def update_conduit(conduit_id: str, conduit_update: ConduitRequestModel):
     inp_xsections = INP.check_for_section(CrossSection)
     inp_transects = INP.check_for_section(Transect)
 
-    # 检查管道ID是否存在
+    # 检查渠道ID是否存在
     if conduit_id not in inp_conduits:
         raise HTTPException(
             status_code=404,
             detail=f"修改失败，需要修改的渠道名称 [ {conduit_id} ] 不存在，请检查渠道名称是否正确",
         )
 
-    # 检查新的管道ID是否已存在，如果新的ID与现有ID冲突，则抛出异常
+    # 检查新的渠道ID是否已存在，如果新的ID与现有ID冲突，则抛出异常
     if conduit_update.name in inp_conduits and conduit_update.name != conduit_id:
         raise HTTPException(
             status_code=400,
-            detail=f"保存失败，管道名称 [ {conduit_update.name} ] 已存在，请使用不同的管道名称",
+            detail=f"保存失败，渠道名称 [ {conduit_update.name} ] 已存在，请使用不同的渠道名称",
         )
 
-    # 检查管道的起点和终点是否一样
+    # 检查渠道的起点和终点是否一样
     if conduit_update.from_node == conduit_update.to_node:
         raise HTTPException(
             status_code=400,
-            detail="保存失败，管道的起点和终点不能相同",
+            detail="保存失败，渠道的起点和终点不能相同",
         )
 
-    # 检查管道的起点和终点是否存在
+    # 检查渠道的起点和终点是否存在
     if conduit_update.from_node not in inp_coordinates:
         raise HTTPException(
             status_code=404,
@@ -141,30 +139,30 @@ async def update_conduit(conduit_id: str, conduit_update: ConduitRequestModel):
 @conduitRouter.post(
     "/conduit",
     response_model=Result,
-    summary="添加新的管道",
-    description="创建一个新的管道，并写入 SWMM 文件",
+    summary="添加新的渠道",
+    description="创建一个新的渠道，并写入 SWMM 文件",
 )
 async def create_conduit(conduit_data: ConduitRequestModel):
     """
-    添加管道信息
+    添加渠道信息
     """
     INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
     inp_conduits = INP.check_for_section(Conduit)
     inp_coordinates = INP.check_for_section(Coordinate)
     inp_xsections = INP.check_for_section(CrossSection)
 
-    # 检查管道名称是否已存在
+    # 检查渠道名称是否已存在
     if conduit_data.name in inp_conduits:
         raise HTTPException(
             status_code=400,
-            detail=f"创建失败，管道名称 [ {conduit_data.name} ] 已存在，请使用不同的管道名称",
+            detail=f"创建失败，渠道名称 [ {conduit_data.name} ] 已存在，请使用不同的渠道名称",
         )
 
-    # 检查管道的起点和终点是否相同
+    # 检查渠道的起点和终点是否相同
     if conduit_data.from_node == conduit_data.to_node:
         raise HTTPException(
             status_code=400,
-            detail="创建失败，管道的起点和终点不能相同",
+            detail="创建失败，渠道的起点和终点不能相同",
         )
 
     # 检查起点和终点是否存在
@@ -179,7 +177,7 @@ async def create_conduit(conduit_data: ConduitRequestModel):
             detail=f"创建失败，终点节点 [ {conduit_data.to_node} ] 不存在，请检查节点名称是否正确",
         )
 
-    # 检查管道是否已存在，起点和终点完全一样
+    # 检查渠道是否已存在，起点和终点完全一样
     for conduit in inp_conduits.values():
         if (
             conduit.from_node == conduit_data.from_node
@@ -189,11 +187,11 @@ async def create_conduit(conduit_data: ConduitRequestModel):
         ):
             raise HTTPException(
                 status_code=400,
-                detail=f"创建失败，启点和终点已存在管道，请检查节点名称是否正确",
+                detail=f"创建失败，启点和终点已存在渠道，请检查节点名称是否正确",
             )
 
     try:
-        # 创建新管道对象
+        # 创建新渠道对象
         new_conduit = Conduit(
             name=conduit_data.name,
             from_node=conduit_data.from_node,
@@ -218,7 +216,7 @@ async def create_conduit(conduit_data: ConduitRequestModel):
         # 写入 SWMM 文件
         INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
         return Result.success(
-            message=f"管道创建成功", data={"conduit_id": conduit_data.name}
+            message=f"渠道创建成功", data={"conduit_id": conduit_data.name}
         )
     except Exception as e:
         raise HTTPException(
@@ -230,27 +228,27 @@ async def create_conduit(conduit_data: ConduitRequestModel):
 @conduitRouter.delete(
     "/conduit/{conduit_id}",
     response_model=Result,
-    summary="删除指定管道",
-    description="通过指定管道ID，删除管道信息",
+    summary="删除指定渠道",
+    description="通过指定渠道ID，删除渠道信息",
 )
 async def delete_conduit(conduit_id: str):
     """
-    删除管道信息
+    删除渠道信息
     """
     # 读取 SWMM 文件
     INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
     inp_conduits = INP.check_for_section(Conduit)
     inp_xsections = INP.check_for_section(CrossSection)
 
-    # 检查管道是否存在
+    # 检查渠道是否存在
     if conduit_id not in inp_conduits:
         raise HTTPException(
             status_code=404,
-            detail=f"删除失败，管道 [ {conduit_id} ] 不存在，请检查管道名称是否正确",
+            detail=f"删除失败，渠道 [ {conduit_id} ] 不存在，请检查渠道名称是否正确",
         )
 
     try:
-        # 删除管道
+        # 删除渠道
         del inp_conduits[conduit_id]
 
         # 删除断面信息（如果存在）
@@ -260,7 +258,7 @@ async def delete_conduit(conduit_id: str):
         # 写入 SWMM 文件
         INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
 
-        return Result.success(message=f"管道 [ {conduit_id} ] 删除成功")
+        return Result.success(message=f"渠道 [ {conduit_id} ] 删除成功")
     except Exception as e:
         raise HTTPException(
             status_code=500,

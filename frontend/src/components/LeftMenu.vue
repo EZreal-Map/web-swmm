@@ -17,7 +17,7 @@
         index="1-2"
         @click="selectTwoJunctions"
         :disabled="createJunctionHandler !== null || createOutfallHandler !== null"
-        >管道</el-menu-item
+        >渠道</el-menu-item
       >
 
       <el-menu-item
@@ -63,6 +63,7 @@ import * as Cesium from 'cesium'
 import { ref } from 'vue'
 import { getStringAfterFirstDash } from '@/utils/convert'
 import { startDragHandlers, stopDragHandlers, initEntities } from '@/utils/useCesium'
+import { ElMessage } from 'element-plus'
 
 const viewerStore = useViewerStore()
 
@@ -77,6 +78,7 @@ const startDrag = () => {
   if (draggable.value) {
     return
   }
+  ElMessage.success('已开启拖拽功能，同时注意手动保存拖拽之后的实体')
   draggable.value = true
   dragHandler = startDragHandlers(viewerStore.viewer)
 }
@@ -92,6 +94,7 @@ const stopDrag = () => {
   } else {
     console.error('没有拖拽处理器')
   }
+  ElMessage.warning('已停止拖拽功能')
 }
 
 // 2.3 还原未保存拖拽
@@ -199,7 +202,7 @@ let selectedNodes = []
 
 const selectTwoJunctions = () => {
   if (createConduitHandler.value) {
-    ElMessage.warning('已取消管道创建')
+    ElMessage.warning('已取消渠道创建')
     createConduitHandler.value.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK)
     createConduitHandler.value.destroy()
     createConduitHandler.value = null
@@ -227,18 +230,18 @@ const selectTwoJunctions = () => {
 
     // 提示已选中
     if (selectedNodes.length === 1) {
-      ElMessage.success(`已选中一个节点，请继续选择第二个节点`)
+      ElMessage.warning(`已选中一个节点，请继续选择第二个节点`)
     }
 
     // 选中两个后停止监听
     if (selectedNodes.length === 2) {
-      // 处理选中的两个点，例如创建管道
-      const name = '管道_' + Date.now() // 用时间戳作为节点名称
+      // 处理选中的两个点，例如创建渠道
+      const name = '渠道_' + Date.now() // 用时间戳作为节点名称
       const fromNode = getStringAfterFirstDash(selectedNodes[0])
       const toNode = getStringAfterFirstDash(selectedNodes[1])
       createConduitAxios({ name, from_node: fromNode, to_node: toNode }).then((res) => {
         ElMessage.success(res.message)
-        createConduitEntity(viewer, name, fromNode, toNode) // 前端创建管道实体
+        createConduitEntity(viewer, name, fromNode, toNode) // 前端创建渠道实体
       })
 
       // 移除监听

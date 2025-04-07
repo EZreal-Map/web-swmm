@@ -120,7 +120,7 @@ async def update_junction(junction_id: str, junction_update: JunctionModel):
         )
 
         # 3.更新CONDUITS的起点和终点的名称
-        # 如果节点名称发生变化，则需要更新所有与该节点相关的管道的起点和终点名称
+        # 如果节点名称发生变化，则需要更新所有与该节点相关的渠道的起点和终点名称
         if junction_id != junction_update.name:
             for conduit in inp_conduits.values():
                 if conduit.from_node == junction_id:
@@ -205,7 +205,7 @@ async def create_junction(junction_data: JunctionModel):
 @junctionsRouter.delete(
     "/junction/{junction_id}",
     summary="删除指定节点",
-    description="通过节点ID删除节点，并清理关联的管道和坐标数据",
+    description="通过节点ID删除节点，并清理关联的渠道和坐标数据",
     response_model=Result,
 )
 async def delete_junction(junction_id: str):
@@ -222,14 +222,14 @@ async def delete_junction(junction_id: str):
                 status_code=404, detail=f"删除失败，节点 [ {junction_id} ] 不存在"
             )
 
-        # 1. 检查关联管道并记录
+        # 1. 检查关联渠道并记录
         related_conduits = [
             conduit.name
             for conduit in inp_conduits.values()
             if conduit.from_node == junction_id or conduit.to_node == junction_id
         ]
 
-        # 2. 删除关联管道（强制级联删除）
+        # 2. 删除关联渠道（强制级联删除）
         for conduit_id in related_conduits:
             del inp_conduits[conduit_id]
             # 删除断面信息（如果存在）
@@ -249,7 +249,7 @@ async def delete_junction(junction_id: str):
         # 构建响应信息
         message = f"节点 [ {junction_id} ] 删除成功"
         if related_conduits:
-            message += f"，同时删除 {len(related_conduits)} 条关联管道"
+            message += f"，同时删除 {len(related_conduits)} 条关联渠道"
         return Result.success(message=message)
     except Exception as e:
         raise HTTPException(

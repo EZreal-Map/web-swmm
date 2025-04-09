@@ -26,7 +26,7 @@ async def get_transect_names():
 
 # 通过断面名称获取不规则断面信息
 @transectsRouter.get(
-    "/transect/{transect_id}",
+    "/transect/{transect_id:path}",
     summary="获取指定断面信息",
     description="通过指定断面ID，获取断面的相关信息",
 )
@@ -73,7 +73,7 @@ async def get_transects():
 
 
 @transectsRouter.put(
-    "/transect/{transect_id}",
+    "/transect/{transect_id:path}",
     summary="更新指定断面的相关信息",
     description="通过指定断面ID，更新断面的相关信息",
 )
@@ -168,7 +168,7 @@ async def create_transect(transect: TransectModel):
 
 
 @transectsRouter.delete(
-    "/transect/{transect_id}",
+    "/transect/{transect_id:path}",
     summary="删除指定断面",
     description="通过断面ID删除断面",
 )

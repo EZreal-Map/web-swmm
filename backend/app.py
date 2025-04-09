@@ -8,6 +8,7 @@ from apis.conduit import conduitRouter
 from apis.junction import junctionsRouter
 from apis.outfall import outfallRouter
 from apis.transect import transectsRouter
+from apis.timeseries import timeseriesRouter
 
 application = FastAPI(
     debug=Config.APP_DEBUG,
@@ -30,6 +31,7 @@ application.include_router(junctionsRouter, prefix="/swmm", tags=["节点"])
 application.include_router(conduitRouter, prefix="/swmm", tags=["渠道"])
 application.include_router(outfallRouter, prefix="/swmm", tags=["出口"])
 application.include_router(transectsRouter, prefix="/swmm", tags=["不规则断面"])
+application.include_router(timeseriesRouter, prefix="/swmm", tags=["时间序列"])
 
 
 if __name__ == "__main__":

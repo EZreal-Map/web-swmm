@@ -123,7 +123,7 @@
                     placeholder="X 坐标"
                     type="number"
                     @mousewheel.prevent
-                    @input="checkLastRow(transectDatas.station_elevations)"
+                    @input="checkLastRow"
                   />
                 </template>
               </el-table-column>
@@ -134,7 +134,7 @@
                     placeholder="Y 坐标"
                     type="number"
                     @mousewheel.prevent
-                    @input="checkLastRow(transectDatas.station_elevations)"
+                    @input="checkLastRow"
                   />
                 </template>
               </el-table-column>
@@ -347,12 +347,12 @@ const updateChart = () => {
 }
 
 // 检查最后一行是否为空，如果为空，则添加一行
-const checkLastRow = (stationElevations) => {
-  console.log('checkLastRow')
-  const lastRow = stationElevations[stationElevations.length - 1]
+const checkLastRow = () => {
+  const lastRow =
+    transectDatas.value.station_elevations[transectDatas.value.station_elevations.length - 1]
   if (lastRow[0] && lastRow[1]) {
     console.log('添加一行空数据')
-    stationElevations.push([]) // 新增一行空数据
+    transectDatas.value.station_elevations.push([]) // 新增一行空数据
   }
 }
 

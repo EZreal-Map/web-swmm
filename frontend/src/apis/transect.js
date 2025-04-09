@@ -2,7 +2,7 @@ import request from '@/utils/request'
 import {} from '@/utils/convert'
 
 // 获取所有不规则断面的属性
-export const getAllTransectsAxios = () => request.get('/swmm/transects')
+// export const getAllTransectsAxios = () => request.get('/swmm/transects')
 
 // 获取所有不规则断面的名称
 export const getAllTransectsNameAxios = () => request.get('/swmm/transects/name')

@@ -39,7 +39,7 @@
         <el-form-item label="断面形状">
           <el-select v-model="conduitEntity.shape" type="string">
             <el-option
-              v-for="item in CrossSectionShape"
+              v-for="item in CrossSectionShapeSelect"
               :key="item.value"
               :label="item.label"
               :value="item.value"
@@ -81,8 +81,8 @@
       </div>
     </el-card>
     <TransectDialog
-      v-model:show-dialog="showXsectionDialog"
       v-if="showXsectionDialog"
+      v-model:show-dialog="showXsectionDialog"
       :transectName="conduitEntity.transect"
     ></TransectDialog>
   </div>
@@ -104,11 +104,11 @@ const conduitEntity = defineModel('conduitEntity')
 
 import { ref } from 'vue'
 
-const CrossSectionShape = ref([
+const CrossSectionShapeSelect = [
   { value: 'CIRCULAR', label: '圆形断面' },
   { value: 'TRAPEZOIDAL', label: '梯形断面' },
   { value: 'IRREGULAR', label: '不规则断面' },
-])
+]
 
 const closeDialog = () => {
   showDialog.value = false

@@ -43,6 +43,33 @@
         <el-form-item label="积水面积">
           <el-input v-model.number="junctionEntity.areaPonded" type="number"></el-input>
         </el-form-item>
+        <el-form-item label="输入流量">
+          <el-select v-model="junctionEntity.hasInflow" type="string">
+            <el-option
+              v-for="item in hasInflowSelect"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            ></el-option
+          ></el-select>
+        </el-form-item>
+        <div v-if="junctionEntity.hasInflow">
+          <el-form-item label="流量选择">
+            <el-input
+              v-model="junctionEntity.timeseriesName"
+              type="string"
+              class="el-form-length"
+            ></el-input>
+            <el-button @click="showTimeSeriesDialog = true" class="el-form-length-button"
+              >更多</el-button
+            >
+            <TimeSeriesDialog
+              v-if="showTimeSeriesDialog"
+              v-model:show-dialog="showTimeSeriesDialog"
+              :transectName="junctionEntity.timeseriesName"
+            ></TimeSeriesDialog>
+          </el-form-item>
+        </div>
       </el-form>
       <div class="popup-footer">
         <el-button type="danger" @click="deleteJunctionEntity">删除</el-button>
@@ -53,11 +80,13 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { CloseBold } from '@element-plus/icons-vue'
 import { updateJunctionByIdAxios, deleteJunctionByIdAxios } from '@/apis/junction'
 import { convertKeysToKebabCase } from '@/utils/convert'
 import { useViewerStore } from '@/stores/viewer'
 import { initEntities } from '@/utils/useCesium'
+import TimeSeriesDialog from '@/components/TimeSeriesDialog.vue'
 import * as Cesium from 'cesium'
 
 const viewerStore = useViewerStore()
@@ -114,6 +143,13 @@ const calculateElevation = async () => {
     console.error('计算高程时发生错误:', error)
   }
 }
+
+// 流量选择
+const hasInflowSelect = [
+  { value: true, label: '有' },
+  { value: false, label: '无' },
+]
+const showTimeSeriesDialog = ref(false)
 </script>
 
 <style scoped>

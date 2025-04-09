@@ -32,3 +32,8 @@ coverage
 __pycache__/
 
 *.ipynb
+
+# 屏蔽 swmm 计算结果文件
+*.out
+*.rpt
+*.xlsx

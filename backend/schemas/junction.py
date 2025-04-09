@@ -1,8 +1,6 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from fastapi import HTTPException
 
-# TODO: 完成 提取断面功能，前端界面点击2个点，获取2个点之间的断面高程过程线（已完成，下次提交删除）
-# TODO：校验问题，可以前端加入校验（使用表达rules），也可以后端加入校验（已校验，但是错误信息不友好） 这里包括除渠道弹窗以外的（节点，出口，不规则断面） （已完成，已在后端校验，并且返回友好的错误信息）
 # TODO：理解一下 swmm 计算逻辑，一些节点参数的选择（比如：节点的最大深度，初始深度，溢流深度，蓄水面积），还有没有涉及的功能，是否需要添加此次任务（河道径流模拟）中
 
 
@@ -16,6 +14,8 @@ class JunctionModel(BaseModel):
     depth_init: float = 0.0
     depth_surcharge: float = 0.0
     area_ponded: float = 0.0
+    has_inflow: bool = False  # 是否有入流
+    timeseries_name: str = ""  # 入流时间序列名称
 
     @field_validator("name", mode="before")
     def name_must_not_be_empty(cls, v):
@@ -68,3 +68,13 @@ class JunctionModel(BaseModel):
                 detail=f"{field_name_alias } 必须是非负数",
             )
         return value
+
+    @model_validator(mode="before")
+    def check_timeseries_name(cls, values):
+        # 如果 has_inflow 为 True，timeseries_name 不能为空
+        if values.get("has_inflow") and not values.get("timeseries_name"):
+            raise HTTPException(
+                status_code=400,
+                detail="节点有入流时，必须提供入流时间序列名称",
+            )
+        return values

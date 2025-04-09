@@ -123,6 +123,8 @@ const junctionsInit = async (viewer) => {
       junctionData.depth_init,
       junctionData.depth_surcharge,
       junctionData.area_ponded,
+      junctionData.has_inflow,
+      junctionData.timeseries_name,
     )
   })
 }

@@ -45,14 +45,15 @@ async def get_outfalls():
         ]
         return outfalls
     except Exception as e:
+        # 捕获异常并返回错误信息
         raise HTTPException(
-            status_code=500,
-            detail=f"获取失败，发生未知错误: {str(e)}",
+            status_code=e.status_code if hasattr(e, "status_code") else 500,
+            detail=f"{str(e.detail) if hasattr(e, 'detail') else '获取失败，文件有误，发生未知错误'}",
         )
 
 
 @outfallRouter.put(
-    "/outfall/{outfall_id}",
+    "/outfall/{outfall_id:path}",
     summary="更新指定出口的坐标",
     description="通过指定出口ID，更新出口的相关信息",
 )
@@ -176,7 +177,7 @@ async def create_outfall(outfall_data: OutfallModel):
 
 
 @outfallRouter.delete(
-    "/outfall/{outfall_id}",
+    "/outfall/{outfall_id:path}",
     summary="删除指定出口",
     description="通过出口ID删除出口，并清理关联的坐标数据",
     response_model=Result,

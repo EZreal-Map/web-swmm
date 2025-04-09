@@ -3,7 +3,6 @@ from fastapi import HTTPException
 
 
 class TransectModel(BaseModel):
-    type: str = "transect"
     name: str
     roughness_left: float = 0.1
     roughness_right: float = 0.1

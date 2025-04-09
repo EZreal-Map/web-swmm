@@ -19,6 +19,8 @@ export const createJunctionEntity = (
   depthInit = 0,
   depthSurcharge = 0,
   areaPonded = 0,
+  hasInflow = false,
+  timeseriesName = '',
 ) => {
   // 先创建对象
   const junctionObject = {
@@ -38,6 +40,8 @@ export const createJunctionEntity = (
       depthInit,
       depthSurcharge,
       areaPonded,
+      hasInflow,
+      timeseriesName,
     },
   }
   // 添加到 Cesium Viewer
@@ -171,6 +175,8 @@ export const fillClickedEntityDict = (pickedObject, cartesianPosition = null) =>
           depthInit: pickedObject.id.properties.depthInit.getValue(),
           depthSurcharge: pickedObject.id.properties.depthSurcharge.getValue(),
           areaPonded: pickedObject.id.properties.areaPonded.getValue(),
+          hasInflow: pickedObject.id.properties.hasInflow.getValue(),
+          timeseriesName: pickedObject.id.properties.timeseriesName.getValue(),
         }
       }
       // 如果是出口（Outfall）

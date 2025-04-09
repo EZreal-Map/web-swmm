@@ -18,34 +18,38 @@ SWMM_FILE_PATH = "./swmm/swmm_test.inp"
     description="获取所有渠道信息",
 )
 async def get_conduits():
-    """
-    获取坐标
-    """
-    INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
-    inp_conduits = INP.check_for_section(Conduit)
-    inp_xsections = INP.check_for_section(CrossSection)
-    conduits = []
-    for conduit in inp_conduits.values():
-        xsection = inp_xsections.get(conduit.name)
-        conduit_model = ConduitResponseModel(
-            name=conduit.name,
-            from_node=conduit.from_node,
-            to_node=conduit.to_node,
-            length=conduit.length,
-            roughness=conduit.roughness,
-            transect=xsection.transect,
-            shape=xsection.shape,
-            height=xsection.height,
-            parameter_2=xsection.parameter_2,
-            parameter_3=xsection.parameter_3,
-            parameter_4=xsection.parameter_4,
+    try:
+        INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+        inp_conduits = INP.check_for_section(Conduit)
+        inp_xsections = INP.check_for_section(CrossSection)
+        conduits = []
+        for conduit in inp_conduits.values():
+            xsection = inp_xsections.get(conduit.name)
+            conduit_model = ConduitResponseModel(
+                name=conduit.name,
+                from_node=conduit.from_node,
+                to_node=conduit.to_node,
+                length=conduit.length,
+                roughness=conduit.roughness,
+                transect=xsection.transect,
+                shape=xsection.shape,
+                height=xsection.height,
+                parameter_2=xsection.parameter_2,
+                parameter_3=xsection.parameter_3,
+                parameter_4=xsection.parameter_4,
+            )
+            conduits.append(conduit_model)
+        return conduits
+    except Exception as e:
+        # 捕获异常并返回错误信息
+        raise HTTPException(
+            status_code=e.status_code if hasattr(e, "status_code") else 500,
+            detail=f"{str(e.detail) if hasattr(e, 'detail') else '获取失败，文件有误，发生未知错误'}",
         )
-        conduits.append(conduit_model)
-    return conduits
 
 
 @conduitRouter.put(
-    "/conduit/{conduit_id}",
+    "/conduit/{conduit_id:path}",
     response_model=Result,
     summary="更新指定渠道的相关信息",
     description="通过指定渠道ID，更新渠道的相关信息",
@@ -226,7 +230,7 @@ async def create_conduit(conduit_data: ConduitRequestModel):
 
 
 @conduitRouter.delete(
-    "/conduit/{conduit_id}",
+    "/conduit/{conduit_id:path}",
     response_model=Result,
     summary="删除指定渠道",
     description="通过指定渠道ID，删除渠道信息",

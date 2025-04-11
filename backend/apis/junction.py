@@ -11,10 +11,13 @@ from swmm_api.input_file.sections.others import TimeseriesData
 from utils.coordinate_converter import utm_to_wgs84, wgs84_to_utm
 from schemas.junction import JunctionModel
 from schemas.result import Result
+from utils.swmm_constant import (
+    SWMM_FILE_INP_PATH,
+    ENCODING,
+)
+
 
 junctionsRouter = APIRouter()
-
-SWMM_FILE_PATH = "./swmm/swmm_test.inp"
 
 
 @junctionsRouter.get(
@@ -25,7 +28,7 @@ SWMM_FILE_PATH = "./swmm/swmm_test.inp"
 )
 async def get_junctions():
     try:
-        INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_junctions = INP.check_for_section(Junction)
         inp_coordinates = INP.check_for_section(Coordinate)
         inp_inflows = INP.check_for_section(Inflow)
@@ -84,7 +87,7 @@ async def get_junctions():
 async def update_junction(junction_id: str, junction_update: JunctionModel):
     try:
 
-        INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_junctions = INP.check_for_section(Junction)
         inp_coordinates = INP.check_for_section(Coordinate)
         inp_conduits = INP.check_for_section(Conduit)
@@ -172,7 +175,7 @@ async def update_junction(junction_id: str, junction_update: JunctionModel):
                 del inp_inflows[(junction_id, "FLOW")]
 
         # 5.保存数据到文件
-        INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         return Result.success(
             message=f"节点 [ {junction_update.name} ] 信息更新成功",
             data={"id": junction_update.name, "type": "junction"},
@@ -192,7 +195,7 @@ async def update_junction(junction_id: str, junction_update: JunctionModel):
 async def create_junction(junction_data: JunctionModel):
     try:
         # 读取 SWMM 输入文件
-        INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_junctions = INP.check_for_section(Junction)
         inp_coordinates = INP.check_for_section(Coordinate)
         inp_outfalls = INP.check_for_section(Outfall)
@@ -229,7 +232,7 @@ async def create_junction(junction_data: JunctionModel):
         inp_coordinates[junction_data.name] = new_coordinate
 
         # 3. 写回 SWMM 输入文件
-        INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
 
         return Result.success(
             message=f"节点创建成功",
@@ -251,7 +254,7 @@ async def create_junction(junction_data: JunctionModel):
 )
 async def delete_junction(junction_id: str):
     try:
-        INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_junctions = INP.check_for_section(Junction)
         inp_coordinates = INP.check_for_section(Coordinate)
         inp_conduits = INP.check_for_section(Conduit)
@@ -290,7 +293,7 @@ async def delete_junction(junction_id: str):
             del inp_inflows[(junction_id, "FLOW")]
 
         # 保存修改
-        INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
 
         # 构建响应信息
         message = f"节点 [ {junction_id} ] 删除成功"

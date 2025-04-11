@@ -1,5 +1,4 @@
 import request from '@/utils/request'
-import {} from '@/utils/convert'
 
 // 获取所有不规则断面的属性
 // export const getAllTransectsAxios = () => request.get('/swmm/transects')

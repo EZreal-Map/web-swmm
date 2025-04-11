@@ -3,7 +3,7 @@ name = "backend"
 version = "0.1.0"
 description = "使用swmm-api处理swmm文件的后端程序"
 authors = ["tangkaiwen00@gmail.com"]
-readme = "README.md"
+package-mode = false # 关闭包模式，只是用作依赖安装
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -11,6 +11,7 @@ fastapi = "^0.115.12"
 uvicorn = {extras = ["standard"], version = "^0.34.0"}
 swmm-api = "^0.4.64"
 pyproj = "^3.7.1"
+pyswmm = "^2.0.1"
 
 
 [build-system]

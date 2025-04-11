@@ -6,11 +6,15 @@ from schemas.timeseries import TimeSeriesModel
 from schemas.result import Result
 from datetime import timezone, timedelta
 
-BEIJING_TZ = timezone(timedelta(hours=8))
+from utils.swmm_constant import (
+    SWMM_FILE_INP_PATH,
+    ENCODING,
+)
+
 
 timeseriesRouter = APIRouter()
 
-SWMM_FILE_PATH = "./swmm/swmm_test.inp"
+BEIJING_TZ = timezone(timedelta(hours=8))
 
 
 @timeseriesRouter.get(
@@ -21,7 +25,7 @@ SWMM_FILE_PATH = "./swmm/swmm_test.inp"
 )
 async def get_timeseries():
     try:
-        INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_timeseries = INP.check_for_section(TimeseriesData)
         timeseries = []
         for ts in inp_timeseries.values():
@@ -48,7 +52,7 @@ async def get_timeseries():
 )
 async def get_timeseries_names():
     try:
-        INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_timeseries = INP.check_for_section(TimeseriesData)
         timeseries_names = list(inp_timeseries.keys())
         return Result.success(message="成功获取所有时间序列名称", data=timeseries_names)
@@ -69,7 +73,7 @@ async def get_timeseries_names():
 async def get_timeseries_by_id(timeseries_id: str):
     try:
         print("timeseries_id", timeseries_id)
-        INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_timeseries = INP.check_for_section(TimeseriesData)
         timeseries = inp_timeseries.get(timeseries_id)
         if not timeseries:
@@ -107,7 +111,7 @@ async def get_timeseries_by_id(timeseries_id: str):
 )
 async def update_timeseries_by_id(timeseries_id: str, timeseries: TimeSeriesModel):
     try:
-        INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_timeseries = INP.check_for_section(TimeseriesData)
         inp_inflows = INP.check_for_section(Inflow)
 
@@ -143,7 +147,7 @@ async def update_timeseries_by_id(timeseries_id: str, timeseries: TimeSeriesMode
         if len(related_inflows) > 0:
             message += f"，同时更新了 {len(related_inflows)} 条引用该时间序列的节点的时间序列名称"
 
-        INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         return Result.success(
             message=message,
             data={"id": timeseries.name, "related_inflows": related_inflows},
@@ -168,7 +172,7 @@ async def create_timeseries(timeseries_data: TimeSeriesModel):
     创建时间序列信息
     """
     try:
-        INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_timeseries = INP.check_for_section(TimeseriesData)
         inp_inflows = INP.check_for_section(Inflow)
 
@@ -186,7 +190,7 @@ async def create_timeseries(timeseries_data: TimeSeriesModel):
         )
         inp_timeseries[timeseries_data.name] = new_timeseries
 
-        INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         return Result.success(
             message="时间序列创建成功", data={"name": timeseries_data.name}
         )
@@ -206,7 +210,7 @@ async def create_timeseries(timeseries_data: TimeSeriesModel):
 )
 async def delete_timeseries(timeseries_id: str):
     try:
-        INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_timeseries = INP.check_for_section(TimeseriesData)
         inp_inflows = INP.check_for_section(Inflow)
 
@@ -232,7 +236,7 @@ async def delete_timeseries(timeseries_id: str):
         del inp_timeseries[timeseries_id]
 
         # 保存修改
-        INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         return Result.success(message="时间序列删除成功", data={"id": timeseries_id})
     except Exception as e:
         # 捕获异常并返回错误信息

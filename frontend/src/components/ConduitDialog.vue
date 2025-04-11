@@ -37,7 +37,7 @@
           ></el-input>
         </el-form-item>
         <el-form-item label="断面形状">
-          <el-select v-model="conduitEntity.shape" type="string">
+          <el-select v-model="conduitEntity.shape" type="string" placeholder="请选择断面形状">
             <el-option
               v-for="item in CrossSectionShapeSelect"
               :key="item.value"

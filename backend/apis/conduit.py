@@ -6,10 +6,13 @@ from swmm_api.input_file.sections.link_component import CrossSection
 from swmm_api.input_file.sections.others import Transect
 from schemas.conduit import ConduitResponseModel, ConduitRequestModel
 from schemas.result import Result
+from utils.swmm_constant import (
+    SWMM_FILE_INP_PATH,
+    ENCODING,
+)
 
 
 conduitRouter = APIRouter()
-SWMM_FILE_PATH = "./swmm/swmm_test.inp"
 
 
 @conduitRouter.get(
@@ -19,7 +22,7 @@ SWMM_FILE_PATH = "./swmm/swmm_test.inp"
 )
 async def get_conduits():
     try:
-        INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_conduits = INP.check_for_section(Conduit)
         inp_xsections = INP.check_for_section(CrossSection)
         conduits = []
@@ -58,7 +61,7 @@ async def update_conduit(conduit_id: str, conduit_update: ConduitRequestModel):
     """
     更新渠道信息
     """
-    INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+    INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_conduits = INP.check_for_section(Conduit)
     inp_coordinates = INP.check_for_section(Coordinate)
     inp_xsections = INP.check_for_section(CrossSection)
@@ -125,7 +128,7 @@ async def update_conduit(conduit_id: str, conduit_update: ConduitRequestModel):
             parameter_4=conduit_update.parameter_4,
         )
         inp_xsections[conduit_update.name] = xsection
-        INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         return Result.success(
             message=f"渠道 [ {conduit_update.name} ] 信息更新成功",
             data={
@@ -135,8 +138,8 @@ async def update_conduit(conduit_id: str, conduit_update: ConduitRequestModel):
         )
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"保存失败，发生未知错误: {str(e)}",
+            status_code=e.status_code if hasattr(e, "status_code") else 500,
+            detail=f"{str(e.detail) if hasattr(e, 'detail') else '修改失败，发生未知错误'}",
         )
 
 
@@ -150,7 +153,7 @@ async def create_conduit(conduit_data: ConduitRequestModel):
     """
     添加渠道信息
     """
-    INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+    INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_conduits = INP.check_for_section(Conduit)
     inp_coordinates = INP.check_for_section(Coordinate)
     inp_xsections = INP.check_for_section(CrossSection)
@@ -218,14 +221,14 @@ async def create_conduit(conduit_data: ConduitRequestModel):
         inp_xsections[conduit_data.name] = new_xsection
 
         # 写入 SWMM 文件
-        INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         return Result.success(
             message=f"渠道创建成功", data={"conduit_id": conduit_data.name}
         )
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"创建失败，发生未知错误: {str(e)}",
+            status_code=e.status_code if hasattr(e, "status_code") else 500,
+            detail=f"{str(e.detail) if hasattr(e, 'detail') else '创建失败，发生未知错误'}",
         )
 
 
@@ -240,7 +243,7 @@ async def delete_conduit(conduit_id: str):
     删除渠道信息
     """
     # 读取 SWMM 文件
-    INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+    INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_conduits = INP.check_for_section(Conduit)
     inp_xsections = INP.check_for_section(CrossSection)
 
@@ -260,11 +263,11 @@ async def delete_conduit(conduit_id: str):
             del inp_xsections[conduit_id]
 
         # 写入 SWMM 文件
-        INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
 
         return Result.success(message=f"渠道 [ {conduit_id} ] 删除成功")
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"删除失败，发生未知错误: {str(e)}",
+            status_code=e.status_code if hasattr(e, "status_code") else 500,
+            detail=f"{str(e.detail) if hasattr(e, 'detail') else '删除失败，发生未知错误'}",
         )

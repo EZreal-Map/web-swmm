@@ -44,7 +44,11 @@
           <el-input v-model.number="junctionEntity.areaPonded" type="number"></el-input>
         </el-form-item>
         <el-form-item label="输入流量">
-          <el-select v-model="junctionEntity.hasInflow" type="string">
+          <el-select
+            v-model="junctionEntity.hasInflow"
+            type="string"
+            placeholder="请选择输入流量的时间序列"
+          >
             <el-option
               v-for="item in hasInflowSelect"
               :key="item.value"

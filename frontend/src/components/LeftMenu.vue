@@ -27,30 +27,21 @@
         >出口</el-menu-item
       >
     </el-sub-menu>
-    <el-sub-menu index="2-1">
-      <template #title>拖拽</template>
-      <el-menu-item index="2-2-1" @click="startDrag" :disabled="draggable">开始拖拽</el-menu-item>
-      <el-menu-item index="2-2-2" @click="restoreDrag">还原未保存</el-menu-item>
-      <el-menu-item index="2-2-3" @click="stopDrag" :disabled="!draggable">停止拖拽</el-menu-item>
-    </el-sub-menu>
     <el-sub-menu index="2">
-      <template #title>
-        <span>编辑</span>
-      </template>
-
-      <el-menu-item index="2-2">item two</el-menu-item>
-
-      <el-menu-item index="2-3">item three</el-menu-item>
-
-      <el-sub-menu index="2-4">
-        <template #title>item four</template>
-        <el-menu-item index="2-4-1">item one</el-menu-item>
-      </el-sub-menu>
+      <template #title>拖拽</template>
+      <el-menu-item index="2-1" @click="startDrag" :disabled="draggable">开始拖拽</el-menu-item>
+      <el-menu-item index="2-2" @click="restoreDrag">还原未保存</el-menu-item>
+      <el-menu-item index="2-3" @click="stopDrag" :disabled="!draggable">停止拖拽</el-menu-item>
     </el-sub-menu>
-    <el-menu-item index="3">
-      <span>增加</span>
+    <el-menu-item index="3" @click="showCalculateDialog = true">
+      <span>计算</span>
     </el-menu-item>
   </el-menu>
+  <!-- 计算选项和计算结果查看弹窗 -->
+  <CalculateDialog
+    v-if="showCalculateDialog"
+    v-model:show-dialog="showCalculateDialog"
+  ></CalculateDialog>
 </template>
 
 <script setup>
@@ -64,6 +55,7 @@ import { ref } from 'vue'
 import { getStringAfterFirstDash } from '@/utils/convert'
 import { startDragHandlers, stopDragHandlers, initEntities } from '@/utils/useCesium'
 import { ElMessage } from 'element-plus'
+import CalculateDialog from '@/components/CalculateDialog.vue'
 
 const viewerStore = useViewerStore()
 
@@ -103,8 +95,8 @@ const restoreDrag = () => {
 }
 
 // 1. 新增事件
-const createJunctionHandler = ref(null)
 // 1.1 创建节点
+const createJunctionHandler = ref(null)
 const createJunction = () => {
   // 如果已经有 handler，说明已经在创建节点了
   if (createJunctionHandler.value) {
@@ -149,9 +141,8 @@ const createJunction = () => {
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 }
 
-// 1. 新增事件
+// 1.3 创建出口
 const createOutfallHandler = ref(null)
-// 1.1 创建出口
 const createOutfall = () => {
   // 如果已经有 handler，说明已经在创建出口了
   if (createOutfallHandler.value) {
@@ -196,7 +187,7 @@ const createOutfall = () => {
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 }
 
-// 2. 选择两个节点（仅获取 ID）
+// 1.2. 选择两个节点（仅获取 ID）
 const createConduitHandler = ref(null)
 let selectedNodes = []
 
@@ -252,4 +243,7 @@ const selectTwoJunctions = () => {
     }
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 }
+
+// 3. 计算事件
+const showCalculateDialog = ref(false)
 </script>

@@ -23,7 +23,7 @@ class TimeSeriesModel(BaseModel):
         "name",
         mode="before",
     )
-    def check_none(cls, value, info):
+    def check_none(cls, value):
         if not value:
             raise HTTPException(
                 status_code=400,

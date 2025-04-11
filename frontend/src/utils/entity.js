@@ -97,7 +97,6 @@ export const createConduitEntity = (
   parameter_3 = 0.5,
   parameter_4 = 0.5,
 ) => {
-  console.log('createConduitEntity', name, fromNodeId, toNodeId)
   // 创建渠道对象
   const fromNode = viewer.entities.getById('junction#' + fromNodeId)
   const toNode = viewer.entities.getById('junction#' + toNodeId)

@@ -351,7 +351,6 @@ const checkLastRow = () => {
   const lastRow =
     transectDatas.value.station_elevations[transectDatas.value.station_elevations.length - 1]
   if (lastRow[0] && lastRow[1]) {
-    console.log('添加一行空数据')
     transectDatas.value.station_elevations.push([]) // 新增一行空数据
   }
 }
@@ -417,7 +416,6 @@ const saveTransect = () => {
 // 4. 提取
 const showExtractDialog = ref(true)
 const extractTransect = () => {
-  console.log('提取断面')
   viewerStore.extractFlag = true // 设置提取模式
   showExtractDialog.value = false
 }
@@ -431,14 +429,25 @@ const beforeClose = (done) => {
   return
 }
 
+// 监听 refChartDom 的变化，如果从null -> 有值，就是dom装载好了，可以初始化图表，并且只监听一次
+// 需要放在 onMounted 的外面，要不然refChartDom.value 已经装载好了，没有监听到从 null 到有值的变化
+watch(
+  () => refChartDom.value,
+  () => {
+    console.log('refChartDom.value', refChartDom.value)
+    myChart = echarts.init(refChartDom.value)
+    window.onresize = () => {
+      myChart.resize()
+    }
+  },
+  { once: true }, // 监听一次
+)
+
+// 记录异步watch监听，因为异步监听需要主动在销毁之前取消
 let extractWatch
+
 onMounted(async () => {
   await transectInit()
-  // 初始化图表
-  myChart = echarts.init(refChartDom.value)
-  window.onresize = () => {
-    myChart.resize()
-  }
 
   // 监听 transectDatas 的变化，更新图表
   watch(
@@ -455,8 +464,6 @@ onMounted(async () => {
   extractWatch = watch(
     () => viewerStore.extractPoints.length,
     async (newValue) => {
-      console.log('提取模式', newValue)
-      console.log('提取点', viewerStore.extractPoints)
       if (newValue === 1) {
         ElMessage.warning('已经选中一个点，请再选中另外一个点')
       }
@@ -486,7 +493,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   extractWatch() // 需要主动取消异步监听事件
-  console.log('组件已被卸载')
 })
 </script>
 
@@ -546,11 +552,6 @@ onUnmounted(() => {
   border-radius: 4px;
   padding: 10px 10px 0;
   margin-bottom: 8px;
-}
-
-.content-left-top-form {
-  display: flex;
-  flex-wrap: wrap;
 }
 
 .content-left-bottom {

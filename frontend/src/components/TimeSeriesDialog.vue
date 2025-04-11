@@ -32,7 +32,7 @@
                 class="content-left-top-form"
               >
                 <el-form-item label="时间序列名称" label-width="100px">
-                  <el-input v-model="timeseriesDatas.name" placeholder="请输入断面名称" />
+                  <el-input v-model="timeseriesDatas.name" placeholder="请输入时间序列名称" />
                 </el-form-item>
               </el-form>
             </div>
@@ -97,32 +97,32 @@ import { ElMessage } from 'element-plus'
 import { useViewerStore } from '@/stores/viewer'
 import dayjs from 'dayjs'
 
-const DATETIME_FORMAT = 'YYYY/MM/DD HH:mm' // 时间格式常量
-const DATETIME_FORMAT_WITHOUT_YEAR = 'MM-DD HH:mm' // 时间格式常量
-
 const viewerStore = useViewerStore()
 const showDialog = defineModel('showDialog')
-const timeseriesNames = ref([]) // 断面列表
-// 接收父组件传入的断面名称
+const timeseriesNames = ref([]) // 时间序列列表
+// 接收父组件传入的时间序列名称
 const props = defineProps({
   timeseriesName: {
     type: String,
     default: '',
   },
 })
-const selectedTimeseriesName = ref(props.timeseriesName) // 选中的断面名称
 
-const timeseriesDatas = ref({}) // 断面数据 重要！
-const refChartDom = ref(null)
+const selectedTimeseriesName = ref(props.timeseriesName) // 选中的时间序列名称
+const timeseriesDatas = ref({}) // 时间序列数据 重要！
 
 // echarts 实例
 let myChart = null
+const refChartDom = ref(null)
+const DATETIME_FORMAT = 'YYYY/MM/DD HH:mm' // 时间格式常量
+const DATETIME_FORMAT_WITHOUT_YEAR = 'MM-DD HH:mm' // 时间格式常量
+
 const timeseriesInit = async () => {
-  // 这里分成2个接口，一个是获取所有断面name，
-  // 另一个是通过name获取断面数据，每次menu点击时，获取断面数据，
-  // 同时 selectedMenuName 需要通过父组件传递，如果不传递，就是默认的第一个断面，去获取断面数据
-  await updateTimeseriesNames() // 获取所有断面名称
-  // 如果没有传入断面名称或者传入的断面名错误（不存在在timeseriesNames里），则默认选中第一个断面
+  // 这里分成2个接口，一个是获取所有时间序列name，
+  // 另一个是通过name获取时间序列数据，每次menu点击时，获取时间序列数据，
+  // 同时 selectedMenuName 需要通过父组件传递，如果不传递，就是默认的第一个时间序列，去获取时间序列数据
+  await updateTimeseriesNames() // 获取所有时间序列名称
+  // 如果没有传入时间序列名称或者传入的时间序列名错误（不存在在timeseriesNames里），则默认选中第一个时间序列
   if (
     !selectedTimeseriesName.value ||
     timeseriesNames.value.includes(selectedTimeseriesName.value) === false
@@ -130,24 +130,24 @@ const timeseriesInit = async () => {
     if (timeseriesNames.value.length > 0) {
       selectedTimeseriesName.value = timeseriesNames.value[0]
     } else {
-      ElMessage.warning('没有断面数据，请新建断面吧！')
-      timeseriesDatas.value = {} // 清空断面数据
-      return // 没有断面名称，直接返回
+      ElMessage.warning('没有时间序列数据，请新建时间序列吧！')
+      timeseriesDatas.value = {} // 清空时间序列数据
+      return // 没有时间序列名称，直接返回
     }
   }
-  await updateTimeseries(selectedTimeseriesName.value) // 默认选中第一个断面
+  await updateTimeseries(selectedTimeseriesName.value) // 默认选中第一个时间序列
 }
 
 const updateTimeseriesNames = async () => {
   const res = await getAllTimeSeriesNameAxios()
   // 按照字符串排序
   res.data.sort((a, b) => a.localeCompare(b))
-  // 更新断面名称列表
+  // 更新时间序列名称列表
   timeseriesNames.value = res.data
 }
 
 const updateTimeseries = (timeseriesName) => {
-  // menu 点击时，获取断面数据
+  // menu 点击时，获取时间序列数据
   selectedTimeseriesName.value = timeseriesName
   getTimeseriesByIdAxios(timeseriesName).then((res) => {
     // 把时间字符串转换位时间对象
@@ -155,7 +155,7 @@ const updateTimeseries = (timeseriesName) => {
       return [new Date(item[0]), item[1]]
     })
     timeseriesDatas.value = res.data
-    timeseriesDatas.value.data.push([]) // 初始时：为每个断面的 station_elevations 添加一行空数据
+    timeseriesDatas.value.data.push([]) // 初始时：为每个时间序列的 station_elevations 添加一行空数据
   })
 }
 
@@ -166,7 +166,7 @@ const updateChart = () => {
         myChart.clear()
         myChart.setOption({
           title: {
-            text: '暂无断面数据',
+            text: '暂无时间序列数据',
             left: 'center',
             top: 'center',
             textStyle: { fontSize: 20, color: '#999' },
@@ -287,22 +287,21 @@ const updateChart = () => {
 const checkLastRow = () => {
   const lastRow = timeseriesDatas.value.data[timeseriesDatas.value.data.length - 1]
   if (lastRow[0] && lastRow[1]) {
-    console.log('添加一行空数据')
     timeseriesDatas.value.data.push([]) // 新增一行空数据
   }
 }
 
-// 断面操作的4个按钮
+// 时间序列操作的4个按钮
 // 1. 新建
 const createTimeseries = () => {
-  const name = '时间_' + Date.now() // 用时间戳作为断面名称
+  const name = '时间_' + Date.now() // 用时间戳作为时间序列名称
   // // 新建请求
   createTimeseriesAxios({ name }).then((res) => {
     ElMessage.success(res.message)
-    timeseriesNames.value.push(res.data.name) // 添加新断面名称
+    timeseriesNames.value.push(res.data.name) // 添加新时间序列名称
     timeseriesNames.value.sort((a, b) => a.localeCompare(b)) // 排序
-    selectedTimeseriesName.value = res.data.name // 更新选中的断面名称
-    updateTimeseries(selectedTimeseriesName.value) // 更新断面数据
+    selectedTimeseriesName.value = res.data.name // 更新选中的时间序列名称
+    updateTimeseries(selectedTimeseriesName.value) // 更新时间序列数据
   })
 }
 
@@ -311,8 +310,8 @@ const deleteTimeseries = async () => {
   // 删除请求
   const res = await deleteTimeseriesByIdAxios(selectedTimeseriesName.value)
   ElMessage.success(res.message)
-  selectedTimeseriesName.value = '' // 清空选中的断面名称
-  await timeseriesInit() // 更新断面数据
+  selectedTimeseriesName.value = '' // 清空选中的时间序列名称
+  await timeseriesInit() // 更新时间序列数据
   // 如果有滚动条，就回到顶部
   const sidebarDom = document.querySelector('.sidebar')
   sidebarDom.scrollTop = 0
@@ -324,7 +323,6 @@ const saveTimeseries = () => {
     .then((res) => {
       ElMessage.success(res.message)
       // 1. 更新 viewer 中可能相关联的数据 (容易忽视)
-      console.log('相关联的 inflows', res.data.related_inflows)
       if (res.data.related_inflows.length > 0) {
         // 节点弹窗（如果刚好修改的是节点弹窗的关联 name ） 修改关联的节点 timeseries 名称
         if (viewerStore.clickedEntityDict?.timeseriesName === selectedTimeseriesName.value) {
@@ -334,15 +332,14 @@ const saveTimeseries = () => {
         res.data.related_inflows.forEach((item) => {
           const id = 'junction#' + item
           const entity = viewerStore.viewer.entities.getById(id)
-          console.log(entity)
           if (entity) {
             entity.properties.timeseriesName.setValue(timeseriesDatas.value.name)
           }
         })
       }
       // 2.更新弹窗数据
-      selectedTimeseriesName.value = timeseriesDatas.value.name // 更新选中的断面名称
-      timeseriesInit() // 更新断面数据
+      selectedTimeseriesName.value = timeseriesDatas.value.name // 更新选中的时间序列名称
+      timeseriesInit() // 更新时间序列数据
     })
     .catch((error) => {
       console.error('Error saving timeseries:', error)
@@ -350,19 +347,26 @@ const saveTimeseries = () => {
     })
 }
 
+// 监听 refChartDom 的变化，如果从null -> 有值，就是dom装载好了，可以初始化图表，并且只监听一次
+// 需要放在 onMounted 的外面，要不然refChartDom.value 已经装载好了，没有监听到从 null 到有值的变化
+watch(
+  () => refChartDom.value,
+  () => {
+    myChart = echarts.init(refChartDom.value)
+    window.onresize = () => {
+      myChart.resize()
+    }
+  },
+  { once: true }, // 监听一次
+)
+
 onMounted(async () => {
   await timeseriesInit()
-  // 初始化图表
-  myChart = echarts.init(refChartDom.value)
-  window.onresize = () => {
-    myChart.resize()
-  }
 
   // 监听 timeseriesDatas 的变化，更新图表
   watch(
     () => timeseriesDatas.value,
     () => {
-      console.log('timeseriesDatas changed:', timeseriesDatas.value.data)
       updateChart()
     },
     { deep: true }, // 深度监听 timeseriesDatas
@@ -428,10 +432,10 @@ onMounted(async () => {
   margin-bottom: 8px;
 }
 
-.content-left-top-form {
+/* .content-left-top-form {
   display: flex;
   flex-wrap: wrap;
-}
+} */
 
 .content-left-bottom {
   flex: 1; /* 占据剩余空间 */
@@ -480,9 +484,5 @@ onMounted(async () => {
 
 ::v-deep(input::-webkit-inner-spin-button) {
   -webkit-appearance: none;
-}
-
-.el-form-length {
-  --el-input-width: 128px;
 }
 </style>

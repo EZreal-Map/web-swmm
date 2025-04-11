@@ -9,12 +9,14 @@ from swmm_api.input_file.sections.link_component import CrossSection
 from utils.coordinate_converter import utm_to_wgs84, wgs84_to_utm
 from schemas.outfall import OutfallModel
 from schemas.result import Result
-
+from utils.swmm_constant import (
+    SWMM_FILE_INP_PATH,
+    ENCODING,
+)
 import numpy as np
 
-outfallRouter = APIRouter()
 
-SWMM_FILE_PATH = "./swmm/swmm_test.inp"
+outfallRouter = APIRouter()
 
 
 @outfallRouter.get(
@@ -25,7 +27,7 @@ SWMM_FILE_PATH = "./swmm/swmm_test.inp"
 )
 async def get_outfalls():
     try:
-        INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_outfalls = INP.check_for_section(Outfall)
         inp_coordinates = INP.check_for_section(Coordinate)
         outfalls = [
@@ -59,7 +61,7 @@ async def get_outfalls():
 )
 async def update_outfall(outfall_id: str, outfall_update: OutfallModel):
     try:
-        INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_outfalls = INP.check_for_section(Outfall)
         inp_coordinates = INP.check_for_section(Coordinate)
         inp_junctions = INP.check_for_section(Junction)
@@ -114,7 +116,7 @@ async def update_outfall(outfall_id: str, outfall_update: OutfallModel):
                 elif conduit.to_node == outfall_id:
                     conduit.to_node = outfall_update.name
 
-        INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         return Result.success(
             message=f"出口 [ {outfall_update.name} ] 更新成功",
             data={"id": outfall_update.name, "type": "outfall"},
@@ -133,7 +135,7 @@ async def update_outfall(outfall_id: str, outfall_update: OutfallModel):
 )
 async def create_outfall(outfall_data: OutfallModel):
     try:
-        INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_outfalls = INP.check_for_section(Outfall)
         inp_coordinates = INP.check_for_section(Coordinate)
         inp_junctions = INP.check_for_section(Junction)
@@ -165,14 +167,14 @@ async def create_outfall(outfall_data: OutfallModel):
             node=outfall_data.name, x=utm_x, y=utm_y
         )
 
-        INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         return Result.success(
             message="出口创建成功", data={"outfall_id": outfall_data.name}
         )
     except Exception as e:
         raise HTTPException(
             status_code=e.status_code if hasattr(e, "status_code") else 500,
-            detail=f"{str(e.detail) if hasattr(e, 'detail') else '删除失败，发生未知错误'}",
+            detail=f"{str(e.detail) if hasattr(e, 'detail') else '创建失败，发生未知错误'}",
         )
 
 
@@ -184,7 +186,7 @@ async def create_outfall(outfall_data: OutfallModel):
 )
 async def delete_outfall(outfall_id: str):
     try:
-        INP = SwmmInput.read_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_outfalls = INP.check_for_section(Outfall)
         inp_coordinates = INP.check_for_section(Coordinate)
         inp_conduits = INP.check_for_section(Conduit)
@@ -218,7 +220,7 @@ async def delete_outfall(outfall_id: str):
         if outfall_id in inp_coordinates:
             del inp_coordinates[outfall_id]
 
-        INP.write_file(SWMM_FILE_PATH, encoding="GB2312")
+        INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
 
         # 构建响应信息
         message = f"节点 [ {outfall_id} ] 删除成功"

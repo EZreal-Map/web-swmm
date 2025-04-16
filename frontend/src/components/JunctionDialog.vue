@@ -140,7 +140,9 @@ const calculateElevation = async () => {
   try {
     const updatedPositions = await Cesium.sampleTerrainMostDetailed(terrainProvider, positions)
     const height = Number(updatedPositions[0].height.toFixed(2))
-    junctionEntity.value.elevation = height
+    // Cesium 默认用的是 WGS84 椭球高度，而平常使用的 DEM 数据则通常是以平均海平面为基准的正交高程
+    // 在乐山这个地方，WGS84 椭球高度和正交高程的差值大概是 +44 米
+    junctionEntity.value.elevation = height + 44
     ElMessage.success('高程计算成功')
   } catch (error) {
     ElMessage.error(`计算失败，请检查经纬度坐标`)

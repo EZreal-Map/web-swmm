@@ -29,7 +29,7 @@ export const initCesium = async (containerId) => {
 
   // 开始时设置相机位置
   viewer.camera.setView({
-    destination: Cesium.Cartesian3.fromDegrees(103.77346807693011, 29.5048309132203, 40000),
+    destination: Cesium.Cartesian3.fromDegrees(103.77346807693011, 29.5048309132203, 100000),
     orientation: {
       heading: Cesium.Math.toRadians(0),
       pitch: Cesium.Math.toRadians(-90),
@@ -48,7 +48,7 @@ export const initCesium = async (containerId) => {
 
     const pickedObject = viewer.scene.pick(movement.position)
     // 更新填充 clickedEntityDict 数据，为了存储和显示弹窗信息
-    viewerStore.clickedEntityDict = fillClickedEntityDict(pickedObject, worldPosition)
+    viewerStore.clickedEntityDict = fillClickedEntityDict(pickedObject?.id, worldPosition)
     console.log('pickedObject', pickedObject)
     console.log('lon', viewerStore.clickedEntityDict.lon)
     console.log('lat', viewerStore.clickedEntityDict.lat)
@@ -88,7 +88,7 @@ export const startDragHandlers = (viewer) => {
       draggedEntity.id.position = cartesian
       // 更新填充 clickedEntityDict 数据，为了存储和显示弹窗信息
       const viewerStore = useViewerStore()
-      viewerStore.clickedEntityDict = fillClickedEntityDict(draggedEntity)
+      viewerStore.clickedEntityDict = fillClickedEntityDict(draggedEntity.id)
     }
   }, Cesium.ScreenSpaceEventType.MOUSE_MOVE)
 

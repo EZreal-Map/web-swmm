@@ -7,8 +7,8 @@ class TransectModel(BaseModel):
     roughness_left: float = 0.1
     roughness_right: float = 0.1
     roughness_channel: float = 0.1
-    bank_station_left: int = 0
-    bank_station_right: int = 0
+    bank_station_left: float = 0
+    bank_station_right: float = 0
     station_elevations: list[list[float, float]] = []
     # from_node: Optional[str] = None
     # to_node: Optional[str] = None

@@ -1,39 +1,42 @@
 <template>
   <h5 class="mb-2">工具</h5>
   <el-menu background-color="#fefefe">
-    <el-sub-menu index="1">
+    <el-menu-item index="1" @click="queryEntityByName">
+      <span>查找</span>
+    </el-menu-item>
+    <el-sub-menu index="2">
       <template #title>
         <span>新增</span>
       </template>
 
       <el-menu-item
-        index="1-1"
+        index="2-1"
         @click="createJunction"
         :disabled="createConduitHandler !== null || createOutfallHandler !== null"
       >
         节点</el-menu-item
       >
       <el-menu-item
-        index="1-2"
+        index="2-2"
         @click="selectTwoJunctions"
         :disabled="createJunctionHandler !== null || createOutfallHandler !== null"
         >渠道</el-menu-item
       >
 
       <el-menu-item
-        index="1-3"
+        index="2-3"
         @click="createOutfall"
         :disabled="createJunctionHandler !== null || createConduitHandler !== null"
         >出口</el-menu-item
       >
     </el-sub-menu>
-    <el-sub-menu index="2">
+    <el-sub-menu index="3">
       <template #title>拖拽</template>
-      <el-menu-item index="2-1" @click="startDrag" :disabled="draggable">开始拖拽</el-menu-item>
-      <el-menu-item index="2-2" @click="restoreDrag">还原未保存</el-menu-item>
-      <el-menu-item index="2-3" @click="stopDrag" :disabled="!draggable">停止拖拽</el-menu-item>
+      <el-menu-item index="3-1" @click="startDrag" :disabled="draggable">开始拖拽</el-menu-item>
+      <el-menu-item index="3-2" @click="restoreDrag">还原未保存</el-menu-item>
+      <el-menu-item index="3-3" @click="stopDrag" :disabled="!draggable">停止拖拽</el-menu-item>
     </el-sub-menu>
-    <el-menu-item index="3" @click="showCalculateDialog = true">
+    <el-menu-item index="4" @click="showCalculateDialog = true">
       <span>计算</span>
     </el-menu-item>
   </el-menu>
@@ -56,16 +59,73 @@ import { getStringAfterFirstDash } from '@/utils/convert'
 import { startDragHandlers, stopDragHandlers, initEntities } from '@/utils/useCesium'
 import { ElMessage } from 'element-plus'
 import CalculateDialog from '@/components/CalculateDialog.vue'
+import { fillClickedEntityDict } from '@/utils/entity'
 
 const viewerStore = useViewerStore()
 
-// 2. 拖拽事件
+// 1. 查找事件
+const queryEntityByName = async () => {
+  try {
+    // 弹出框输入新的分组名
+    const { value } = await ElMessageBox.prompt('请输入要查找的实体名称', '查找', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputPattern: /^(?!\s*$).+/,
+      inputErrorMessage: '不能为空',
+    })
+
+    const entityJunction = viewerStore.viewer.entities.getById('junction#' + value)
+    const entityConduit = viewerStore.viewer.entities.getById('conduit#' + value)
+    let entity = null
+    let cartesian = null
+    if (!entityJunction && !entityConduit) {
+      ElMessage.error('未找到实体名为 ' + value)
+      return
+    }
+    if (entityJunction) {
+      ElMessage.success('找到节点实体')
+      entity = entityJunction
+      cartesian = entity.position.getValue()
+    } else if (entityConduit) {
+      ElMessage.success('找到渠道实体')
+      entity = entityConduit
+      // 获取第一个点的坐标，渠道就以第一个点为准
+      cartesian = entity.polyline.positions.getValue()[0]
+    }
+
+    // 1. 如果找到实体，设置为选中状态(弹窗+高亮)
+    viewerStore.clickedEntityDict = fillClickedEntityDict(entity)
+    // 2. 飞行到实体位置
+    // 将笛卡尔坐标转为地理坐标（经纬度+高度）
+    const cartographic = Cesium.Cartographic.fromCartesian(cartesian)
+    const longitude = Cesium.Math.toDegrees(cartographic.longitude)
+    const latitude = Cesium.Math.toDegrees(cartographic.latitude)
+    // 自定义飞行高度，例如 20000 米
+    const customHeight = 20000
+    // 将新的经纬度+高度转换回笛卡尔坐标
+    const destination = Cesium.Cartesian3.fromDegrees(longitude, latitude, customHeight)
+    viewerStore.viewer.camera.flyTo({
+      destination: destination,
+      duration: 2,
+    })
+  } catch (error) {
+    // 如果发生错误或用户取消了输入
+    if (error === 'cancel') {
+      ElMessage.info('已取消查找')
+    } else {
+      ElMessage.error('查找发生错误:', error)
+      console.error('发生错误:', error)
+    }
+  }
+}
+
+// 3. 拖拽事件
 // 记录拖拽处理器
 let dragHandler = null
 // 记录可以拖拽
 const draggable = ref(false)
 
-// 2.1 开始拖拽
+// 3.1 开始拖拽
 const startDrag = () => {
   if (draggable.value) {
     return
@@ -75,7 +135,7 @@ const startDrag = () => {
   dragHandler = startDragHandlers(viewerStore.viewer)
 }
 
-// 2.2 停止拖拽
+// 3.2 停止拖拽
 const stopDrag = () => {
   draggable.value = false
   restoreDrag() // 还原未保存的拖拽
@@ -89,13 +149,13 @@ const stopDrag = () => {
   ElMessage.warning('已停止拖拽功能')
 }
 
-// 2.3 还原未保存拖拽
+// 3.3 还原未保存拖拽
 const restoreDrag = () => {
   initEntities(viewerStore.viewer)
 }
 
-// 1. 新增事件
-// 1.1 创建节点
+// 2. 新增事件
+// 2.1 创建节点
 const createJunctionHandler = ref(null)
 const createJunction = () => {
   // 如果已经有 handler，说明已经在创建节点了
@@ -141,7 +201,7 @@ const createJunction = () => {
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 }
 
-// 1.3 创建出口
+// 2.3 创建出口
 const createOutfallHandler = ref(null)
 const createOutfall = () => {
   // 如果已经有 handler，说明已经在创建出口了
@@ -187,7 +247,7 @@ const createOutfall = () => {
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 }
 
-// 1.2. 选择两个节点（仅获取 ID）
+// 2.2. 选择两个节点（仅获取 ID）
 const createConduitHandler = ref(null)
 let selectedNodes = []
 
@@ -244,6 +304,6 @@ const selectTwoJunctions = () => {
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 }
 
-// 3. 计算事件
+// 4. 计算事件
 const showCalculateDialog = ref(false)
 </script>

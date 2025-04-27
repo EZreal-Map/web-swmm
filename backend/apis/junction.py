@@ -23,8 +23,8 @@ junctionsRouter = APIRouter()
 @junctionsRouter.get(
     "/junctions",
     response_model=list[JunctionModel],
-    summary="获取所有节点的坐标",
-    description="获取所有节点的坐标",
+    summary="获取所有节点的所有信息",
+    description="获取所有节点的基本信息，包括类型、名称、地理坐标（经纬度）、高程、最大水深、初始水深、超载水深、积水面积、是否有入流及入流时间序列名称。",
 )
 async def get_junctions():
     try:
@@ -81,8 +81,8 @@ async def get_junctions():
 # TODO:更新节点，要增加考虑 has_inflow 的情况，更新 inflow 的时间序列名称 （已完成，下次提交删除）
 @junctionsRouter.put(
     "/junction/{junction_id:path}",
-    summary="更新指定节点的坐标",
-    description="通过指定节点id，更新节点的相关信息",
+    summary="通过节点名称，更新指定节点的所有信息",
+    description="通过节点名称，更新指定节点的所有信息，包括名称、经纬度、高程、最大水深、初始水深、超载水深、积水面积、是否有入流及入流时间序列名称。",
 )
 async def update_junction(junction_id: str, junction_update: JunctionModel):
     try:

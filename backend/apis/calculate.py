@@ -23,7 +23,14 @@ calculateRouter = APIRouter()
 @calculateRouter.get(
     "/calculate/options",
     summary="获取计算选项",
-    description="获取计算选项",
+    description="""
+获取模拟计算的参数配置，包括：
+- `flow_units`：流量单位（默认 `"CMS"`，可选：CFS、GPM、MGD、CMS、LPS、MLD）
+- `start_datetime`：模拟开始时间（格式：YYYY-MM-DDTHH:MM:SS）
+- `end_datetime`：模拟结束时间
+- `report_step`：输出时间步长（格式：HH:MM:SS，默认 00:15:00）
+- `flow_routing`：流量计算方法（默认 `"KINWAVE"`，可选：STEADY、KINWAVE、DYNWAVE）
+""",
 )
 async def get_calculate_options():
     try:
@@ -104,7 +111,7 @@ async def update_calculate_options(calculate_model: CalculateModel):
 @calculateRouter.get(
     "/calculate/result/kind",
     summary="判断查询实体名称是否属于节点或链接",
-    description="传入一个查询实体名称，判断是node/link 还是都不属于，都不属于则返回错误",
+    description="传入一个查询实体名称，判断是 node / link 还是都不属于，都不属于则返回错误，大概率是没找到这个查询实体名称",
 )
 async def query_entity_kind_select(name: str):
     try:
@@ -150,7 +157,34 @@ async def query_entity_kind_select(name: str):
 @calculateRouter.get(
     "/calculate/result",
     summary="计算结果查询",
-    description="计算结果查询，通过传入 kind name variable",
+    description="""
+查询指定对象的模拟计算结果。
+
+参数说明：
+- `kind`：对象类型，支持的值有：
+  - `"node"`：节点
+  - `"link"`：链路
+
+- `name`：对象名称，例如节点名或管道名。
+
+- `variable`：查询变量名称，依据 `kind` 类型的不同，`variable` 变量的选项有所不同（传入的是英文）：
+  - 对于 `kind="node"`（节点），可选值包括：
+    - `"depth"`：深度
+    - `"head"`：水头
+    - `"volume"`：容积
+    - `"lateral_inflow"`：侧边进流量
+    - `"total_inflow"`：总进流量
+    - `"flooding"`：积水
+  - 对于 `kind="link"`（链路），可选值包括：
+    - `"flow"`：流量
+    - `"depth"`：深度
+    - `"velocity"`：流速
+    - `"volume"`：容积
+    - `"capacity"`：能力
+
+通过传入上述参数，返回对应对象在整个模拟时间范围内的时序计算结果。
+实例：kind=node name=J1 variable=depth
+""",
 )
 async def query_calculate_result(kind: str, name: str, variable: str):
     try:
@@ -167,11 +201,14 @@ async def query_calculate_result(kind: str, name: str, variable: str):
         # 2.将数据转换为list [[], []]，方便前端 echarts 使用，并且值保留两位小数
         data = data.round(2)
         data_list = [[index, value] for index, value in data.items()]
+        print(kind, name, variable)
         return Result.success(
             message="结果查询成功",
             data=data_list,
         )
     except Exception as e:
+        print(kind, name, variable)
+        print(e)
         # 捕获异常并返回错误信息
         raise HTTPException(
             status_code=e.status_code if hasattr(e, "status_code") else 500,

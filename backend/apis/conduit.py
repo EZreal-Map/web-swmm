@@ -17,8 +17,8 @@ conduitRouter = APIRouter()
 
 @conduitRouter.get(
     "/conduits",
-    summary="获取所有渠道信息",
-    description="获取所有渠道信息",
+    summary="获取所有渠道（管道）的所有信息",
+    description="获取所有渠道渠道（管道）的所有信息，包括：名称、连接节点、长度、糙率、断面形状、高度、底宽、边坡、以及（如有）引用的非规则断面定义",
 )
 async def get_conduits():
     try:
@@ -48,6 +48,54 @@ async def get_conduits():
         raise HTTPException(
             status_code=e.status_code if hasattr(e, "status_code") else 500,
             detail=f"{str(e.detail) if hasattr(e, 'detail') else '获取失败，文件有误，发生未知错误'}",
+        )
+
+
+# 通过conduit_id 获取该渠道的信息
+@conduitRouter.get(
+    "/conduit/{conduit_id:path}",
+    response_model=ConduitResponseModel,
+    summary="获取指定渠道的信息",
+    description="通过指定渠道ID，获取该渠道的详细信息",
+)
+async def get_conduit(conduit_id: str):
+    """
+    获取指定渠道的信息
+    """
+    try:
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+        inp_conduits = INP.check_for_section(Conduit)
+        inp_xsections = INP.check_for_section(CrossSection)
+
+        # 检查渠道是否存在
+        if conduit_id not in inp_conduits:
+            raise HTTPException(
+                status_code=404,
+                detail=f"获取失败，渠道 [ {conduit_id} ] 不存在，请检查渠道名称是否正确",
+            )
+
+        conduit = inp_conduits[conduit_id]
+        xsection = inp_xsections.get(conduit_id)
+
+        # 构造响应模型
+        conduit_model = ConduitResponseModel(
+            name=conduit.name,
+            from_node=conduit.from_node,
+            to_node=conduit.to_node,
+            length=conduit.length,
+            roughness=conduit.roughness,
+            transect=xsection.transect if xsection else None,
+            shape=xsection.shape if xsection else None,
+            height=xsection.height if xsection else None,
+            parameter_2=xsection.parameter_2 if xsection else None,
+            parameter_3=xsection.parameter_3 if xsection else None,
+            parameter_4=xsection.parameter_4 if xsection else None,
+        )
+        return conduit_model
+    except Exception as e:
+        raise HTTPException(
+            status_code=e.status_code if hasattr(e, "status_code") else 500,
+            detail=f"{str(e.detail) if hasattr(e, 'detail') else '获取失败，发生未知错误'}",
         )
 
 

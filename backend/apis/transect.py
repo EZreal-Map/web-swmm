@@ -16,8 +16,8 @@ transectsRouter = APIRouter()
 # 获取所有不规则断面信息的name集合
 @transectsRouter.get(
     "/transects/name",
-    summary="获取所有不规则断面的名称",
-    description="获取所有不规则断面的名称",
+    summary="获取所有不规则断面的名称列表",
+    description="获取所有不规则断面的名称列表（不包含数据）",
 )
 async def get_transect_names():
     try:
@@ -36,8 +36,22 @@ async def get_transect_names():
 # 通过断面名称获取不规则断面信息
 @transectsRouter.get(
     "/transect/{transect_id:path}",
-    summary="获取指定断面信息",
-    description="通过指定断面ID，获取断面的相关信息",
+    summary="获取指定不规则断面信息",
+    description="""
+通过指定规则断面名称，获取该不规则断面的所有相关信息，包括：
+
+- `name`：断面名称
+- `roughness_left`：左岸糙率（float，默认 0.1）
+- `roughness_right`：右岸糙率（float，默认 0.1）
+- `roughness_channel`：主槽糙率（float，默认 0.1）
+- `bank_station_left`：左岸编号（float，默认 0）
+- `bank_station_right`：右岸编号（float，默认 0）
+- `station_elevations`：断面坐标高程点列表，每个元素为 `[Y, X]` 坐标点（单位为米），用于绘制断面图，自动按 X 升序排序
+
+注意：
+- `station_elevations` 中的坐标点必须为二维数组，点的坐标值必须为非负数，格式为 `[[y1, x1], [y2, x2], ...]`
+- 所有糙率和编号必须为非负数值，否则将返回格式化的错误提示
+""",
 )
 async def get_transect(transect_id: str):
     try:

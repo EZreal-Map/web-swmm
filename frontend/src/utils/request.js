@@ -1,8 +1,8 @@
 import axios from 'axios'
 
-// const baseURL = 'http://127.0.0.1:8080' // 本地开发
+const baseURL = 'http://127.0.0.1:8080' // 本地开发
 // const baseURL = 'http://172.25.146.121:8080' // 远程临时展示
-const baseURL = '/api' // 反向代理（部署时使用）
+// const baseURL = '/api' // 反向代理（部署时使用）
 
 const instance = axios.create({
   baseURL,

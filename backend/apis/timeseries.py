@@ -4,7 +4,7 @@ from swmm_api.input_file.sections.others import TimeseriesData
 from swmm_api.input_file.sections.node_component import Inflow
 from schemas.timeseries import TimeSeriesModel
 from schemas.result import Result
-from datetime import timezone, timedelta
+from datetime import timezone, timedelta, datetime
 
 from utils.swmm_constant import (
     SWMM_FILE_INP_PATH,
@@ -20,7 +20,7 @@ BEIJING_TZ = timezone(timedelta(hours=8))
 @timeseriesRouter.get(
     "/timeseries",
     summary="获取所有时间序列信息",
-    description="获取所有时间序列信息",
+    description="获取所有时间序列信息（废弃）",
     deprecated=True,
 )
 async def get_timeseries():
@@ -47,8 +47,8 @@ async def get_timeseries():
 # 获取所有时间序列信息的name集合
 @timeseriesRouter.get(
     "/timeseries/name",
-    summary="获取所有时间序列的名称",
-    description="获取所有时间序列的名称",
+    summary="获取所有时间序列的名称列表（不包含数据）",
+    description="获取所有时间序列的名称列表集合（不包含数据）",
 )
 async def get_timeseries_names():
     try:
@@ -64,11 +64,27 @@ async def get_timeseries_names():
         )
 
 
+def parse_datetime_safe(t):
+    """
+    安全解析时间字符串为 datetime 对象
+    支持格式：MM/DD/YYYY HH:MM:SS
+    """
+    if isinstance(t, datetime):
+        return t
+    if isinstance(t, str):
+        try:
+            return datetime.strptime(t.strip(), "%m/%d/%Y %H:%M:%S")
+        except ValueError:
+            print(f"无法解析时间字符串: {t}")
+            return None
+    return None
+
+
 # 通过时间序列名称获取时间序列信息
 @timeseriesRouter.get(
     "/timeseries/{timeseries_id:path}",
     summary="获取指定时间序列信息",
-    description="通过指定时间序列ID，获取时间序列的相关信息",
+    description="通过指定时间序列名字，获取该时间序列的相关的所有信息",
 )
 async def get_timeseries_by_id(timeseries_id: str):
     try:
@@ -83,6 +99,7 @@ async def get_timeseries_by_id(timeseries_id: str):
         # 处理为东八区时间
         data_in_beijing = []
         for t, v in timeseries.data:
+            t = parse_datetime_safe(t)
             # 如果时间没有 tzinfo，默认认为是 UTC，再转东八区
             if t.tzinfo is None:
                 t = t.replace(tzinfo=timezone.utc)

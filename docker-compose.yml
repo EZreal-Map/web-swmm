@@ -7,8 +7,8 @@ services:
     ports:
       - 9030:80  # 将容器的80端口映射到宿主机的80端口
     volumes:
-      - D:/Users/tangk/Desktop/web-swmm/docker-volumes/nginx/html:/usr/share/nginx/html  # 映射静态文件目录
-      - D:/Users/tangk/Desktop/web-swmm/docker-volumes/nginx/nginx.conf:/etc/nginx/nginx.conf  # 映射 nginx 配置文件
+      - ./docker-volumes/nginx/html:/usr/share/nginx/html  # 映射静态文件目录
+      - ./docker-volumes/nginx/nginx.conf:/etc/nginx/nginx.conf  # 映射 nginx 配置文件
       # - /home/web-swmm/docker-volumes/nginx/html:/usr/share/nginx/html
       # - /home/web-swmm/docker-volumes/nginx/nginx.conf:/etc/nginx/nginx.conf
     networks:
@@ -20,7 +20,7 @@ services:
     ports:
       - 9033:8080  # 将容器的8080端口映射到宿主机的9013端口
     volumes:
-        - D:/Users/tangk/Desktop/web-swmm/docker-volumes/swmm:/app/backend/swmm  # 映射 后端 swmm 目录
+        - ./docker-volumes/swmm:/app/backend/swmm  # 映射 后端 swmm 目录
         # - /home/web-swmm/docker-volumes/swmm:/app/backend/swmm
     networks:
       - web-swmm_network  # 连接到自定义网络

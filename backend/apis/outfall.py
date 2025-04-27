@@ -22,8 +22,15 @@ outfallRouter = APIRouter()
 @outfallRouter.get(
     "/outfalls",
     response_model=list[OutfallModel],
-    summary="获取所有出口的坐标",
-    description="获取所有出口的坐标",
+    summary="获取所有出口的所有信息",
+    description="""
+    获取所有出口节点的基本信息，包括：
+    - 出口名称（name）
+    - 地理坐标（经纬度 lon/lat）
+    - 高程（elevation）
+    - 出流类型（kind: FREE、NORMAL 或 FIXED）
+    - 固定水位值（仅当 kind 为 FIXED 时返回 data 值，其余为 None）
+    """,
 )
 async def get_outfalls():
     try:

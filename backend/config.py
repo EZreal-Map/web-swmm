@@ -12,6 +12,6 @@ class Config:
     # STATIC_DIR: str = os.path.join(os.getcwd(), "static")
     # 跨域请求
     CORS_ORIGINS: List[str] = ["*"]
-    CORS_ALLOW_CREDENTIALS: bool = True
+    CORS_ALLOW_CREDENTIALS: bool = False
     CORS_ALLOW_METHODS: List[str] = ["*"]
     CORS_ALLOW_HEADERS: List[str] = ["*"]

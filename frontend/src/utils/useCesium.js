@@ -29,7 +29,7 @@ export const initCesium = async (containerId) => {
 
   // 开始时设置相机位置
   viewer.camera.setView({
-    destination: Cesium.Cartesian3.fromDegrees(103.77346807693011, 29.5048309132203, 100000),
+    destination: Cesium.Cartesian3.fromDegrees(103.77346807693011, 29.5048309132203, 200000),
     orientation: {
       heading: Cesium.Math.toRadians(0),
       pitch: Cesium.Math.toRadians(-90),

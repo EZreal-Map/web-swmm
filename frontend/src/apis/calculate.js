@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import { formatDateToISO } from '@/utils/convert'
 
 // 获取计算选项
 export const getCalculateOptionsAxios = () => request.get('/swmm/calculate/options')
@@ -11,6 +12,9 @@ export const updateCalculateOptionsAxios = (data) => {
     ...data,
     report_step: data.report_step.toTimeString().split(' ')[0], // 格式化时间
   }
+  // 把payload里面的start_datetime和end_datetime格式化时区
+  payload.start_datetime = formatDateToISO(payload.start_datetime)
+  payload.end_datetime = formatDateToISO(payload.end_datetime)
   return request.put('/swmm/calculate/options', payload)
 }
 

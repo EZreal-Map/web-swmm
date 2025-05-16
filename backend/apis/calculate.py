@@ -46,9 +46,6 @@ async def get_calculate_options():
         # 拼接为 datetime
         start_datetime = datetime.combine(start_date, start_time)
         end_datetime = datetime.combine(end_date, end_time)
-        # 设置为东八区时间（UTC+8）
-        start_datetime = start_datetime.replace(tzinfo=timezone(timedelta(hours=8)))
-        end_datetime = end_datetime.replace(tzinfo=timezone(timedelta(hours=8)))
 
         calculate_model = CalculateModel(
             flow_units=flow_units,
@@ -196,9 +193,7 @@ async def query_calculate_result(kind: str, name: str, variable: str):
                 data=[],
             )
         # 格式化 data 输出
-        # 1.index 是 naive datetime（无时区信息），先设为 UTC 再转为东八区
-        data.index = data.index.tz_localize("UTC").tz_convert("Asia/Shanghai")
-        # 2.将数据转换为list [[], []]，方便前端 echarts 使用，并且值保留两位小数
+        # 1.将数据转换为list [[], []]，方便前端 echarts 使用，并且值保留两位小数
         data = data.round(2)
         data_list = [[index, value] for index, value in data.items()]
         print(kind, name, variable)

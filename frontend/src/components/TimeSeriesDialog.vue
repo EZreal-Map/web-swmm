@@ -343,7 +343,7 @@ const saveTimeseries = () => {
     })
     .catch((error) => {
       console.error('Error saving timeseries:', error)
-      timeseriesDatas.value.data.push([]) // 新增一行空数据
+      ElMessage.error('保存失败，请刷新重试')
     })
 }
 

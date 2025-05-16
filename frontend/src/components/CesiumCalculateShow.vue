@@ -138,8 +138,54 @@ onMounted(async () => {
       },
     })
 
+    // 提示框
+    const midPoint = Cesium.Cartesian3.midpoint(fromNode, toNode, new Cesium.Cartesian3())
+    const labelEntity = viewer.entities.add({
+      position: midPoint,
+      label: {
+        show: false, // 初始不显示
+        text: new Cesium.CallbackProperty(() => {
+          const flow = e.flow[currentIndex.value] ?? 0
+          const depth = e.depth[currentIndex.value] ?? 0
+          const velocity = e.velocity[currentIndex.value] ?? 0
+          return `             ${e.name}\n流量：${flow.toFixed(1)} m³/s \n水深：${depth.toFixed(2)}m\n流速：${velocity.toFixed(2)}m/s`
+        }, false),
+        font: 'bold 12px sans-serif',
+        fillColor: Cesium.Color.SKYBLUE,
+        outlineColor: Cesium.Color.BLACK,
+        outlineWidth: 3,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        pixelOffset: new Cesium.Cartesian2(10, 0),
+        showBackground: true,
+        backgroundColor: new Cesium.Color(0, 0, 0, 0.5),
+        backgroundPadding: new Cesium.Cartesian2(8, 6),
+        horizontalOrigin: Cesium.HorizontalOrigin.LEFT, // 设置为左对齐
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        scale: 1.2,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+      },
+    })
+
+    // 将 labelEntity 附加到 conduit 实体上（假设 entity 是管线实体）
+    entity.labelEntity = labelEntity
+    entity.isLabelVisible = false
+
     conduitEntities.push(entity)
   })
+
+  // label 点击事件，显示/隐藏 label
+  const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
+
+  handler.setInputAction((movement) => {
+    const pickedObject = viewer.scene.pick(movement.position)
+    if (Cesium.defined(pickedObject) && pickedObject.id) {
+      const pickedEntity = pickedObject.id
+      if (pickedEntity.labelEntity) {
+        pickedEntity.isLabelVisible = !pickedEntity.isLabelVisible
+        pickedEntity.labelEntity.label.show = pickedEntity.isLabelVisible
+      }
+    }
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 
   // function getColorByFlow(flow) {
   //   if (flow < 10) {

@@ -1,4 +1,5 @@
 import resquest from '@/utils/request'
+import { formatDateToISO } from '@/utils/convert'
 
 // 获取所有时间序列
 // export const getAllTimeSeriesAxios = () => resquest.get('/swmm/timeseries')
@@ -11,6 +12,8 @@ export const updateTimeseriesByIdAxios = (id, data) => {
   data.data = data.data
     .filter(([x, y]) => x && y) // 排除 undefined / '' / null 的数据
     .sort((a, b) => a[0] - b[0]) // 按照 X 坐标升序排序
+    .map(([x, y]) => [formatDateToISO(x), y])
+
   return resquest.put(`/swmm/timeseries/${id}`, data)
 }
 // 增加一个时间序列

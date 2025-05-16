@@ -29,3 +29,17 @@ export const getStringAfterFirstDash = (str) => {
   }
   return str // 如果没有找到短横线，则返回原字符串
 }
+
+// 格式化时间函数，SWMM没有时区的概念：去掉中国标准时间，保留精确时间
+export const formatDateToISO = (date) => {
+  console.log('formatDateToISO', date)
+  console.log('formatDateToISO', typeof date)
+  const pad = (n) => String(n).padStart(2, '0')
+  const y = date.getFullYear()
+  const m = pad(date.getMonth() + 1)
+  const d = pad(date.getDate())
+  const h = pad(date.getHours())
+  const min = pad(date.getMinutes())
+  const s = pad(date.getSeconds())
+  return `${y}-${m}-${d} ${h}:${min}:${s}`
+}

@@ -165,8 +165,6 @@ const FlowRoutingSelect = [
 
 const startCalculateFunction = () => {
   // 这里可以添加开始计算的逻辑
-  // TODO：完成计算逻辑
-  console.log('开始计算', calculateOpertions.value)
   calculateAxios().then((res) => {
     if (res.code == 200) {
       ElMessage.success(res.message)
@@ -181,8 +179,9 @@ const initCalculateOpertions = () => {
     // 使用 1970-01-01 作为默认日期，并拼接时间（因为前端el-time-picker需要时间格式，日期在这里无所谓）
     // 并且一定要加上时区，否则会出现时间错位的问题
     res.data.report_step = new Date(`1970-01-01T${res.data.report_step}+08:00`)
-    console.log('计算选项', res.data)
-    calculateOpertions.value = res.data
+    // 这里需要将时间格式转换为 Date 对象
+    res.data.start_datetime = new Date(res.data.start_datetime)
+    res.data.end_datetime = new Date(res.data.end_datetime)
   })
 }
 initCalculateOpertions()
@@ -191,7 +190,6 @@ const updateCalculateOptions = () => {
   // 检查所有的计算选项是否存在空值，如果存在，就提示并终止请求
   for (const key in calculateOpertions.value) {
     const val = calculateOpertions.value[key]
-
     if (!val) {
       ElMessage.warning('计算选项不能为空')
       return // 中断请求

@@ -14,8 +14,6 @@ from utils.swmm_constant import (
 
 timeseriesRouter = APIRouter()
 
-BEIJING_TZ = timezone(timedelta(hours=8))
-
 
 @timeseriesRouter.get(
     "/timeseries",
@@ -64,22 +62,6 @@ async def get_timeseries_names():
         )
 
 
-def parse_datetime_safe(t):
-    """
-    安全解析时间字符串为 datetime 对象
-    支持格式：MM/DD/YYYY HH:MM:SS
-    """
-    if isinstance(t, datetime):
-        return t
-    if isinstance(t, str):
-        try:
-            return datetime.strptime(t.strip(), "%m/%d/%Y %H:%M:%S")
-        except ValueError:
-            print(f"无法解析时间字符串: {t}")
-            return None
-    return None
-
-
 # 通过时间序列名称获取时间序列信息
 @timeseriesRouter.get(
     "/timeseries/{timeseries_id:path}",
@@ -96,19 +78,10 @@ async def get_timeseries_by_id(timeseries_id: str):
             raise HTTPException(
                 status_code=404, detail=f"时间序列 [ {timeseries_id} ] 不存在"
             )
-        # 处理为东八区时间
-        data_in_beijing = []
-        for t, v in timeseries.data:
-            t = parse_datetime_safe(t)
-            # 如果时间没有 tzinfo，默认认为是 UTC，再转东八区
-            if t.tzinfo is None:
-                t = t.replace(tzinfo=timezone.utc)
-            t = t.astimezone(BEIJING_TZ)
-            data_in_beijing.append((t, v))
 
         time_series_model = TimeSeriesModel(
             name=timeseries.name,
-            data=data_in_beijing,
+            data=timeseries.data,
         )
         return Result.success(message="成功获取时间序列信息", data=time_series_model)
     except Exception as e:
@@ -191,7 +164,6 @@ async def create_timeseries(timeseries_data: TimeSeriesModel):
     try:
         INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_timeseries = INP.check_for_section(TimeseriesData)
-        inp_inflows = INP.check_for_section(Inflow)
 
         # 检查时间序列名称是否已存在
         if timeseries_data.name in inp_timeseries:

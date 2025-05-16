@@ -13,9 +13,7 @@ class TimeSeriesModel(BaseModel):
     def set_default_data(cls, values):
         data = values.get("data")
         if not data:  # 如果data为空，包括None、""、[]等
-            # 获取当前东八区时间并设置默认值
-            tz = pytz.timezone("Asia/Shanghai")  # 设置时区为东八区
-            default_time = datetime.now(tz)
+            default_time = datetime.now()
             values["data"] = [(default_time, 10.0)]  # 设置默认数据
         return values
 

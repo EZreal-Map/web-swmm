@@ -182,6 +182,8 @@ const initCalculateOpertions = () => {
     // 这里需要将时间格式转换为 Date 对象
     res.data.start_datetime = new Date(res.data.start_datetime)
     res.data.end_datetime = new Date(res.data.end_datetime)
+    // 赋值给计算选项（前端）
+    calculateOpertions.value = res.data
   })
 }
 initCalculateOpertions()

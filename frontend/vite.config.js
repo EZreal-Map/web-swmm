@@ -13,6 +13,9 @@ import cesium from 'vite-plugin-cesium'
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    port: 5000, // 可自定义端口
+  },
   plugins: [
     vue(),
     cesium(),

@@ -10,9 +10,11 @@ from apis.outfall import outfallRouter
 from apis.transect import transectsRouter
 from apis.timeseries import timeseriesRouter
 from apis.calculate import calculateRouter
+from apis.subcatchment import subcatchment
+
 from apis.show import showRouter
 
-from apis.mj import mjRouter  # 岷江项目,与此项目无关
+from apis.mj import mjRouter  # 岷江项目，适配特定的项目需求，不具有通用性
 
 application = FastAPI(
     debug=Config.APP_DEBUG,
@@ -37,9 +39,13 @@ application.include_router(outfallRouter, prefix="/swmm", tags=["出口"])
 application.include_router(transectsRouter, prefix="/swmm", tags=["不规则断面"])
 application.include_router(timeseriesRouter, prefix="/swmm", tags=["时间序列"])
 application.include_router(calculateRouter, prefix="/swmm", tags=["计算"])
+application.include_router(subcatchment, prefix="/swmm", tags=["子汇水区域"])
+
 application.include_router(showRouter, prefix="/swmm", tags=["首页滚动展示数据"])
 
-application.include_router(mjRouter, prefix="/mj", tags=["岷江项目,与此项目无关"])
+application.include_router(
+    mjRouter, prefix="/mj", tags=["岷江项目， 适配特定的项目需求，不具有通用性"]
+)
 
 
 if __name__ == "__main__":

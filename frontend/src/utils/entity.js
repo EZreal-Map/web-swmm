@@ -1,13 +1,25 @@
 import * as Cesium from 'cesium'
+import {
+  POINTPREFIX,
+  POLYLINEPREFIX,
+  POLYGONPREFIX,
+  HEIGHT_GEOID_OFFSET,
+} from '@/utils/constant.js'
 
 // 默认实体颜色常量
 const JUNCTION_DEFAULT_COLOR = Cesium.Color.YELLOW
 const OUTFALL_DEFAULT_COLOR = Cesium.Color.BLUE
 const CONDUIT_DEFAULT_COLOR = Cesium.Color.BLUE.withAlpha(0.5)
+const SUBCATCHMENT_DEFAULT_COLOR = Cesium.Color.LIGHTSKYBLUE.withAlpha(0.5)
+
 // 选中高亮颜色常量
 const HIGHLIGHT_COLOR = Cesium.Color.RED
+const SUBCATCHMENT_HIGHLISHT_COLOR = Cesium.Color.RED.withAlpha(0.5)
 // 默认点大小常量
 const DEFAULT_POINT_SIZE = 8
+
+// 临时连接线 ID
+const TEMP_SUBCATCHMENT_CONNECTION_LINE_ID = 'temp_subcatchment_connection_line'
 
 // 创建统一节点实体
 export const createJunctionEntity = (
@@ -26,7 +38,7 @@ export const createJunctionEntity = (
 ) => {
   // 先创建对象
   const junctionObject = {
-    id: 'junction#' + name,
+    id: POINTPREFIX + name,
     name: name,
     position: Cesium.Cartesian3.fromDegrees(lon, lat, elevation),
     point: {
@@ -50,6 +62,7 @@ export const createJunctionEntity = (
   viewer.entities.add(junctionObject)
 }
 
+// 创建统一出水口实体
 export const createOutfallEntity = (
   viewer,
   name,
@@ -62,8 +75,9 @@ export const createOutfallEntity = (
 ) => {
   // 先创建对象
   const outfallObject = {
-    // outfall 也用 junction# 命名，这样方便后续通过 junction# 进行查找
-    id: 'junction#' + name,
+    // outfall 也用 POINT# 命名，这样方便后续通过 POINT# 进行查找
+    // 因为管道初始化的起始点和终点，不分出水口和节点
+    id: POINTPREFIX + name,
     name: name,
     position: Cesium.Cartesian3.fromDegrees(lon, lat, elevation),
     point: {
@@ -100,20 +114,20 @@ export const createConduitEntity = (
   parameter_4 = 0.5,
 ) => {
   // 创建渠道对象
-  const fromNode = viewer.entities.getById('junction#' + fromNodeId)
-  const toNode = viewer.entities.getById('junction#' + toNodeId)
+  const fromNode = viewer.entities.getById(POINTPREFIX + fromNodeId)
+  const toNode = viewer.entities.getById(POINTPREFIX + toNodeId)
 
   if (!fromNode || !toNode) {
     ElMessage.error(`无法找到连接渠道的节点: [${fromNodeId}] → [${toNodeId}]`)
     return null // 不继续往下执行 创建渠道对象
   }
   const conduitObject = {
-    id: 'conduit#' + name,
+    id: POLYLINEPREFIX + name,
     name: name,
     polyline: {
       positions: new Cesium.CallbackProperty(() => {
-        const fromNode = viewer.entities.getById('junction#' + fromNodeId)
-        const toNode = viewer.entities.getById('junction#' + toNodeId)
+        const fromNode = viewer.entities.getById(POINTPREFIX + fromNodeId)
+        const toNode = viewer.entities.getById(POINTPREFIX + toNodeId)
 
         if (!fromNode || !toNode) {
           console.error(`CallbackProperty:无法找到连接渠道的节点: ${fromNodeId} 或 ${toNodeId}`)
@@ -151,11 +165,81 @@ export const createConduitEntity = (
   return viewer.entities.add(conduitObject)
 }
 
+export const createSubcatchmentEntity = (
+  viewer,
+  name,
+  rainGage,
+  outlet,
+  area,
+  imperviousness,
+  width,
+  slope,
+  polygon, // polygon 是数组，例如 [[x1, y1], [x2, y2], ...]
+) => {
+  if (!polygon || polygon.length < 3) {
+    console.error(`子汇水区 ${name} 的 polygon 数据无效，无法创建实体`)
+    return null
+  }
+
+  const positions = polygon.map(([x, y]) => Cesium.Cartesian3.fromDegrees(x, y))
+
+  const subcatchmentObject = {
+    id: POLYGONPREFIX + name,
+    name: name,
+    polygon: {
+      hierarchy: new Cesium.PolygonHierarchy(positions),
+      material: Cesium.Color.LIGHTSKYBLUE.withAlpha(0.5), // 设置填充颜色
+      clampToGround: true,
+      // 贴地就不能设置outline
+      // height: 0,
+      // outline: true,
+      // outlineColor: Cesium.Color.SKYBLUE,
+    },
+    properties: {
+      type: 'subcatchment',
+      rainGage,
+      outlet,
+      area,
+      imperviousness,
+      width,
+      slope,
+      polygon, // 存储原始的多边形数据（经纬度数组）
+    },
+  }
+
+  return viewer.entities.add(subcatchmentObject)
+}
+
+// 控制系统自定义点击事件启动和停止的管理器
+export const createSystemCustomLeftClickHandler = (viewerStore) => {
+  let clickHandler = null
+  const viewer = viewerStore.viewer
+  return {
+    start: () => {
+      if (!clickHandler) {
+        clickHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas)
+        clickHandler.setInputAction((movement) => {
+          const worldPosition = viewer.scene.pickPosition(movement.position)
+          const pickedObject = viewer.scene.pick(movement.position)
+          viewerStore.clickedEntityDict = fillClickedEntityDict(pickedObject?.id, worldPosition)
+        }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+      }
+    },
+
+    stop: () => {
+      if (clickHandler) {
+        clickHandler.destroy()
+        clickHandler = null
+      }
+    },
+  }
+}
 // 更新填充 clickedEntity 数据，clickedEntity 为了存储和显示弹窗信息
 // pickedObject 是实体
 export const fillClickedEntityDict = (pickedObject, cartesianPosition = null) => {
   let clickedEntityDict = {}
-  if (Cesium.defined(pickedObject) && pickedObject) {
+  // pickedObject.properties?.type?.getValue() 代表是有 type 属性的实体
+  if (Cesium.defined(pickedObject) && pickedObject && pickedObject.properties?.type?.getValue()) {
     // 如果是点（Node）
     if (pickedObject.point) {
       const cartesianPosition = pickedObject.position.getValue()
@@ -213,6 +297,21 @@ export const fillClickedEntityDict = (pickedObject, cartesianPosition = null) =>
         parameter_4: pickedObject.properties.parameter_4.getValue(),
       }
     }
+    // 如果是子汇水区（Subcatchment）
+    else if (pickedObject.polygon) {
+      clickedEntityDict = {
+        id: pickedObject.id,
+        name: pickedObject.name,
+        type: pickedObject.properties.type.getValue(),
+        rainGage: pickedObject.properties.rainGage.getValue(),
+        outlet: pickedObject.properties.outlet.getValue(),
+        area: pickedObject.properties.area.getValue(),
+        imperviousness: pickedObject.properties.imperviousness.getValue(),
+        width: pickedObject.properties.width.getValue(),
+        slope: pickedObject.properties.slope.getValue(),
+        polygon: pickedObject.properties.polygon.getValue(), // 存储原始的多边形数据（经纬度数组）
+      }
+    }
   }
   // 如果没有点击到任何对象，且有传入的 cartesianPosition
   // 则根据 cartesianPosition 获取经纬度
@@ -250,9 +349,26 @@ export const highlightClickedEntityColor = (viewer, entityDict, reverse = false)
       if (entity.polyline) {
         entity.polyline.material = reverse
           ? new Cesium.ColorMaterialProperty(CONDUIT_DEFAULT_COLOR)
-          : new Cesium.ColorMaterialProperty(HIGHLIGHT_COLOR)
+          : new Cesium.ColorMaterialProperty(HIGHLIGHT_COLOR.withAlpha(0.7))
       }
       break
+
+    case 'subcatchment': {
+      // 子汇水区的高亮颜色处理
+      if (entity.polygon) {
+        entity.polygon.material = reverse
+          ? SUBCATCHMENT_DEFAULT_COLOR
+          : SUBCATCHMENT_HIGHLISHT_COLOR
+
+        // 子汇水区出口连接
+        // 如果有出口节点，找到出口节点，然后找到子汇水区与出口节点最近的连接
+        const outletId = entity.properties.outlet.getValue()
+        const outletEntity = viewer.entities.getById(POINTPREFIX + outletId)
+        addTempSubcatchmentConnectionLine(viewer, entity, outletEntity, reverse)
+      }
+
+      break
+    }
   }
 }
 
@@ -291,9 +407,73 @@ export const getElevationProfile = async (
     let height = parseFloat(updatedPositions[index].height.toFixed(2))
     // Cesium 默认用的是 WGS84 椭球高度，而平常使用的 DEM 数据则通常是以平均海平面为基准的正交高程
     // 在乐山这个地方，WGS84 椭球高度和正交高程的差值大概是 +44 米
-    height += 44
+    height += HEIGHT_GEOID_OFFSET
     return [height, parseFloat(distance.toFixed(2))] // 保留两位小数
   })
 
   return result
+}
+
+/**
+ * 计算多边形中心点（通过平均经纬度）
+ * @param {Cesium.Cartesian3[]} cartesianPositions - Polygon 顶点（笛卡尔坐标数组）
+ * @returns {Cesium.Cartesian3} - 中心点笛卡尔坐标
+ */
+export const getPolygonCenter = (cartesianPositions) => {
+  if (!cartesianPositions || cartesianPositions.length === 0) return null
+
+  // 1. 转为 Cartographic
+  const cartographicPositions = cartesianPositions.map((pos) =>
+    Cesium.Ellipsoid.WGS84.cartesianToCartographic(pos),
+  )
+
+  // 2. 计算平均经纬度
+  let lonSum = 0
+  let latSum = 0
+  for (const pos of cartographicPositions) {
+    lonSum += Cesium.Math.toDegrees(pos.longitude)
+    latSum += Cesium.Math.toDegrees(pos.latitude)
+  }
+  const lon = lonSum / cartographicPositions.length
+  const lat = latSum / cartographicPositions.length
+
+  // 3. 转回 Cartesian3，设置高程为 0
+  return Cesium.Cartesian3.fromDegrees(lon, lat, 0)
+}
+
+// 添加临时连接线
+export const addTempSubcatchmentConnectionLine = (
+  viewer,
+  subcatchmentEntity,
+  outletEntity,
+  reverse = false,
+) => {
+  if (outletEntity) {
+    //  1.先删除已有的连接线（如果存在）
+    const existingLine = viewer.entities.getById(TEMP_SUBCATCHMENT_CONNECTION_LINE_ID)
+    if (existingLine) {
+      viewer.entities.remove(existingLine)
+    }
+    // 2.如果是反选操作，直接返回，不添加连接线
+    if (reverse) {
+      return
+    }
+    // 3.如果是选中操作，添加连接线
+    // 获取子汇水区中心点
+    const hierarchy = subcatchmentEntity.polygon.hierarchy.getValue()
+    const centerCartesian = getPolygonCenter(hierarchy.positions)
+    // 获取出口节点位置
+    const outletCartesian = outletEntity.position.getValue(Cesium.JulianDate.now())
+    // 添加新的连接线
+    viewer.entities.add({
+      id: TEMP_SUBCATCHMENT_CONNECTION_LINE_ID,
+      name: '子汇水区-出口',
+      polyline: {
+        positions: [centerCartesian, outletCartesian],
+        width: 4,
+        material: Cesium.Color.YELLOW.withAlpha(0.5),
+        clampToGround: true,
+      },
+    })
+  }
 }

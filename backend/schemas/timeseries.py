@@ -1,6 +1,5 @@
 from pydantic import BaseModel, root_validator, field_validator
 from datetime import datetime
-import pytz
 from fastapi import HTTPException
 
 

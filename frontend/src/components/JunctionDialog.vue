@@ -2,7 +2,7 @@
   <div class="popup-container">
     <el-card class="popup-card">
       <div class="popup-header">
-        <span class="popup-title">信息详情</span>
+        <span class="popup-title">节点 信息详情</span>
         <el-icon @click="closeDialog"><CloseBold /></el-icon>
       </div>
 
@@ -10,7 +10,7 @@
         label-position="left"
         class="popup-form"
         label-width="70px"
-        style="max-width: 300px"
+        style="max-width: 268px"
         :size="'default'"
         v-model="junctionEntity"
       >
@@ -70,7 +70,7 @@
             <TimeSeriesDialog
               v-if="showTimeSeriesDialog"
               v-model:show-dialog="showTimeSeriesDialog"
-              :transectName="junctionEntity.timeseriesName"
+              :timeseriesName="junctionEntity.timeseriesName"
             ></TimeSeriesDialog>
           </el-form-item>
         </div>
@@ -92,6 +92,7 @@ import { useViewerStore } from '@/stores/viewer'
 import { initEntities } from '@/utils/useCesium'
 import TimeSeriesDialog from '@/components/TimeSeriesDialog.vue'
 import * as Cesium from 'cesium'
+import { POINTPREFIX } from '@/utils/constant'
 
 const viewerStore = useViewerStore()
 
@@ -109,7 +110,7 @@ const saveJunctionEntity = () => {
     convertKeysToKebabCase(junctionEntity.value),
   ).then((res) => {
     // 更新 id，解决不关闭弹窗时候，重复保存时，selectedEntity的id还是原来旧id的问题
-    const id = res.data.type + '#' + res.data.id
+    const id = POINTPREFIX + res.data.id
     junctionEntity.value.id = id
     // 更新 Cesium 中的实体数据
     initEntities(viewerStore.viewer)

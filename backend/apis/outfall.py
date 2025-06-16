@@ -21,7 +21,6 @@ outfallRouter = APIRouter()
 
 @outfallRouter.get(
     "/outfalls",
-    response_model=list[OutfallModel],
     summary="获取所有出口的所有信息",
     description="""
     获取所有出口节点的基本信息，包括：
@@ -52,7 +51,7 @@ async def get_outfalls():
             and (lon := lon_lat[0])
             and (lat := lon_lat[1])
         ]
-        return outfalls
+        return Result.success(data=outfalls, message="成功获取所有出口数据")
     except Exception as e:
         # 捕获异常并返回错误信息
         raise HTTPException(

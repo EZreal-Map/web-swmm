@@ -1,8 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from schemas.result import Result
+from pathlib import Path
+import json
 
-# 岷江项目,与此项目无关
+# 岷江项目，适配特定的项目需求，不具有通用性
 mjRouter = APIRouter()
 
 
@@ -52,3 +54,20 @@ async def short_term_calculate(short_term_input: ShortTermInput):
         },
         message="短期计算成功",
     )
+
+
+geojson_path = Path("./static/mj_basin_boundary.geojson")
+
+
+@mjRouter.get("/basin_boundary")
+async def basin_boundary():
+    # 打印当前工作目录
+    if not geojson_path.exists():
+        raise HTTPException(status_code=404, detail="GeoJSON 文件未找到")
+
+    try:
+        with open(geojson_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return Result.success(data=data)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"读取GeoJSON失败: {e}")

@@ -96,6 +96,7 @@ import * as echarts from 'echarts' // TODO: 这里是全部导入，功能完善
 import { ElMessage } from 'element-plus'
 import { useViewerStore } from '@/stores/viewer'
 import dayjs from 'dayjs'
+import { POINTPREFIX } from '@/utils/constant'
 
 const viewerStore = useViewerStore()
 const showDialog = defineModel('showDialog')
@@ -330,7 +331,7 @@ const saveTimeseries = () => {
         }
         // 更新 viewer 中 entity的 properties 的 timeseries
         res.data.related_inflows.forEach((item) => {
-          const id = 'junction#' + item
+          const id = POINTPREFIX + item
           const entity = viewerStore.viewer.entities.getById(id)
           if (entity) {
             entity.properties.timeseriesName.setValue(timeseriesDatas.value.name)

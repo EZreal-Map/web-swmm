@@ -2,7 +2,7 @@
   <div class="popup-container" v-show="!viewerStore.extractFlag">
     <el-card class="popup-card">
       <div class="popup-header">
-        <span class="popup-title">信息详情</span>
+        <span class="popup-title">渠道 信息详情</span>
         <el-icon @click="closeDialog"><CloseBold /></el-icon>
       </div>
 
@@ -10,10 +10,9 @@
         label-position="left"
         class="popup-form"
         label-width="70px"
-        style="max-width: 300px"
+        style="max-width: 268px"
         :size="'default'"
         v-model="conduitEntity"
-        :inline="true"
       >
         <el-form-item label="名字">
           <el-input v-model="conduitEntity.name" type="string"></el-input>
@@ -96,6 +95,7 @@ import { useViewerStore } from '@/stores/viewer'
 import { initEntities } from '@/utils/useCesium'
 import * as Cesium from 'cesium'
 import TransectDialog from '@/components/TransectDialog.vue'
+import { POINTPREFIX, POLYLINEPREFIX } from '@/utils/constant'
 
 const viewerStore = useViewerStore()
 
@@ -118,11 +118,10 @@ const closeDialog = () => {
 const saveConduitEntity = () => {
   updateConduitByIdAxios(conduitEntity.value.id, convertKeysToKebabCase(conduitEntity.value))
     .then((res) => {
-      console.log(res)
       ElMessage.success(res.message)
       // 更新 Cesium 中的实体数据
       initEntities(viewerStore.viewer)
-      const id = res.data.type + '#' + res.data.id
+      const id = POLYLINEPREFIX + res.data.id
       // 更新 id，解决不关闭弹窗时候，重复保存时，selectedEntity的id还是原来旧id的问题
       conduitEntity.value.id = id
     })
@@ -149,14 +148,14 @@ const deleteConduitEntity = () => {
 const calculateLength = () => {
   // 获取渠道的起点和终点坐标
   const fromNodePostion = viewerStore.viewer.entities
-    .getById('junction#' + conduitEntity.value.fromNode)
+    .getById(POINTPREFIX + conduitEntity.value.fromNode)
     ?.position.getValue()
   if (!fromNodePostion) {
     ElMessage.error(`计算失败，${conduitEntity.value.fromNode} 坐标获取失败`)
     return
   }
   const toNodePostion = viewerStore.viewer.entities
-    .getById('junction#' + conduitEntity.value.toNode)
+    .getById(POINTPREFIX + conduitEntity.value.toNode)
     ?.position.getValue()
   if (!toNodePostion) {
     ElMessage.error(`计算失败，${conduitEntity.value.toNode} 坐标获取失败`)

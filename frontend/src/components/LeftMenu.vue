@@ -1,5 +1,5 @@
 <template>
-  <h5 class="mb-2">工具</h5>
+  <h5>工具</h5>
   <el-menu background-color="#fefefe">
     <el-menu-item index="1" @click="queryEntityByName">
       <span>查找</span>
@@ -29,6 +29,12 @@
         :disabled="createJunctionHandler !== null || createConduitHandler !== null"
         >出口</el-menu-item
       >
+      <el-menu-item
+        index="2-4"
+        @click="startDrawingPolygon"
+        :disabled="createJunctionHandler !== null || createConduitHandler !== null"
+        >子汇水区</el-menu-item
+      >
     </el-sub-menu>
     <el-sub-menu index="3">
       <template #title>拖拽</template>
@@ -49,17 +55,28 @@
 
 <script setup>
 import { useViewerStore } from '@/stores/viewer'
-import { createJunctionEntity, createConduitEntity, createOutfallEntity } from '@/utils/entity'
+import {
+  createJunctionEntity,
+  createConduitEntity,
+  createOutfallEntity,
+  createSubcatchmentEntity,
+} from '@/utils/entity'
 import { createJunctionAxios } from '@/apis/junction'
 import { createConduitAxios } from '@/apis/conduit'
 import { createOutfallAxios } from '@/apis/outfall'
+import { createSubcatchmentAxios } from '@/apis/subcatchment'
 import * as Cesium from 'cesium'
 import { ref } from 'vue'
 import { getStringAfterFirstDash } from '@/utils/convert'
-import { startDragHandlers, stopDragHandlers, initEntities } from '@/utils/useCesium'
+import {
+  startDragHandlers,
+  stopDragHandlers,
+  initEntities,
+} from '@/utils/useCesium'
 import { ElMessage } from 'element-plus'
 import CalculateDialog from '@/components/CalculateDialog.vue'
 import { fillClickedEntityDict } from '@/utils/entity'
+import { POINTPREFIX, POLYLINEPREFIX } from '@/utils/constant'
 
 const viewerStore = useViewerStore()
 
@@ -73,9 +90,9 @@ const queryEntityByName = async () => {
       inputPattern: /^(?!\s*$).+/,
       inputErrorMessage: '不能为空',
     })
-
-    const entityJunction = viewerStore.viewer.entities.getById('junction#' + value)
-    const entityConduit = viewerStore.viewer.entities.getById('conduit#' + value)
+    // TODO: 添加寻找子汇水区
+    const entityJunction = viewerStore.viewer.entities.getById(POINTPREFIX + value)
+    const entityConduit = viewerStore.viewer.entities.getById(POLYLINEPREFIX + value)
     let entity = null
     let cartesian = null
     if (!entityJunction && !entityConduit) {
@@ -247,7 +264,7 @@ const createOutfall = () => {
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
 }
 
-// 2.2. 选择两个节点（仅获取 ID）
+// 2.2. 创建渠道 - 选择两个节点（仅获取 ID）
 const createConduitHandler = ref(null)
 let selectedNodes = []
 
@@ -302,6 +319,136 @@ const selectTwoJunctions = () => {
       selectedNodes = [] // 重置已选节点
     }
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+}
+
+// 2.4 创建子汇水区
+let drawing = false
+let positions = []
+let tempMousePos = null
+let handler = null
+let tempLine = null
+let polygonEntity = null
+
+const startDrawingPolygon = () => {
+  ElMessage.success('请在地图上依次点击子汇水区顶点，右键完成绘制')
+  drawing = true
+  positions = []
+  tempMousePos = null
+
+  const viewer = viewerStore.viewer
+  const scene = viewer.scene
+  const canvas = scene.canvas
+
+  handler = new Cesium.ScreenSpaceEventHandler(canvas)
+
+  // 添加 polygon 实体（始终存在，只是动态更新点）
+  polygonEntity = viewer.entities.add({
+    polygon: {
+      hierarchy: new Cesium.CallbackProperty(() => {
+        if (positions.length < 2 || !tempMousePos) return null
+        return new Cesium.PolygonHierarchy([...positions, tempMousePos])
+      }, false),
+      material: Cesium.Color.LIGHTSKYBLUE.withAlpha(0.4),
+    },
+  })
+
+  // 左键点击添加点
+  handler.setInputAction((click) => {
+    const cartesian = viewer.scene.pickPosition(click.position)
+    if (!cartesian) return
+    positions.push(cartesian)
+
+    // 添加红点标记
+    // viewer.entities.add({
+    //   position: cartesian,
+    //   point: {
+    //     pixelSize: 1,
+    //     color: Cesium.Color.RED,
+    //     heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+    //   },
+    // })
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
+
+  // 鼠标移动，更新临时线 & 多边形边缘
+  handler.setInputAction((movement) => {
+    if (!drawing || positions.length < 1) return
+
+    const currentPos = viewer.scene.pickPosition(movement.endPosition)
+    if (!currentPos) return
+    tempMousePos = currentPos
+
+    // 动态连线
+    if (!tempLine) {
+      tempLine = viewer.entities.add({
+        polyline: {
+          positions: new Cesium.CallbackProperty(() => {
+            return [...positions, tempMousePos]
+          }, false),
+          width: 2,
+          material: Cesium.Color.YELLOW,
+          clampToGround: true,
+        },
+      })
+    }
+  }, Cesium.ScreenSpaceEventType.MOUSE_MOVE)
+
+  // 右键点击完成
+  handler.setInputAction(() => {
+    if (positions.length < 3) {
+      ElMessage.warning('至少需要三个点来绘制多边形')
+      return
+    }
+
+    // 最终闭合 polygon（不再使用鼠标位置）
+    polygonEntity.polygon.hierarchy = new Cesium.PolygonHierarchy(positions)
+    // 转换为经纬度
+    const ellipsoid = Cesium.Ellipsoid.WGS84
+    const polygon = positions.map((pos) => {
+      const cartographic = ellipsoid.cartesianToCartographic(pos)
+      return [
+        Cesium.Math.toDegrees(cartographic.longitude),
+        Cesium.Math.toDegrees(cartographic.latitude),
+      ]
+    })
+    const subcatchment = '子汇水区_' + Date.now() // 用时间戳作为出口名称
+    createSubcatchmentAxios({ subcatchment, polygon }).then((res) => {
+      ElMessage.success(res.message)
+      const data = res.data
+      createSubcatchmentEntity(
+        viewer,
+        data.name,
+        data.rain_gage,
+        data.outlet,
+        data.area,
+        data.imperviousness,
+        data.width,
+        data.slope,
+        polygon,
+      )
+    })
+
+    clearDrawing()
+  }, Cesium.ScreenSpaceEventType.RIGHT_CLICK)
+}
+
+// 可复用清理函数
+const clearDrawing = () => {
+  drawing = false
+  tempMousePos = null
+
+  if (handler) {
+    handler.destroy()
+    handler = null
+  }
+
+  if (tempLine) {
+    viewerStore.viewer.entities.remove(tempLine)
+    tempLine = null
+  }
+  if (polygonEntity) {
+    viewerStore.viewer.entities.remove(polygonEntity)
+    polygonEntity = null
+  }
 }
 
 // 4. 计算事件

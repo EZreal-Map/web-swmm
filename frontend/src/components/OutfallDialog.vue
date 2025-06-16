@@ -10,7 +10,7 @@
         label-position="left"
         class="popup-form"
         label-width="70px"
-        style="max-width: 300px"
+        style="max-width: 268px"
         :size="'default'"
         v-model="outfallEntity"
       >
@@ -61,6 +61,7 @@ import { convertKeysToKebabCase } from '@/utils/convert'
 import { useViewerStore } from '@/stores/viewer'
 import { initEntities } from '@/utils/useCesium'
 import * as Cesium from 'cesium'
+import { POINTPREFIX } from '@/utils/constant'
 
 import { ref } from 'vue'
 
@@ -84,7 +85,7 @@ const saveOutfallEntity = () => {
   updateOutfallByIdAxios(outfallEntity.value.id, convertKeysToKebabCase(outfallEntity.value)).then(
     (res) => {
       // 更新 id，解决不关闭弹窗时候，重复保存时，selectedEntity的id还是原来旧id的问题
-      const id = res.data.type + '#' + res.data.id
+      const id = POINTPREFIX + res.data.id
       outfallEntity.value.id = id
       // 更新 Cesium 中的实体数据
       initEntities(viewerStore.viewer)

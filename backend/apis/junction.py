@@ -22,7 +22,6 @@ junctionsRouter = APIRouter()
 
 @junctionsRouter.get(
     "/junctions",
-    response_model=list[JunctionModel],
     summary="获取所有节点的所有信息",
     description="获取所有节点的基本信息，包括类型、名称、地理坐标（经纬度）、高程、最大水深、初始水深、超载水深、积水面积、是否有入流及入流时间序列名称。",
 )
@@ -67,10 +66,10 @@ async def get_junctions():
                 has_inflow=has_inflow,
                 timeseries_name=timeseries_name,
             )
-
             junctions.append(junction_model)
-        return junctions
+        return Result.success(data=junctions, message="成功获取所有节点数据")
     except Exception as e:
+        print(e)
         # 捕获异常并返回错误信息
         raise HTTPException(
             status_code=e.status_code if hasattr(e, "status_code") else 500,
@@ -86,7 +85,6 @@ async def get_junctions():
 )
 async def update_junction(junction_id: str, junction_update: JunctionModel):
     try:
-
         INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_junctions = INP.check_for_section(Junction)
         inp_coordinates = INP.check_for_section(Coordinate)

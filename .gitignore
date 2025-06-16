@@ -45,3 +45,6 @@ test/
 
 # 屏蔽 docker-volumes 文件
 docker-volumes/
+
+# 屏蔽 backend/static 文件夹
+backend/static/

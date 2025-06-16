@@ -172,6 +172,7 @@ import { getElevationProfile } from '@/utils/entity'
 import { useViewerStore } from '@/stores/viewer'
 import * as echarts from 'echarts' // TODO: 这里是全部导入，功能完善以后，修改为按需导入
 import { ElMessage } from 'element-plus'
+import { POLYLINEPREFIX } from '@/utils/constant'
 
 const viewerStore = useViewerStore()
 const showDialog = defineModel('showDialog')
@@ -395,7 +396,7 @@ const saveTransect = () => {
         }
         // 更新 viewer 中 entity的 properties 的 transect
         res.data.related_xsections.forEach((item) => {
-          const id = 'conduit#' + item
+          const id = POLYLINEPREFIX + item
           const entity = viewerStore.viewer.entities.getById(id)
           if (entity) {
             entity.properties.transect.setValue(transectDatas.value.name)

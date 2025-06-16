@@ -20,6 +20,13 @@
     v-model:show-dialog="showConduitDialog"
     v-model:conduit-entity="viewerStore.clickedEntityDict"
   />
+
+  <!-- 子汇流区弹窗 -->
+  <SubcatchmentDialog
+    v-if="showSubcatchmentDialog"
+    v-model:show-dialog="showSubcatchmentDialog"
+    v-model:subcatchment-entity="viewerStore.clickedEntityDict"
+  />
 </template>
 
 <script setup>
@@ -36,6 +43,7 @@ const viewerStore = useViewerStore()
 const showJunctionDialog = ref(false)
 const showOutfallDialog = ref(false)
 const showConduitDialog = ref(false)
+const showSubcatchmentDialog = ref(false)
 
 onMounted(async () => {
   initCesium('cesiumContainer')
@@ -53,21 +61,31 @@ onMounted(async () => {
             showJunctionDialog.value = true
             showOutfallDialog.value = false
             showConduitDialog.value = false
+            showSubcatchmentDialog.value = false
           }
           if (newEntityDict.type === 'outfall') {
             showJunctionDialog.value = false
             showOutfallDialog.value = true
             showConduitDialog.value = false
+            showSubcatchmentDialog.value = false
           }
           if (newEntityDict.type === 'conduit') {
             showJunctionDialog.value = false
             showOutfallDialog.value = false
             showConduitDialog.value = true
+            showSubcatchmentDialog.value = false
+          }
+          if (newEntityDict.type === 'subcatchment') {
+            showJunctionDialog.value = false
+            showOutfallDialog.value = false
+            showConduitDialog.value = false
+            showSubcatchmentDialog.value = true
           }
         } else {
           showJunctionDialog.value = false
           showOutfallDialog.value = false
           showConduitDialog.value = false
+          showSubcatchmentDialog.value = false
         }
       } else {
         // 提取模式下，点击不改变高亮，弹窗的信息

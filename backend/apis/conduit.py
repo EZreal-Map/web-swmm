@@ -42,7 +42,7 @@ async def get_conduits():
                 parameter_4=xsection.parameter_4,
             )
             conduits.append(conduit_model)
-        return conduits
+        return Result.success(data=conduits, message="成功获取所有渠道数据")
     except Exception as e:
         # 捕获异常并返回错误信息
         raise HTTPException(

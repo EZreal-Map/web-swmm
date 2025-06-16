@@ -4,7 +4,7 @@ from swmm_api.input_file.sections.others import TimeseriesData
 from swmm_api.input_file.sections.node_component import Inflow
 from schemas.timeseries import TimeSeriesModel
 from schemas.result import Result
-from datetime import timezone, timedelta, datetime
+from datetime import datetime
 
 from utils.swmm_constant import (
     SWMM_FILE_INP_PATH,
@@ -62,6 +62,25 @@ async def get_timeseries_names():
         )
 
 
+def parse_datetime_safe(t):
+    """
+    安全解析时间字符串为 datetime 对象
+    支持格式：MM/DD/YYYY HH:MM:SS
+    因为：window读取swmm文件得到的是 timeseries.data [(datetime.datetime(2025, 5, 14, 12, 0), 10.0)]
+    而linux读取swmm文件得到的是 timeseries.data [('04/07/2025 00:00:00', 1000.0)]
+    这里需要将字符串转换为 datetime 对象
+    """
+    if isinstance(t, datetime):
+        return t
+    if isinstance(t, str):
+        try:
+            return datetime.strptime(t.strip(), "%m/%d/%Y %H:%M:%S")
+        except ValueError:
+            print(f"无法解析时间字符串: {t}")
+            return None
+    return None
+
+
 # 通过时间序列名称获取时间序列信息
 @timeseriesRouter.get(
     "/timeseries/{timeseries_id:path}",
@@ -78,10 +97,15 @@ async def get_timeseries_by_id(timeseries_id: str):
             raise HTTPException(
                 status_code=404, detail=f"时间序列 [ {timeseries_id} ] 不存在"
             )
+        # 解析时间字符串为 datetime 对象，处理不同操作系统的时间格式
+        data = []
+        for t, v in timeseries.data:
+            t = parse_datetime_safe(t)
+            data.append((t, v))
 
         time_series_model = TimeSeriesModel(
             name=timeseries.name,
-            data=timeseries.data,
+            data=data,
         )
         return Result.success(message="成功获取时间序列信息", data=time_series_model)
     except Exception as e:

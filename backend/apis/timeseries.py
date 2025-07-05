@@ -89,7 +89,6 @@ def parse_datetime_safe(t):
 )
 async def get_timeseries_by_id(timeseries_id: str):
     try:
-        print("timeseries_id", timeseries_id)
         INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
         inp_timeseries = INP.check_for_section(TimeseriesData)
         timeseries = inp_timeseries.get(timeseries_id)

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 from fastapi import HTTPException
 
@@ -17,14 +17,55 @@ class SubCatchmentModel(BaseModel):
     width: float = Field(500.0, description="子汇水区的特征宽度（单位：英尺或米）")
     slope: float = Field(0.5, description="子汇水区坡度（百分比）")
 
-    @validator("area", "imperviousness", "width", "slope")
-    def validate_non_negative(cls, v):
-        if v < 0:
+    @field_validator("rain_gage", "outlet", mode="before")
+    def validate_non_empty(cls, v, info):
+        # field_name 的别名
+        if info.field_name == "rain_gage":
+            field_name_alias = "雨量计"
+        elif info.field_name == "outlet":
+            field_name_alias = "出水口"
+        else:
+            field_name_alias = info.field_name
+        # 检查是否为空
+        if v is None or str(v).strip() == "":
             raise HTTPException(
                 status_code=400,
-                detail="保存失败，参数存在负数",
+                detail=f"保存失败，字段 '{field_name_alias}' 不能为空",
             )
         return v
+
+    @field_validator("area", "imperviousness", "width", "slope", mode="before")
+    def validate_non_empty_and_non_negative(cls, v, info):
+        # field_name 的别名
+        if info.field_name == "area":
+            field_name_alias = "面积"
+        elif info.field_name == "imperviousness":
+            field_name_alias = "不透水率"
+        elif info.field_name == "width":
+            field_name_alias = "宽度"
+        elif info.field_name == "slope":
+            field_name_alias = "坡度"
+        else:
+            field_name_alias = info.field_name
+        # 检查数值类型和正数
+        if v is None or str(v).strip() == "":
+            raise HTTPException(
+                status_code=400,
+                detail=f"保存失败，字段 '{field_name_alias}' 不能为空",
+            )
+        try:
+            value = float(v)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"保存失败，字段 '{field_name_alias}' 必须为数字",
+            )
+        if value < 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"保存失败，字段 '{field_name_alias}' 不能为负数",
+            )
+        return value
 
 
 class SubAreaModel(BaseModel):
@@ -41,7 +82,7 @@ class SubAreaModel(BaseModel):
         100.0, description="从一种子区径流流向另一种子区的百分比 （演算百分比）"
     )
 
-    @validator("pct_zero", "pct_routed")
+    @field_validator("pct_zero", "pct_routed", mode="before")
     def validate_percentage(cls, v):
         if not (0 <= v <= 100):
             raise HTTPException(
@@ -50,14 +91,40 @@ class SubAreaModel(BaseModel):
             )
         return v
 
-    @validator("n_imperv", "n_perv", "storage_imperv", "storage_perv")
-    def validate_non_negative(cls, v):
-        if v < 0:
+    @field_validator(
+        "n_imperv", "n_perv", "storage_imperv", "storage_perv", mode="before"
+    )
+    def validate_non_empty_and_non_negative(cls, v, info):
+        # field_name 的别名
+        if info.field_name == "n_imperv":
+            field_name_alias = "不透水子区的曼宁粗糙系数"
+        elif info.field_name == "n_perv":
+            field_name_alias = "渗透子区的曼宁粗糙系数"
+        elif info.field_name == "storage_imperv":
+            field_name_alias = "不透水子区的凹陷储存量"
+        elif info.field_name == "storage_perv":
+            field_name_alias = "渗透子区的凹陷储存量"
+        else:
+            field_name_alias = info.field_name
+        # 检查数值类型和正数
+        if v is None or str(v).strip() == "":
             raise HTTPException(
                 status_code=400,
-                detail="保存失败，参数存在负数",
+                detail=f"保存失败，字段 '{field_name_alias}' 不能为空",
             )
-        return v
+        try:
+            value = float(v)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"保存失败，字段 '{field_name_alias}' 必须为数字",
+            )
+        if value < 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"保存失败，字段 '{field_name_alias}' 不能为负数",
+            )
+        return value
 
 
 class InfiltrationModel(BaseModel):
@@ -70,14 +137,42 @@ class InfiltrationModel(BaseModel):
     time_dry: float = Field(7.0, description="土壤完全饱和后干燥时间（天）")
     volume_max: float = Field(0.0, description="最大入渗体积（单位mm，若无则为0）")
 
-    @validator("rate_max", "rate_min", "decay", "time_dry", "volume_max")
-    def non_negative(cls, v):
-        if v < 0:
+    @field_validator(
+        "rate_max", "rate_min", "decay", "time_dry", "volume_max", mode="before"
+    )
+    def validate_non_empty_and_non_negative(cls, v, info):
+        # field_name 的别名
+        if info.field_name == "rate_max":
+            field_name_alias = "霍顿曲线最大入渗速率"
+        elif info.field_name == "rate_min":
+            field_name_alias = "霍顿曲线最小入渗速率"
+        elif info.field_name == "decay":
+            field_name_alias = "霍顿曲线衰减常数"
+        elif info.field_name == "time_dry":
+            field_name_alias = "土壤完全饱和后干燥时间"
+        elif info.field_name == "volume_max":
+            field_name_alias = "最大入渗体积"
+        else:
+            field_name_alias = info.field_name
+        # 检查数值类型和正数
+        if v is None or str(v).strip() == "":
             raise HTTPException(
                 status_code=400,
-                detail="保存失败，参数存在负数",
+                detail=f"保存失败，字段 '{field_name_alias}' 不能为空",
             )
-        return v
+        try:
+            value = float(v)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"保存失败，字段 '{field_name_alias}' 必须为数字",
+            )
+        if value < 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"保存失败，字段 '{field_name_alias}' 不能为负数",
+            )
+        return value
 
 
 class PolygonModel(BaseModel):

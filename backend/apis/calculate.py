@@ -14,6 +14,7 @@ from utils.swmm_constant import (
     SWMM_FILE_OUT_PATH,
     ENCODING,
 )
+from utils.utils import with_exception_handler
 
 
 calculateRouter = APIRouter()
@@ -32,38 +33,32 @@ calculateRouter = APIRouter()
 - `flow_routing`：流量计算方法（默认 `"KINWAVE"`，可选：STEADY、KINWAVE、DYNWAVE）
 """,
 )
+@with_exception_handler(default_message="获取失败，文件有误，发生未知错误")
 async def get_calculate_options():
-    try:
-        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-        inp_options = INP.check_for_section(OptionSection)
-        flow_units = inp_options.get("FLOW_UNITS")
-        report_step = inp_options.get("REPORT_STEP")
-        flow_routing = inp_options.get("FLOW_ROUTING")
-        start_date = inp_options.get("START_DATE")
-        start_time = inp_options.get("START_TIME")
-        end_date = inp_options.get("END_DATE")
-        end_time = inp_options.get("END_TIME")
-        # 拼接为 datetime
-        start_datetime = datetime.combine(start_date, start_time)
-        end_datetime = datetime.combine(end_date, end_time)
+    INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    inp_options = INP.check_for_section(OptionSection)
+    flow_units = inp_options.get("FLOW_UNITS")
+    report_step = inp_options.get("REPORT_STEP")
+    flow_routing = inp_options.get("FLOW_ROUTING")
+    start_date = inp_options.get("START_DATE")
+    start_time = inp_options.get("START_TIME")
+    end_date = inp_options.get("END_DATE")
+    end_time = inp_options.get("END_TIME")
+    # 拼接为 datetime
+    start_datetime = datetime.combine(start_date, start_time)
+    end_datetime = datetime.combine(end_date, end_time)
 
-        calculate_model = CalculateModel(
-            flow_units=flow_units,
-            start_datetime=start_datetime,
-            end_datetime=end_datetime,
-            report_step=report_step,
-            flow_routing=flow_routing,
-        )
-        return Result.success(
-            message="成功获取计算选项",
-            data=calculate_model,
-        )
-    except Exception as e:
-        # 捕获异常并返回错误信息
-        raise HTTPException(
-            status_code=e.status_code if hasattr(e, "status_code") else 500,
-            detail=f"{str(e.detail) if hasattr(e, 'detail') else '获取失败，文件有误，发生未知错误'}",
-        )
+    calculate_model = CalculateModel(
+        flow_units=flow_units,
+        start_datetime=start_datetime,
+        end_datetime=end_datetime,
+        report_step=report_step,
+        flow_routing=flow_routing,
+    )
+    return Result.success(
+        message="成功获取计算选项",
+        data=calculate_model,
+    )
 
 
 # 保存更新计算选项（参数）
@@ -72,36 +67,29 @@ async def get_calculate_options():
     summary="保存更新计算选项",
     description="保存更新计算选项",
 )
+@with_exception_handler(default_message="更新失败，文件有误，发生未知错误")
 async def update_calculate_options(calculate_model: CalculateModel):
-    try:
-        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-        inp_options = INP.check_for_section(OptionSection)
+    INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    inp_options = INP.check_for_section(OptionSection)
 
-        # 更新选项
-        inp_options.update(
-            {
-                "FLOW_UNITS": calculate_model.flow_units,
-                "REPORT_STEP": calculate_model.report_step,
-                "FLOW_ROUTING": calculate_model.flow_routing,
-                "START_DATE": calculate_model.start_datetime.date(),
-                "START_TIME": calculate_model.start_datetime.time(),
-                "END_DATE": calculate_model.end_datetime.date(),
-                "END_TIME": calculate_model.end_datetime.time(),
-                # 把 开始报告时间 默认处理为 开始计算时间
-                "REPORT_START_DATE": calculate_model.start_datetime.date(),
-                "REPORT_START_TIME": calculate_model.start_datetime.time(),
-            }
-        )
-        # 保存文件
-        INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-
-        return Result.success(message="成功更新计算选项")
-    except Exception as e:
-        # 捕获异常并返回错误信息
-        raise HTTPException(
-            status_code=e.status_code if hasattr(e, "status_code") else 500,
-            detail=f"{str(e.detail) if hasattr(e, 'detail') else '更新失败，文件有误，发生未知错误'}",
-        )
+    # 更新选项
+    inp_options.update(
+        {
+            "FLOW_UNITS": calculate_model.flow_units,
+            "REPORT_STEP": calculate_model.report_step,
+            "FLOW_ROUTING": calculate_model.flow_routing,
+            "START_DATE": calculate_model.start_datetime.date(),
+            "START_TIME": calculate_model.start_datetime.time(),
+            "END_DATE": calculate_model.end_datetime.date(),
+            "END_TIME": calculate_model.end_datetime.time(),
+            # 把 开始报告时间 默认处理为 开始计算时间
+            "REPORT_START_DATE": calculate_model.start_datetime.date(),
+            "REPORT_START_TIME": calculate_model.start_datetime.time(),
+        }
+    )
+    # 保存文件
+    INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    return Result.success(message="成功更新计算选项")
 
 
 # 传入一个查询实体名称，判断是node/link 还是都不属于，都不属于则返回错误
@@ -110,41 +98,35 @@ async def update_calculate_options(calculate_model: CalculateModel):
     summary="判断查询实体名称是否属于节点或链接",
     description="传入一个查询实体名称，判断是 node / link 还是都不属于，都不属于则返回错误，大概率是没找到这个查询实体名称",
 )
+@with_exception_handler(default_message="查询失败，没有计算结果，请先计算")
 async def query_entity_kind_select(name: str):
-    try:
-        OUT = SwmmOutput(SWMM_FILE_OUT_PATH, encoding=ENCODING)
-        df = OUT.to_frame()
-        # 获取节点列名
-        columns_for_node = (
-            df.columns[df.columns.get_level_values(0) == "node"]
-            .get_level_values(1)
-            .unique()
-            .tolist()
-        )
-        if name in columns_for_node:
-            data = {"kind": "node", "select": NODE_RESULT_VARIABLE_SELECT}
-            return Result.success(message="查询实体成功", data=data)
-        # 获取链接列名
-        columns_for_link = (
-            df.columns[df.columns.get_level_values(0) == "link"]
-            .get_level_values(1)
-            .unique()
-            .tolist()
-        )
-        if name in columns_for_link:
-            data = {"kind": "link", "select": LINK_RESULT_VARIABLE_SELECT}
-            return Result.success(message="查询实体成功", data=data)
-        # 如果都不属于，则返回提示信息
-        return Result.error(
-            message="查询实体名称不属于节点或链接，请检查输入的名称是否正确",
-            data=[],
-        )
-    except Exception as e:
-        # 捕获异常并返回错误信息
-        raise HTTPException(
-            status_code=e.status_code if hasattr(e, "status_code") else 500,
-            detail=f"{str(e.detail) if hasattr(e, 'detail') else '查询失败，没有计算结果，请先计算'}",
-        )
+    OUT = SwmmOutput(SWMM_FILE_OUT_PATH, encoding=ENCODING)
+    df = OUT.to_frame()
+    # 获取节点列名
+    columns_for_node = (
+        df.columns[df.columns.get_level_values(0) == "node"]
+        .get_level_values(1)
+        .unique()
+        .tolist()
+    )
+    if name in columns_for_node:
+        data = {"kind": "node", "select": NODE_RESULT_VARIABLE_SELECT}
+        return Result.success(message="查询实体成功", data=data)
+    # 获取链接列名
+    columns_for_link = (
+        df.columns[df.columns.get_level_values(0) == "link"]
+        .get_level_values(1)
+        .unique()
+        .tolist()
+    )
+    if name in columns_for_link:
+        data = {"kind": "link", "select": LINK_RESULT_VARIABLE_SELECT}
+        return Result.success(message="查询实体成功", data=data)
+    # 如果都不属于，则返回提示信息
+    return Result.error(
+        message="查询实体名称不属于节点或链接，请检查输入的名称是否正确",
+        data=[],
+    )
 
 
 # 计算结果查询，通过传入 kind name variable
@@ -183,32 +165,24 @@ async def query_entity_kind_select(name: str):
 实例：kind=node name=J1 variable=depth
 """,
 )
+@with_exception_handler(default_message="查询失败，文件有误，发生未知错误")
 async def query_calculate_result(kind: str, name: str, variable: str):
-    try:
-        OUT = SwmmOutput(SWMM_FILE_OUT_PATH, encoding=ENCODING)
-        data = OUT.get_part(kind, name, variable)
-        if data.empty:
-            return Result.error(
-                message="查询结果为空，请检查输入的名称是否正确",
-                data=[],
-            )
-        # 格式化 data 输出
-        # 1.将数据转换为list [[], []]，方便前端 echarts 使用，并且值保留两位小数
-        data = data.round(2)
-        data_list = [[index, value] for index, value in data.items()]
-        print(kind, name, variable)
-        return Result.success(
-            message="结果查询成功",
-            data=data_list,
+    OUT = SwmmOutput(SWMM_FILE_OUT_PATH, encoding=ENCODING)
+    data = OUT.get_part(kind, name, variable)
+    if data.empty:
+        return Result.error(
+            message="查询结果为空，请检查输入的名称是否正确",
+            data=[],
         )
-    except Exception as e:
-        print(kind, name, variable)
-        print(e)
-        # 捕获异常并返回错误信息
-        raise HTTPException(
-            status_code=e.status_code if hasattr(e, "status_code") else 500,
-            detail=f"{str(e.detail) if hasattr(e, 'detail') else '查询失败，文件有误，发生未知错误'}",
-        )
+    # 格式化 data 输出
+    # 1.将数据转换为list [[], []]，方便前端 echarts 使用，并且值保留两位小数
+    data = data.round(2)
+    data_list = [[index, value] for index, value in data.items()]
+    print(kind, name, variable)
+    return Result.success(
+        message="结果查询成功",
+        data=data_list,
+    )
 
 
 # 进行计算

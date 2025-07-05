@@ -7,82 +7,77 @@ from swmm_api.input_file.sections.link import Conduit
 from swmm_api.input_file.sections.node_component import Coordinate
 from swmm_api.input_file.sections import Outfall
 from utils.coordinate_converter import utm_to_wgs84
+from utils.utils import with_exception_handler
 
 showRouter = APIRouter()
 
 
 @showRouter.get("/show", summary="计算结果滚动展示")
+@with_exception_handler(default_message="获取失败，文件有误，发生未知错误")
 async def show_calculate_result():
-    try:
-        OUT = SwmmOutput(SWMM_FILE_OUT_PATH, encoding=ENCODING)
-        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-        inp_junctions = INP.check_for_section(Junction)
-        inp_coordinates = INP.check_for_section(Coordinate)
-        inp_conduits = INP.check_for_section(Conduit)
-        inp_outfalls = INP.check_for_section(Outfall)
-        df = OUT.to_frame()
-        columns_for_node = df.columns[df.columns.get_level_values(0) == "link"]
-        conduit_names = columns_for_node.get_level_values(1).unique().tolist()
-        variables = ["flow", "depth", "velocity"]
-        # 0.1 变量极值
-        variables_extremes = get_link_variable_extremes(df, variables=variables)
-        data = {}
-        data["variables_extremes"] = variables_extremes
-        # 0.2 计算时间列表
-        # 获取时间索引
-        time_index = df.index.tolist()
-        # 转换为字符串格式
-        time_list = [time.strftime("%Y-%m-%d %H:%M") for time in time_index]
-        data["time"] = time_list
-        result_data = []
-        for name in conduit_names:
-            temp_data = {}
-            # 1.基础数据
-            temp_data["name"] = name
-            temp_data["type"] = "conduit"
-            # temp_data["time"] = df.index.tolist()
+    OUT = SwmmOutput(SWMM_FILE_OUT_PATH, encoding=ENCODING)
+    INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    inp_junctions = INP.check_for_section(Junction)
+    inp_coordinates = INP.check_for_section(Coordinate)
+    inp_conduits = INP.check_for_section(Conduit)
+    inp_outfalls = INP.check_for_section(Outfall)
+    df = OUT.to_frame()
+    columns_for_node = df.columns[df.columns.get_level_values(0) == "link"]
+    conduit_names = columns_for_node.get_level_values(1).unique().tolist()
+    variables = ["flow", "depth", "velocity"]
+    # 0.1 变量极值
+    variables_extremes = get_link_variable_extremes(df, variables=variables)
+    data = {}
+    data["variables_extremes"] = variables_extremes
+    # 0.2 计算时间列表
+    # 获取时间索引
+    time_index = df.index.tolist()
+    # 转换为字符串格式
+    time_list = [time.strftime("%Y-%m-%d %H:%M") for time in time_index]
+    data["time"] = time_list
+    result_data = []
+    for name in conduit_names:
+        temp_data = {}
+        # 1.基础数据
+        temp_data["name"] = name
+        temp_data["type"] = "conduit"
+        # temp_data["time"] = df.index.tolist()
 
-            # 2.拓扑属性
-            from_node = get_from_node_info(
-                name,
-                "from_node",
-                inp_conduits,
-                inp_coordinates,
-                inp_junctions,
-                inp_outfalls,
-            )
-            to_node = get_from_node_info(
-                name,
-                "to_node",
-                inp_conduits,
-                inp_coordinates,
-                inp_junctions,
-                inp_outfalls,
-            )
-            temp_data["from_node"] = from_node
-            temp_data["to_node"] = to_node
-
-            # 3.拼接计算数据 变量在variables中
-            columns = df.columns[
-                (df.columns.get_level_values(0) == "link")
-                & (df.columns.get_level_values(1) == name)
-                & (df.columns.get_level_values(2).isin(variables))
-            ]
-            for i, variable in enumerate(variables):
-                temp_data[variable] = df[columns[i]].tolist()
-
-            result_data.append(temp_data)
-        data["calculate_result"] = result_data
-        return Result.success(
-            data=data,
-            message="计算结果列表",
+        # 2.拓扑属性
+        from_node = get_from_node_info(
+            name,
+            "from_node",
+            inp_conduits,
+            inp_coordinates,
+            inp_junctions,
+            inp_outfalls,
         )
-    except Exception as e:
-        # 捕获异常并返回错误信息
-        raise HTTPException(
-            status_code=e.status_code if hasattr(e, "status_code") else 500,
-            detail=f"{str(e.detail) if hasattr(e, 'detail') else '获取失败，文件有误，发生未知错误'}",
+        to_node = get_from_node_info(
+            name,
+            "to_node",
+            inp_conduits,
+            inp_coordinates,
+            inp_junctions,
+            inp_outfalls,
         )
+        temp_data["from_node"] = from_node
+        temp_data["to_node"] = to_node
+
+        # 3.拼接计算数据 变量在variables中
+        columns = df.columns[
+            (df.columns.get_level_values(0) == "link")
+            & (df.columns.get_level_values(1) == name)
+            & (df.columns.get_level_values(2).isin(variables))
+        ]
+        for i, variable in enumerate(variables):
+            temp_data[variable] = df[columns[i]].tolist()
+
+        result_data.append(temp_data)
+    data["calculate_result"] = result_data
+    return Result.success(
+        data=data,
+        message="计算结果列表",
+    )
 
 
 def get_from_node_info(

@@ -27,3 +27,23 @@ export const createSubcatchmentAxios = (data) => {
 export const saveSubcatchmentPolygonAxios = (data) => {
   return request.post('/swmm/subcatchment/polygon', data)
 }
+
+// 获取子汇水区下渗模型参数
+export const getInfiltrationAxios = (subcatchment_name) => {
+  return request.get('/swmm/subcatchments/infiltration', { params: { subcatchment_name } })
+}
+
+// 获取子汇水区汇流模型参数
+export const getSubareaAxios = (subcatchment_name) => {
+  return request.get('/swmm/subcatchments/subarea', { params: { subcatchment_name } })
+}
+
+// 更新子汇水区下渗模型参数
+export const updateInfiltrationAxios = (data) => {
+  return request.put('/swmm/subcatchments/infiltration', data)
+}
+
+// 更新子汇水区汇流模型参数
+export const updateSubareaAxios = (data) => {
+  return request.put('/swmm/subcatchments/subarea', data)
+}

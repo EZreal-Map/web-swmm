@@ -33,10 +33,8 @@ class SubAreaModel(BaseModel):
     subcatchment: str = Field(..., description="子汇水区名称")
     n_imperv: float = Field(0.01, description="不透水子区的曼宁粗糙系数 (s*m^(-1/3))")
     n_perv: float = Field(0.1, description="渗透子区的曼宁粗糙系数 (s*m^(-1/3))")
-    storage_imperv: float = Field(
-        0.05, description="不透水子区的凹陷储存量（英寸或毫米）"
-    )
-    storage_perv: float = Field(0.05, description="渗透子区的凹陷储存量（英寸或毫米）")
+    storage_imperv: float = Field(1, description="不透水子区的凹陷储存量（毫米）")
+    storage_perv: float = Field(1, description="渗透子区的凹陷储存量（毫米）")
     pct_zero: float = Field(25.0, description="无凹陷储存的不透水面积百分比")
     route_to: Literal["IMPERVIOUS", "PERVIOUS", "OUTLET"] = "OUTLET"
     pct_routed: float = Field(

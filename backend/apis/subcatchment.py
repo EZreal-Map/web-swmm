@@ -256,3 +256,136 @@ async def save_polygon(data: PolygonModel):
     return Result.success(
         message=f"成功编辑并且保存子汇水区的边界数据",
     )
+
+
+@subcatchment.get(
+    "/subcatchments/infiltration",
+    summary="获取子汇水区霍顿下渗模型参数",
+    description="根据子汇水区名称，获取对应的霍顿下渗模型参数",
+)
+async def get_infiltration(subcatchment_name=Query(..., description="子汇水区名称")):
+    INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    inp_infiltration = INP.check_for_section(Infiltration)
+
+    # 查找对应子汇水区名称的参数
+    infiltration = inp_infiltration.get(subcatchment_name)
+    if infiltration is None:
+        raise HTTPException(
+            status_code=404, detail=f"未找到子汇水区'{subcatchment_name}'的下渗参数"
+        )
+
+    # 假设返回值结构和 InfiltrationModel 字段对应
+    data = InfiltrationModel(
+        subcatchment=subcatchment_name,
+        rate_max=infiltration.rate_max,
+        rate_min=infiltration.rate_min,
+        decay=infiltration.decay,
+        time_dry=infiltration.time_dry,
+        volume_max=infiltration.volume_max,
+    )
+    return Result.success(
+        message="成功获取子汇水（下渗）模型参数",
+        data=data,
+    )
+
+
+@subcatchment.put(
+    "/subcatchments/infiltration",
+    summary="修改子汇水区霍顿下渗模型参数",
+    description="根据子汇水区名称，修改对应的霍顿下渗模型参数",
+)
+async def update_infiltration(
+    infiltration_update: InfiltrationModel,
+):
+    # 读取已有配置
+    INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    inp_infiltration = INP.check_for_section(Infiltration)
+
+    # 查找是否存在此子汇水区
+    if infiltration_update.subcatchment not in inp_infiltration:
+        raise HTTPException(
+            status_code=404,
+            detail=f"更新失败，未能找到子汇水区'{infiltration_update.subcatchment}'的下渗参数",
+        )
+
+    # 修改参数
+    infiltration = inp_infiltration[infiltration_update.subcatchment]
+    infiltration.rate_max = infiltration_update.rate_max
+    infiltration.rate_min = infiltration_update.rate_min
+    infiltration.decay = infiltration_update.decay
+    infiltration.time_dry = infiltration_update.time_dry
+    infiltration.volume_max = infiltration_update.volume_max
+
+    # 保存回文件
+    INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+
+    return Result.success(message="成功修改子汇水（下渗）模型参数")
+
+
+@subcatchment.get(
+    "/subcatchments/subarea",
+    summary="获取子汇水区汇流模型参数",
+    description="根据子汇水区名称，获取对应的子汇水区汇流模型参数",
+)
+async def get_subarea(subcatchment_name=Query(..., description="子汇水区名称")):
+    INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    inp_subareas = INP.check_for_section(SubArea)
+
+    # 查找对应子汇水区名称的参数
+    subarea = inp_subareas.get(subcatchment_name)
+    if subarea is None:
+        raise HTTPException(
+            status_code=404, detail=f"未找到子汇水区'{subcatchment_name}'的汇流参数"
+        )
+
+    # 转换为 Pydantic 模型
+    data = SubAreaModel(
+        subcatchment=subcatchment_name,
+        n_imperv=subarea.n_imperv,
+        n_perv=subarea.n_perv,
+        storage_imperv=subarea.storage_imperv,
+        storage_perv=subarea.storage_perv,
+        pct_zero=subarea.pct_zero,
+        route_to=subarea.route_to,
+        pct_routed=subarea.pct_routed,
+    )
+
+    return Result.success(
+        message="成功获取子汇水（汇流）模型参数",
+        data=data,
+    )
+
+
+@subcatchment.put(
+    "/subcatchments/subarea",
+    summary="修改子汇水区汇流模型参数",
+    description="根据子汇水区名称，修改对应的子汇水区汇流模型参数",
+)
+async def update_subarea(
+    subarea_update: SubAreaModel,
+):
+    # 读取已有配置
+    INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    inp_subareas = INP.check_for_section(SubArea)
+
+    # 检查子汇水区是否存在
+    if subarea_update.subcatchment not in inp_subareas:
+        raise HTTPException(
+            status_code=404,
+            detail=f"更新失败，未能找到子汇水区'{subarea_update.subcatchment}'的汇流参数",
+        )
+
+    # 修改参数
+    subarea = inp_subareas[subarea_update.subcatchment]
+    subarea.n_imperv = subarea_update.n_imperv
+    subarea.n_perv = subarea_update.n_perv
+    subarea.storage_imperv = subarea_update.storage_imperv
+    subarea.storage_perv = subarea_update.storage_perv
+    subarea.pct_zero = subarea_update.pct_zero
+    subarea.route_to = subarea_update.route_to
+    subarea.pct_routed = subarea_update.pct_routed
+
+    # 保存回文件
+    INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+
+    return Result.success(message="成功修改子汇水（汇流）模型参数")

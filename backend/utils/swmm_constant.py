@@ -56,3 +56,6 @@ LINK_RESULT_VARIABLE_SELECT = [
         "label": "能力",
     },
 ]
+
+
+RAINGAGE_DEFAULT_INTERVAL = "1:00"  # 默认雨量计时间间隔

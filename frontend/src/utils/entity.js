@@ -197,7 +197,7 @@ export const createSubcatchmentEntity = (
     },
     properties: {
       type: 'subcatchment',
-      rainGage,
+      timeseriesName: rainGage, // 这里用 timeseriesName 字段存储雨量计名称 （方便前端Junction和Subcatchment统一处理timeseriesName）
       outlet,
       area,
       imperviousness,
@@ -303,7 +303,7 @@ export const fillClickedEntityDict = (pickedObject, cartesianPosition = null) =>
         id: pickedObject.id,
         name: pickedObject.name,
         type: pickedObject.properties.type.getValue(),
-        rainGage: pickedObject.properties.rainGage.getValue(),
+        timeseriesName: pickedObject.properties.timeseriesName.getValue(), // 这里用 timeseriesName 字段存储雨量计名称 （方便前端Junction和Subcatchment统一处理timeseriesName）
         outlet: pickedObject.properties.outlet.getValue(),
         area: pickedObject.properties.area.getValue(),
         imperviousness: pickedObject.properties.imperviousness.getValue(),

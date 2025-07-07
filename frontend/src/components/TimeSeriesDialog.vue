@@ -52,7 +52,7 @@
                   />
                 </template>
               </el-table-column>
-              <el-table-column label="流量" width="100">
+              <el-table-column :label="TIMESERIESTYPEP[props.timeseriesType]" width="100">
                 <template #default="{ row }">
                   <el-input
                     v-model.number="row[1]"
@@ -93,10 +93,9 @@ import {
   deleteTimeseriesByIdAxios,
 } from '@/apis/timeseries'
 import * as echarts from 'echarts' // TODO: 这里是全部导入，功能完善以后，修改为按需导入
-import { ElMessage } from 'element-plus'
 import { useViewerStore } from '@/stores/viewer'
 import dayjs from 'dayjs'
-import { POINTPREFIX } from '@/utils/constant'
+import { POINTPREFIX, POLYGONPREFIX } from '@/utils/constant'
 
 const viewerStore = useViewerStore()
 const showDialog = defineModel('showDialog')
@@ -107,7 +106,22 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  timeseriesType: {
+    type: String,
+    default: 'INFLOW', // 默认是流量
+  },
 })
+
+const TIMESERIESTYPEP = {
+  INFLOW: '流量',
+  RAINGAGE: '雨量',
+}
+// TODO: 创建 雨量时间序列的同时，绑定一个雨量计 （删除，更新时，雨量计也会更新）
+
+// 检查 timeseriesType 是否在 TIMESERIESTYPEP 中
+if (!Object.keys(TIMESERIESTYPEP).includes(props.timeseriesType)) {
+  ElMessage.error(`timeseriesType "${props.timeseriesType}" 不在 TIMESERIESTYPEP 中，请检查！`)
+}
 
 const selectedTimeseriesName = ref(props.timeseriesName) // 选中的时间序列名称
 const timeseriesDatas = ref({}) // 时间序列数据 重要！
@@ -131,7 +145,9 @@ const timeseriesInit = async () => {
     if (timeseriesNames.value.length > 0) {
       selectedTimeseriesName.value = timeseriesNames.value[0]
     } else {
-      ElMessage.warning('没有时间序列数据，请新建时间序列吧！')
+      ElMessage.warning(
+        `没有${TIMESERIESTYPEP[props.timeseriesType]}时间序列数据，请新建${TIMESERIESTYPEP[props.timeseriesType]}时间序列吧！`,
+      )
       timeseriesDatas.value = {} // 清空时间序列数据
       return // 没有时间序列名称，直接返回
     }
@@ -140,7 +156,7 @@ const timeseriesInit = async () => {
 }
 
 const updateTimeseriesNames = async () => {
-  const res = await getAllTimeSeriesNameAxios()
+  const res = await getAllTimeSeriesNameAxios(props.timeseriesType)
   // 按照字符串排序
   res.data.sort((a, b) => a.localeCompare(b))
   // 更新时间序列名称列表
@@ -150,7 +166,7 @@ const updateTimeseriesNames = async () => {
 const updateTimeseries = (timeseriesName) => {
   // menu 点击时，获取时间序列数据
   selectedTimeseriesName.value = timeseriesName
-  getTimeseriesByIdAxios(timeseriesName).then((res) => {
+  getTimeseriesByIdAxios(timeseriesName, props.timeseriesType).then((res) => {
     // 把时间字符串转换位时间对象
     res.data.data = res.data.data.map((item) => {
       return [new Date(item[0]), item[1]]
@@ -182,7 +198,7 @@ const updateChart = () => {
 
       const option = {
         title: {
-          text: '时间流量图',
+          text: `时间${TIMESERIESTYPEP[props.timeseriesType]}图`,
           top: '20px',
           left: 'center',
           textStyle: {
@@ -195,7 +211,7 @@ const updateChart = () => {
           formatter: function (params) {
             const date = params[0].value[0]
             const formattedDate = dayjs(date).format(DATETIME_FORMAT)
-            return `${formattedDate}<br />流量: ${params[0].value[1]}`
+            return `${formattedDate}<br />${TIMESERIESTYPEP[props.timeseriesType]}: ${params[0].value[1]}`
           },
         },
         xAxis: {
@@ -229,7 +245,7 @@ const updateChart = () => {
         },
         yAxis: {
           type: 'value',
-          name: '流量',
+          name: TIMESERIESTYPEP[props.timeseriesType],
           nameTextStyle: {
             fontSize: 14,
             padding: [0, 0, 10, 0],
@@ -255,7 +271,7 @@ const updateChart = () => {
         },
         series: [
           {
-            name: '流量',
+            name: TIMESERIESTYPEP[props.timeseriesType],
             type: 'line',
             data,
             smooth: true,
@@ -295,9 +311,9 @@ const checkLastRow = () => {
 // 时间序列操作的4个按钮
 // 1. 新建
 const createTimeseries = () => {
-  const name = '时间_' + Date.now() // 用时间戳作为时间序列名称
+  const name = `${TIMESERIESTYPEP[props.timeseriesType]}_${Date.now()}` // 用时间戳作为时间序列名称
   // // 新建请求
-  createTimeseriesAxios({ name }).then((res) => {
+  createTimeseriesAxios({ name }, props.timeseriesType).then((res) => {
     ElMessage.success(res.message)
     timeseriesNames.value.push(res.data.name) // 添加新时间序列名称
     timeseriesNames.value.sort((a, b) => a.localeCompare(b)) // 排序
@@ -309,7 +325,7 @@ const createTimeseries = () => {
 // 2. 删除
 const deleteTimeseries = async () => {
   // 删除请求
-  const res = await deleteTimeseriesByIdAxios(selectedTimeseriesName.value)
+  const res = await deleteTimeseriesByIdAxios(selectedTimeseriesName.value, props.timeseriesType)
   ElMessage.success(res.message)
   selectedTimeseriesName.value = '' // 清空选中的时间序列名称
   await timeseriesInit() // 更新时间序列数据
@@ -320,18 +336,28 @@ const deleteTimeseries = async () => {
 
 // 3. 保存
 const saveTimeseries = () => {
-  updateTimeseriesByIdAxios(selectedTimeseriesName.value, timeseriesDatas.value)
+  updateTimeseriesByIdAxios(
+    selectedTimeseriesName.value,
+    timeseriesDatas.value,
+    props.timeseriesType,
+  )
     .then((res) => {
       ElMessage.success(res.message)
       // 1. 更新 viewer 中可能相关联的数据 (容易忽视)
-      if (res.data.related_inflows.length > 0) {
+      if (res.data.related_entity_ids.length > 0) {
         // 节点弹窗（如果刚好修改的是节点弹窗的关联 name ） 修改关联的节点 timeseries 名称
         if (viewerStore.clickedEntityDict?.timeseriesName === selectedTimeseriesName.value) {
           viewerStore.clickedEntityDict.timeseriesName = timeseriesDatas.value.name
         }
         // 更新 viewer 中 entity的 properties 的 timeseries
-        res.data.related_inflows.forEach((item) => {
-          const id = POINTPREFIX + item
+        res.data.related_entity_ids.forEach((item) => {
+          let prefix = '' // 前缀
+          if (props.timeseriesType === 'INFLOW') {
+            prefix = POINTPREFIX
+          } else if (props.timeseriesType === 'RAINGAGE') {
+            prefix = POLYGONPREFIX
+          }
+          const id = prefix + item
           const entity = viewerStore.viewer.entities.getById(id)
           if (entity) {
             entity.properties.timeseriesName.setValue(timeseriesDatas.value.name)

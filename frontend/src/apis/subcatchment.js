@@ -9,7 +9,14 @@ export const getSubcatchmentsAxios = () => {
 // 通过子汇水区ID更新子汇水区所有属性
 export const updateSubcatchmentByIdAxios = (id, data) => {
   const cleanedData = { ...data }
+  console.log('cleanedData', cleanedData)
+  // 删除不需要的 polygon 字段
   delete cleanedData.polygon
+  // 如果有 timeseries_name，把它重命名为 rain_gage
+  if ('timeseries_name' in cleanedData) {
+    cleanedData.rain_gage = cleanedData.timeseries_name
+    delete cleanedData.timeseries_name
+  }
   return request.put(`/swmm/subcatchment/${getStringAfterFirstDash(id)}`, cleanedData)
 }
 

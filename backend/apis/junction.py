@@ -10,11 +10,12 @@ from swmm_api.input_file.sections.others import TimeseriesData
 from utils.coordinate_converter import utm_to_wgs84, wgs84_to_utm
 from schemas.junction import JunctionModel
 from schemas.result import Result
+from schemas.timeseries import TimeSeriesTypeModel, TIMESERIES_PREFIXES_MAP
 from utils.swmm_constant import (
     SWMM_FILE_INP_PATH,
     ENCODING,
 )
-from utils.utils import with_exception_handler
+from utils.utils import with_exception_handler, remove_timeseries_prefix
 
 
 junctionsRouter = APIRouter()
@@ -50,6 +51,8 @@ async def get_junctions():
         # 获取时间序列名（如果有入流）
         if has_inflow:
             timeseries_name = inp_inflows[(junction.name, "FLOW")].time_series
+            # 移除时间序列类型前缀
+            timeseries_name = remove_timeseries_prefix(timeseries_name)
         else:
             timeseries_name = ""
 
@@ -138,11 +141,16 @@ async def update_junction(junction_id: str, junction_update: JunctionModel):
 
     # 4.更新入流的时间序列名称
     if junction_update.has_inflow:
+        # 补充时间序列名称前缀
+        junction_update.timeseries_name = (
+            TIMESERIES_PREFIXES_MAP[TimeSeriesTypeModel.INFLOW]
+            + junction_update.timeseries_name
+        )
         # 4.1 检查时间序列名称是否已存在
         if junction_update.timeseries_name not in inp_timeseries:
             raise HTTPException(
                 status_code=404,
-                detail=f"保存失败，需要修改的时间序列名称 [ {junction_update.timeseries_name} ] 不存在，请检查时间序列名称是否正确",
+                detail=f"保存失败，需要修改的时间序列名称 [ {remove_timeseries_prefix(junction_update.timeseries_name)} ] 不存在，请检查时间序列名称是否正确",
             )
         # 4.2 如果节点有入流，则删除原来的入流信息
         if (junction_id, "FLOW") in inp_inflows:

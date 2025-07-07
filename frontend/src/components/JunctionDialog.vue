@@ -71,6 +71,7 @@
               v-if="showTimeSeriesDialog"
               v-model:show-dialog="showTimeSeriesDialog"
               :timeseriesName="junctionEntity.timeseriesName"
+              timeseriesType="INFLOW"
             ></TimeSeriesDialog>
           </el-form-item>
         </div>

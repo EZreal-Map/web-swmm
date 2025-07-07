@@ -6,6 +6,7 @@ from swmm_api.input_file.sections import (
     Infiltration,
     InfiltrationHorton,
     Polygon,
+    RainGage,
 )
 from swmm_api.input_file.sections import Junction, Outfall
 from utils.swmm_constant import (
@@ -73,6 +74,7 @@ async def update_subcatchment(
     inp_subcatchments = INP.check_for_section(SubCatchment)
     inp_junctions = INP.check_for_section(Junction)
     inp_outfalls = INP.check_for_section(Outfall)
+    inp_raingages = INP.check_for_section(RainGage)
 
     # 1.检查子汇水是否存在，如果不存在，则抛出异常
     if subcatchment_id not in inp_subcatchments:
@@ -101,6 +103,14 @@ async def update_subcatchment(
             raise HTTPException(
                 status_code=404,
                 detail=f"保存失败，出水口名称 [ {subcatchment_update.outlet} ] 不存在，请检查出水口名称是否正确",
+            )
+    # 4.检查雨量计名称是否存在
+    # 仅当 rain_gage 不为 "*" 时才进行校验
+    if subcatchment_update.rain_gage != "*":
+        if subcatchment_update.rain_gage not in inp_raingages:
+            raise HTTPException(
+                status_code=404,
+                detail=f"保存失败，雨量计名称 [ {subcatchment_update.rain_gage} ] 不存在，请检查雨量计名称是否正确",
             )
 
     # 4.检查雨量计名称是否存在

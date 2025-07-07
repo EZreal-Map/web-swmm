@@ -131,7 +131,7 @@ async def update_transect(transect_id: str, transect: TransectModel):
     # 构建响应信息
     message = f"断面更新成功"
     if len(related_xsections) > 0:
-        message += f"，同时更新了 {len(related_xsections)} 条引用该断面的渠道的断面名称"
+        message += f"，同时更新了 {len(related_xsections)} 条引用"
 
     # 保存更新后的文件
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)

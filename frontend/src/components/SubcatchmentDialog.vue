@@ -19,11 +19,13 @@
         </el-form-item>
         <el-form-item label="雨量">
           <el-input
-            v-model="subcatchmentEntity.rainGage"
+            v-model="subcatchmentEntity.timeseriesName"
             type="string"
             class="el-form-length"
           ></el-input>
-          <el-button @click="calculateLength" class="el-form-length-button">更多</el-button>
+          <el-button @click="showTimeSeriesDialog = true" class="el-form-length-button"
+            >更多</el-button
+          >
         </el-form-item>
         <el-form-item label="出水口">
           <el-input v-model="subcatchmentEntity.outlet" type="string"></el-input>
@@ -113,6 +115,14 @@
     v-model:visible="showInfiltrationDialog"
     v-model:subcatchmentName="subcatchmentEntity.name"
   />
+
+  <!-- 引入雨量计选择弹窗组件 -->
+  <TimeSeriesDialog
+    v-if="showTimeSeriesDialog"
+    v-model:show-dialog="showTimeSeriesDialog"
+    :timeseriesName="subcatchmentEntity.timeseriesName"
+    timeseriesType="RAINGAGE"
+  ></TimeSeriesDialog>
 </template>
 
 <script setup>
@@ -371,11 +381,6 @@ const calculateSlope = async () => {
   }
 }
 
-// 计算长度的函数
-const calculateLength = () => {
-  ElMessage.warning('功能尚未实现')
-}
-
 // 编辑多边形
 const polygonEditing = ref(false)
 let editingController = null
@@ -574,6 +579,9 @@ const showSubareaDialog = ref(false)
 
 // 渗透对话框
 const showInfiltrationDialog = ref(false)
+
+// 雨量计选择对话框
+const showTimeSeriesDialog = ref(false)
 </script>
 
 <style scoped>

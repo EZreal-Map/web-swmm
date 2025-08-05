@@ -1,8 +1,6 @@
 from pydantic import BaseModel, field_validator, model_validator
 from fastapi import HTTPException
 
-# TODO：理解一下 swmm 计算逻辑，一些节点参数的选择（比如：节点的最大深度，初始深度，溢流深度，蓄水面积），还有没有涉及的功能，是否需要添加此次任务（河道径流模拟）中
-
 
 class JunctionModel(BaseModel):
     type: str = "junction"
@@ -10,9 +8,9 @@ class JunctionModel(BaseModel):
     lon: float
     lat: float
     elevation: float = 0.0
-    depth_max: float = 0.0
     depth_init: float = 0.0
-    depth_surcharge: float = 0.0
+    depth_max: float = 9999.0
+    depth_surcharge: float = 9999.0
     area_ponded: float = 0.0
     has_inflow: bool = False  # 是否有入流
     timeseries_name: str = ""  # 入流时间序列名称

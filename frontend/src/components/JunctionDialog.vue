@@ -31,16 +31,31 @@
           ></el-input>
           <el-button @click="calculateElevation" class="el-form-length-button">计算</el-button>
         </el-form-item>
-        <el-form-item label="最大水深">
-          <el-input v-model.number="junctionEntity.depthMax" type="number"></el-input>
-        </el-form-item>
         <el-form-item label="初始水深">
           <el-input v-model.number="junctionEntity.depthInit" type="number"></el-input>
         </el-form-item>
-        <el-form-item label="超额水深">
+        <el-form-item>
+          <template #label>
+            <el-tooltip effect="dark" content="不考虑节点溢流时，推荐设置为 9999" placement="left">
+              <span>最大水深</span>
+            </el-tooltip>
+          </template>
+          <el-input v-model.number="junctionEntity.depthMax" type="number"></el-input>
+        </el-form-item>
+        <el-form-item>
+          <template #label>
+            <el-tooltip effect="dark" content="不考虑节点溢流时，推荐设置为 9999" placement="left">
+              <span>超额水深</span>
+            </el-tooltip>
+          </template>
           <el-input v-model.number="junctionEntity.depthSurcharge" type="number"></el-input>
         </el-form-item>
-        <el-form-item label="积水面积">
+        <el-form-item>
+          <template #label>
+            <el-tooltip effect="dark" content="不考虑节点溢流时，推荐设置为 0" placement="left">
+              <span>积水面积</span>
+            </el-tooltip>
+          </template>
           <el-input v-model.number="junctionEntity.areaPonded" type="number"></el-input>
         </el-form-item>
         <el-form-item label="输入流量">

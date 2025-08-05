@@ -116,7 +116,7 @@ const TIMESERIESTYPEP = {
   INFLOW: '流量',
   RAINGAGE: '雨量',
 }
-// TODO: 创建 雨量时间序列的同时，绑定一个雨量计 （删除，更新时，雨量计也会更新）
+// 创建 雨量时间序列的同时，绑定一个雨量计 （删除，更新时，雨量计也会更新）
 
 // 检查 timeseriesType 是否在 TIMESERIESTYPEP 中
 if (!Object.keys(TIMESERIESTYPEP).includes(props.timeseriesType)) {

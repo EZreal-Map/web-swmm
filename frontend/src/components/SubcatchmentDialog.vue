@@ -38,7 +38,7 @@
         <el-form-item>
           <template #label>
             <el-tooltip effect="dark" content="水流横向的有效流宽" placement="left">
-              <span>宽度</span>
+              <span>特征宽度</span>
             </el-tooltip>
           </template>
           <el-input v-model.number="subcatchmentEntity.width" type="number" class="el-form-length">

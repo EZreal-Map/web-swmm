@@ -112,10 +112,6 @@ async def update_subcatchment(
                 status_code=404,
                 detail=f"保存失败，雨量计名称 [ {subcatchment_update.rain_gage} ] 不存在，请检查雨量计名称是否正确",
             )
-
-    # 4.检查雨量计名称是否存在
-    # TODO: 需要检查雨量计名称是否存在于雨量计列表中
-
     # 5.更新子汇水参数
     del inp_subcatchments[subcatchment_id]
     inp_subcatchments[subcatchment_update.name] = SubCatchment(

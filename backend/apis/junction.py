@@ -62,8 +62,8 @@ async def get_junctions():
             lon=lon,
             lat=lat,
             elevation=junction.elevation,
-            depth_max=junction.depth_max,
             depth_init=junction.depth_init,
+            depth_max=junction.depth_max,
             depth_surcharge=junction.depth_surcharge,
             area_ponded=junction.area_ponded,
             has_inflow=has_inflow,
@@ -117,8 +117,8 @@ async def update_junction(junction_id: str, junction_update: JunctionModel):
     inp_junctions[junction_update.name] = Junction(
         name=junction_update.name,
         elevation=junction_update.elevation,
-        depth_max=junction_update.depth_max,
         depth_init=junction_update.depth_init,
+        depth_max=junction_update.depth_max,
         depth_surcharge=junction_update.depth_surcharge,
         area_ponded=junction_update.area_ponded,
     )
@@ -203,8 +203,8 @@ async def create_junction(junction_data: JunctionModel):
     inp_junctions[junction_data.name] = Junction(
         name=junction_data.name,
         elevation=junction_data.elevation,
-        depth_max=junction_data.depth_max,
         depth_init=junction_data.depth_init,
+        depth_max=junction_data.depth_max,
         depth_surcharge=junction_data.depth_surcharge,
         area_ponded=junction_data.area_ponded,
     )

@@ -68,74 +68,97 @@ import { createSubcatchmentAxios } from '@/apis/subcatchment'
 import * as Cesium from 'cesium'
 import { ref } from 'vue'
 import { getStringAfterFirstDash } from '@/utils/convert'
-import {
-  startDragHandlers,
-  stopDragHandlers,
-  initEntities,
-} from '@/utils/useCesium'
+import { startDragHandlers, stopDragHandlers, initEntities } from '@/utils/useCesium'
 import { ElMessage } from 'element-plus'
 import CalculateDialog from '@/components/CalculateDialog.vue'
 import { fillClickedEntityDict } from '@/utils/entity'
-import { POINTPREFIX, POLYLINEPREFIX } from '@/utils/constant'
+import { POINTPREFIX, POLYLINEPREFIX, POLYGONPREFIX } from '@/utils/constant'
+import { getPolygonCenter } from '@/utils/entity.js'
 
 const viewerStore = useViewerStore()
 
 // 1. 查找事件
-const queryEntityByName = async () => {
-  try {
-    // 弹出框输入新的分组名
-    const { value } = await ElMessageBox.prompt('请输入要查找的实体名称', '查找', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      inputPattern: /^(?!\s*$).+/,
-      inputErrorMessage: '不能为空',
-    })
-    // TODO: 添加寻找子汇水区
-    const entityJunction = viewerStore.viewer.entities.getById(POINTPREFIX + value)
-    const entityConduit = viewerStore.viewer.entities.getById(POLYLINEPREFIX + value)
-    let entity = null
-    let cartesian = null
-    if (!entityJunction && !entityConduit) {
-      ElMessage.error('未找到实体名为 ' + value)
-      return
-    }
-    if (entityJunction) {
-      ElMessage.success('找到节点实体')
-      entity = entityJunction
-      cartesian = entity.position.getValue()
-    } else if (entityConduit) {
-      ElMessage.success('找到渠道实体')
-      entity = entityConduit
-      // 获取第一个点的坐标，渠道就以第一个点为准
-      cartesian = entity.polyline.positions.getValue()[0]
-    }
+// 1.1 查找实体
+const findEntityByName = (name) => {
+  const entityJunction = viewerStore.viewer.entities.getById(POINTPREFIX + name)
+  const entityConduit = viewerStore.viewer.entities.getById(POLYLINEPREFIX + name)
+  const entitySubcatchment = viewerStore.viewer.entities.getById(POLYGONPREFIX + name)
 
-    // 1. 如果找到实体，设置为选中状态(弹窗+高亮)
-    viewerStore.clickedEntityDict = fillClickedEntityDict(entity)
-    // 2. 飞行到实体位置
-    // 将笛卡尔坐标转为地理坐标（经纬度+高度）
-    const cartographic = Cesium.Cartographic.fromCartesian(cartesian)
-    const longitude = Cesium.Math.toDegrees(cartographic.longitude)
-    const latitude = Cesium.Math.toDegrees(cartographic.latitude)
-    // 自定义飞行高度，例如 20000 米
-    const customHeight = 20000
-    // 将新的经纬度+高度转换回笛卡尔坐标
-    const destination = Cesium.Cartesian3.fromDegrees(longitude, latitude, customHeight)
-    viewerStore.viewer.camera.flyTo({
-      destination: destination,
-      duration: 2,
-    })
-  } catch (error) {
-    // 如果发生错误或用户取消了输入
-    if (error === 'cancel') {
-      ElMessage.info('已取消查找')
-    } else {
-      ElMessage.error('查找发生错误:', error)
-      console.error('发生错误:', error)
-    }
+  let entity = null
+  let cartesian = null
+  let typeMessageName = null
+
+  if (entityJunction) {
+    typeMessageName = '节点'
+    entity = entityJunction
+    cartesian = entity.position.getValue()
+  } else if (entityConduit) {
+    typeMessageName = '渠道'
+    entity = entityConduit
+    // 渠道用第一个点坐标
+    cartesian = entity.polyline.positions.getValue()[0]
+  } else if (entitySubcatchment) {
+    typeMessageName = '汇水区'
+    entity = entitySubcatchment
+    const hierarchy = entity.polygon.hierarchy.getValue()
+    // 获取多边形中心点
+    cartesian = getPolygonCenter(hierarchy.positions)
   }
+
+  return { entity, cartesian, typeMessageName }
 }
 
+// 1.2 飞行到实体
+const flyToEntity = (entity, cartesian) => {
+  viewerStore.clickedEntityDict = fillClickedEntityDict(entity)
+
+  const cartographic = Cesium.Cartographic.fromCartesian(cartesian)
+  const longitude = Cesium.Math.toDegrees(cartographic.longitude)
+  const latitude = Cesium.Math.toDegrees(cartographic.latitude)
+  const customHeight = 20000
+  const destination = Cesium.Cartesian3.fromDegrees(longitude, latitude, customHeight)
+
+  viewerStore.viewer.camera.flyTo({
+    destination,
+    duration: 2,
+  })
+}
+
+const queryEntityByName = async () => {
+  await ElMessageBox.prompt('请输入要查找的实体名称', '查找', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    inputPattern: /^(?!\s*$).+/,
+    inputErrorMessage: '不能为空',
+    beforeClose: (action, instance, done) => {
+      if (action === 'confirm') {
+        const { entity } = findEntityByName(instance.inputValue)
+        if (!entity) {
+          ElMessage.error('未找到实体名为 ' + instance.inputValue)
+          return // 阻止关闭
+        }
+        done()
+      } else {
+        done()
+      }
+    },
+  })
+    .then(({ value }) => {
+      const { entity, cartesian, typeMessageName } = findEntityByName(value)
+      if (entity && cartesian) {
+        flyToEntity(entity, cartesian)
+        ElMessage.success('已找到' + typeMessageName + '：' + value)
+      }
+    })
+    .catch((error) => {
+      if (error === 'cancel') {
+        ElMessage.info('已取消查找')
+      } else {
+        console.error('发生错误:', error)
+        ElMessage.error('查找发生错误')
+      }
+    })
+}
 // 3. 拖拽事件
 // 记录拖拽处理器
 let dragHandler = null

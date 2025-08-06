@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import time
 from utils.logger import app_logger, api_logger
+from contextlib import asynccontextmanager
 
 # 路由
 from apis.conduit import conduitRouter
@@ -13,18 +14,29 @@ from apis.transect import transectsRouter
 from apis.timeseries import timeseriesRouter
 from apis.calculate import calculateRouter
 from apis.subcatchment import subcatchment
+from apis.agent.chat import chatRouter
 
 from apis.show import showRouter
 
 
-# 启动日志
-app_logger.info("正在启动SWMM API服务...")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动应用
+    app_logger.info("正在启动后端API服务...")
+
+    yield  # 在这里交还控制权给 FastAPI（应用运行期间）
+
+    # 关闭应用
+    app_logger.info("正在关闭后端API服务...")
+    # 清理资源
+
 
 application = FastAPI(
     debug=SystemConfig.APP_DEBUG,
     description=SystemConfig.DESCRIPTION,
     version=SystemConfig.VERSION,
     title=SystemConfig.PROJECT_NAME,
+    lifespan=lifespan,
 )
 
 application.add_middleware(
@@ -53,6 +65,7 @@ async def log_requests(request: Request, call_next):
 
 
 # 路由
+# SWMM相关路由
 application.include_router(junctionsRouter, prefix="/swmm", tags=["节点"])
 application.include_router(conduitRouter, prefix="/swmm", tags=["渠道"])
 application.include_router(outfallRouter, prefix="/swmm", tags=["出口"])
@@ -62,8 +75,8 @@ application.include_router(calculateRouter, prefix="/swmm", tags=["计算"])
 application.include_router(subcatchment, prefix="/swmm", tags=["子汇水区域"])
 
 application.include_router(showRouter, prefix="/swmm", tags=["首页滚动展示数据"])
-
-app_logger.info("SWMM API服务启动完成")
+# agent相关路由
+application.include_router(chatRouter, prefix="/agent", tags=["agent聊天"])
 
 if __name__ == "__main__":
     uvicorn.run(

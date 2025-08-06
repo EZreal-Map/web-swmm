@@ -45,12 +45,20 @@
     <el-menu-item index="4" @click="showCalculateDialog = true">
       <span>计算</span>
     </el-menu-item>
+    <el-menu-item index="5" @click="showAgentChatDialog = !showAgentChatDialog">
+      <span>Agent</span>
+    </el-menu-item>
   </el-menu>
   <!-- 计算选项和计算结果查看弹窗 -->
   <CalculateDialog
     v-if="showCalculateDialog"
     v-model:show-dialog="showCalculateDialog"
   ></CalculateDialog>
+
+  <AgentChatDialog
+    v-if="showAgentChatDialog"
+    v-model:show-dialog="showAgentChatDialog"
+  ></AgentChatDialog>
 </template>
 
 <script setup>
@@ -74,6 +82,7 @@ import CalculateDialog from '@/components/CalculateDialog.vue'
 import { fillClickedEntityDict } from '@/utils/entity'
 import { POINTPREFIX, POLYLINEPREFIX, POLYGONPREFIX } from '@/utils/constant'
 import { getPolygonCenter } from '@/utils/entity.js'
+import AgentChatDialog from '@/components/agent/AgentChatDialog.vue'
 
 const viewerStore = useViewerStore()
 
@@ -476,4 +485,7 @@ const clearDrawing = () => {
 
 // 4. 计算事件
 const showCalculateDialog = ref(false)
+
+// 5. Agent 聊天事件
+const showAgentChatDialog = ref(false)
 </script>

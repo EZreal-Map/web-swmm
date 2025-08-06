@@ -112,6 +112,8 @@ def get_logger(name: str = "app") -> logging.Logger:
 app_logger = get_logger("app")
 api_logger = get_logger("api")
 swmm_logger = get_logger("swmm")
+agent_logger = get_logger("agent")
+websocket_logger = get_logger("websocket")
 
 # 导出
-__all__ = ["get_logger", "app_logger", "api_logger", "swmm_logger"]
+__all__ = ["get_logger", "app_logger", "api_logger", "swmm_logger", "agent_logger", "websocket_logger"]

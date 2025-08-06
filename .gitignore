@@ -48,3 +48,6 @@ docker-volumes/
 
 # 屏蔽 backend/static 文件夹
 backend/static/
+
+# 屏蔽 配置文件
+.env

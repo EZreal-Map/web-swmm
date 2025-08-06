@@ -15,6 +15,10 @@ from utils.swmm_constant import (
     ENCODING,
 )
 from utils.utils import with_exception_handler
+from utils.logger import get_logger
+
+# 获取日志记录器
+logger = get_logger("calculate")
 
 
 calculateRouter = APIRouter()
@@ -178,7 +182,9 @@ async def query_calculate_result(kind: str, name: str, variable: str):
     # 1.将数据转换为list [[], []]，方便前端 echarts 使用，并且值保留两位小数
     data = data.round(2)
     data_list = [[index, value] for index, value in data.items()]
-    print(kind, name, variable)
+    logger.info(
+        f"查询结果: kind={kind}, name={name}, variable={variable}, data={data_list}"
+    )
     return Result.success(
         message="结果查询成功",
         data=data_list,
@@ -199,7 +205,7 @@ async def run_calculation():
         return Result.success(message="计算成功")
     except Exception as e:
         error_msg = extract_errors(str(e))
-        print(error_msg)
+        logger.error(f"SWMM 计算失败: {error_msg}")
         raise HTTPException(status_code=500, detail=error_msg)
 
 
@@ -223,10 +229,10 @@ def extract_errors(log_text):
             matches = re.findall(r"'(.*?)'", line)
             errors.extend(matches)  # 将找到的错误信息添加到列表中
 
-    error_msg = "运行 SWMM 时发生错误:\n"
+    error_msg = "计算时发生错误:\n"
     for index, error in enumerate(errors):  # 确保 index 在前面
         error_msg += f"{index+1}、{error}\n"  # 添加换行符以便每个错误独占一行
-    return error_msg
+    return error_msg.strip()  # 去除首尾空白字符
 
 
 def fix_garbled_text(text: str) -> str:

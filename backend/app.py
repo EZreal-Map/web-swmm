@@ -1,7 +1,9 @@
-from fastapi import FastAPI
-from config import Config
+from fastapi import FastAPI, Request
+from config import SystemConfig
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+import time
+from utils.logger import app_logger, api_logger
 
 # 路由
 from apis.conduit import conduitRouter
@@ -14,22 +16,40 @@ from apis.subcatchment import subcatchment
 
 from apis.show import showRouter
 
-from apis.mj import mjRouter  # 岷江项目，适配特定的项目需求，不具有通用性
+
+# 启动日志
+app_logger.info("正在启动SWMM API服务...")
 
 application = FastAPI(
-    debug=Config.APP_DEBUG,
-    description=Config.DESCRIPTION,
-    version=Config.VERSION,
-    title=Config.PROJECT_NAME,
+    debug=SystemConfig.APP_DEBUG,
+    description=SystemConfig.DESCRIPTION,
+    version=SystemConfig.VERSION,
+    title=SystemConfig.PROJECT_NAME,
 )
 
 application.add_middleware(
     CORSMiddleware,
-    allow_origins=Config.CORS_ORIGINS,
-    allow_credentials=Config.CORS_ALLOW_CREDENTIALS,
-    allow_methods=Config.CORS_ALLOW_METHODS,
-    allow_headers=Config.CORS_ALLOW_HEADERS,
+    allow_origins=SystemConfig.CORS_ORIGINS,
+    allow_credentials=SystemConfig.CORS_ALLOW_CREDENTIALS,
+    allow_methods=SystemConfig.CORS_ALLOW_METHODS,
+    allow_headers=SystemConfig.CORS_ALLOW_HEADERS,
 )
+
+
+# 请求日志中间件
+@application.middleware("http")
+async def log_requests(request: Request, call_next):
+    """简单的请求日志记录"""
+    start_time = time.time()
+
+    response = await call_next(request)
+
+    duration = (time.time() - start_time) * 1000
+    api_logger.info(
+        f"{request.method} {request.url.path} - {response.status_code} - {duration:.1f}ms"
+    )
+
+    return response
 
 
 # 路由
@@ -43,10 +63,13 @@ application.include_router(subcatchment, prefix="/swmm", tags=["子汇水区域"
 
 application.include_router(showRouter, prefix="/swmm", tags=["首页滚动展示数据"])
 
-application.include_router(
-    mjRouter, prefix="/mj", tags=["岷江项目， 适配特定的项目需求，不具有通用性"]
-)
-
+app_logger.info("SWMM API服务启动完成")
 
 if __name__ == "__main__":
-    uvicorn.run("app:application", host="0.0.0.0", port=8080, reload=True)
+    uvicorn.run(
+        "app:application",
+        host=SystemConfig.HOST,
+        port=SystemConfig.PORT,
+        reload=SystemConfig.APP_DEBUG,  # 根据配置决定是否热启动
+        access_log=False,  # 禁用uvicorn的访问日志，使用我们的中间件
+    )

@@ -252,7 +252,6 @@ async def get_polygon(name: str = Query(..., description="子汇水名称")):
 
     polygon = inp_polygons[name].polygon
     polygon = polygon_utm_to_wgs84(polygon)
-    print(f"子汇水 {name} 的边界点：{polygon}")
     return Result.success(
         message=f"成功获取子汇水 {name} 的边界数据",
         data=polygon,

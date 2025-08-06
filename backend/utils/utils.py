@@ -1,6 +1,7 @@
 from functools import wraps
 from fastapi import HTTPException
 from schemas.timeseries import TIMESERIES_PREFIXES_MAP
+from utils.logger import api_logger
 
 
 def with_exception_handler(default_message="操作失败，发生未知错误"):
@@ -10,7 +11,7 @@ def with_exception_handler(default_message="操作失败，发生未知错误"):
             try:
                 return await func(*args, **kwargs)
             except Exception as e:
-                print(f"Exception in {func.__name__}: {e}")
+                api_logger.error(f"Exception in {func.__name__}: {e}")
                 raise HTTPException(
                     status_code=getattr(e, "status_code", 500),
                     detail=getattr(e, "detail", default_message),

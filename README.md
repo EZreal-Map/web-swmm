@@ -81,8 +81,11 @@ web-swmm/
 │   │   └── swmm_test.inp           # 测试输入文件
 │   ├── utils/                      # 工具模块
 │   │   ├── coordinate_converter.py # 坐标系转换工具
+│   │   ├── logger.py			   # logger 配置
 │   │   ├── swmm_constant.py        # SWMM 常量配置
 │   │   └── utils.py                # 通用工具函数
+│   ├── .env                        # .env 环境变量（已隐藏）
+│   ├── .env.example                # .env 环境变量示例
 │   ├── app.py                      # 应用入口
 │   ├── config.py                   # 配置文件
 │   ├── poetry.lock
@@ -150,15 +153,20 @@ web-swmm/
 
 #### **后端启动**
 
-1. 确保已安装 Python 3.11 和 `Poetry`。
-2. 安装依赖：
+1. 参考`.env.example`，复制生成一个`.env`环境变量文件
+
+2. 确保已安装 Python 3.11 和 `Poetry`。
+
+3. 安装依赖：
    ```bash
    poetry install
    ```
-3. 激活虚拟环境：
+
+4. 激活虚拟环境：
    ```bash
    poetry shell
    ```
+
 4. 启动 FastAPI 服务：
    ```bash
    python app.py

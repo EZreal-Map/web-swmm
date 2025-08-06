@@ -14,7 +14,6 @@ import {
 } from '@/utils/entity'
 
 import { createSystemCustomLeftClickHandler } from '@/utils/entity'
-import { getBoundaryAxios } from '@/apis/boundary'
 
 export const initCesium = async (containerId) => {
   Cesium.Ion.defaultAccessToken =
@@ -194,78 +193,8 @@ export const initEntities = async (viewer) => {
   await outfallsInit(viewer) // 再加载出口
   await conduitsInit(viewer) // 最后加载渠道
   await subcatchmentsInit(viewer) // 加载子汇水区
-  await initBasinBoundary(viewer) // 初始化流域边界 (这个是常量)
+
   // 设置默认高亮颜色
   const viewerStore = useViewerStore() // 获取 Pinia store 实例
   highlightClickedEntityColor(viewer, viewerStore.clickedEntityDict)
-}
-
-// 初始化流域边界 (这个是常量)
-const initBasinBoundary = async (viewer) => {
-  const response = await getBoundaryAxios()
-  try {
-    if (response.code !== 200) {
-      ElMessage.error(response.message || '边界数据加载失败')
-      return
-    }
-
-    const geojson = response.data
-    if (!geojson || !geojson.features || !Array.isArray(geojson.features)) {
-      ElMessage.error('边界数据格式错误')
-      return
-    }
-
-    geojson.features.forEach((feature) => {
-      if (!feature.geometry || !feature.geometry.type || !feature.geometry.coordinates) return
-
-      const geom = feature.geometry
-      if (geom.type === 'Polygon') {
-        drawPolygonBoundary(viewer, geom.coordinates)
-      } else if (geom.type === 'MultiPolygon') {
-        geom.coordinates.forEach((polygonCoords) => {
-          drawPolygonBoundary(viewer, polygonCoords)
-        })
-      }
-    })
-  } catch (e) {
-    console.error('加载边界数据异常', e)
-    ElMessage.error('加载边界数据异常')
-  }
-}
-
-// 初始化流域边界的辅助函数：绘制多边形边界线（含外环和内环）
-// (了解就行，gpt生成的，不保证正确性，没有测试过MultiPolygon)
-const drawPolygonBoundary = (viewer, polygonCoords) => {
-  if (!Array.isArray(polygonCoords) || polygonCoords.length === 0) return
-
-  // 外环 coords 是 polygonCoords[0]，内环是后续的坐标环
-  polygonCoords.forEach((ring) => {
-    if (!Array.isArray(ring) || ring.length === 0) return
-
-    // 转换坐标为 Cesium.Cartesian3 数组
-    const positions = ring
-      .map((coord) => {
-        if (!Array.isArray(coord) || coord.length < 2) return null
-        return Cesium.Cartesian3.fromDegrees(coord[0], coord[1])
-      })
-      .filter((pos) => pos !== null)
-
-    if (positions.length < 2) return
-
-    // 保证闭合（首尾坐标相同）
-    const first = positions[0]
-    const last = positions[positions.length - 1]
-    if (!Cesium.Cartesian3.equalsEpsilon(first, last, Cesium.Math.EPSILON6)) {
-      positions.push(first)
-    }
-
-    viewer.entities.add({
-      polyline: {
-        positions: positions,
-        width: 2,
-        material: Cesium.Color.SKYBLUE.withAlpha(0.6),
-        clampToGround: true,
-      },
-    })
-  })
 }

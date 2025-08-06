@@ -13,6 +13,10 @@ from utils.swmm_constant import SWMM_FILE_INP_PATH, ENCODING
 from utils.utils import with_exception_handler, remove_timeseries_prefix
 from typing import Annotated
 from apis.raingage import create_raingage, delete_raingage, update_raingage
+from utils.logger import get_logger
+
+# 获取日志记录器
+logger = get_logger("timeseries")
 
 timeseriesRouter = APIRouter()
 
@@ -57,7 +61,7 @@ def parse_datetime_safe(t):
         try:
             return datetime.strptime(t.strip(), "%m/%d/%Y %H:%M:%S")
         except ValueError:
-            print(f"无法解析时间字符串: {t}")
+            logger.error(f"无法解析时间字符串: {t}")
             return None
     return None
 

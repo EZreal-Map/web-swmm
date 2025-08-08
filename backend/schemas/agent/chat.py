@@ -12,10 +12,10 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     """聊天请求模型"""
-
     message: str = Field(..., description="用户消息", min_length=1, max_length=10000)
     conversation_id: str = Field(..., description="对话ID，用于多轮对话")
     user_id: str = Field(default="default_user", description="用户ID")
+    feedback: bool = Field(default=False, description="用户反馈，可选")
 
     @field_validator("message")
     @classmethod

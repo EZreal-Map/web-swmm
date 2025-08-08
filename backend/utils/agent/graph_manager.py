@@ -1,11 +1,16 @@
 import os
+from pathlib import Path
 from typing import Optional, Annotated
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
 from utils.logger import agent_logger
-from .llm_manager import create_openai_llm
+from utils.agent.llm_manager import create_openai_llm
+
+from langgraph.prebuilt import ToolNode, tools_condition
+from tools.junction import get_junctions_tool, create_junction_tool
+from tools.web_ui import jump_to_entity_tool
 
 static_dir = os.path.join("static", "agent_graph")
 
@@ -13,6 +18,7 @@ static_dir = os.path.join("static", "agent_graph")
 # 定义聊天机器人的状态
 class State(TypedDict):
     messages: Annotated[list, add_messages]
+    client_id: Optional[str]  # 新增 client_id 字段，用于跟踪客户端连接
 
 
 class GraphInstance:
@@ -37,19 +43,33 @@ class GraphInstance:
             # 构建graph
             graph_builder = StateGraph(State)
 
+            # 定义工具
+            tools = [get_junctions_tool, create_junction_tool, jump_to_entity_tool]
+            # 创建ToolNode
+            tool_node = ToolNode(tools=tools)
+            # 将工具绑定到LLM
+            llm_with_tools = llm.bind_tools(tools=tools)
+
             # 定义chatbot的node
             def chatbot(state: State) -> dict:
                 """处理当前状态并返回 LLM 响应"""
                 agent_logger.info(
                     f"Processing messages: {len(state['messages'])} messages"
                 )
-                response = llm.invoke(state["messages"])
+                response = llm_with_tools.invoke(state["messages"])
+                agent_logger.info(f"LLM response: {response}")
                 return {"messages": [response]}
 
             # 配置graph
             graph_builder.add_node("chatbot", chatbot)
+            graph_builder.add_node("tools", tool_node)
+
             graph_builder.add_edge(START, "chatbot")
-            graph_builder.add_edge("chatbot", END)
+            graph_builder.add_conditional_edges(
+                "chatbot",
+                tools_condition,
+            )
+            graph_builder.add_edge("tools", "chatbot")
 
             # 使用内存存储（也可以持久化到数据库）
             memory = MemorySaver()
@@ -108,13 +128,15 @@ if __name__ == "__main__":
         # 创建Graph
         # graph = graph.create_graph(llm=create_openai_llm())
         # 保存可视化
-        graph_instance.save_visualization("test_graph.png")
+        graph_instance.save_visualization("test_graph_with_tools.png")
 
         # 测试简单对话
         config = {"configurable": {"thread_id": "test_conversation"}}
-        messages = [{"role": "user", "content": "你好"}]
+        messages = [{"role": "user", "content": "帮我查询节点信息"}]
 
-        result = graph_instance.invoke({"messages": messages}, config)
+        graph = graph_instance.get_graph()
+
+        result = graph.invoke({"messages": messages}, config)
         print(f"对话结果: {result}")
 
     except Exception as e:

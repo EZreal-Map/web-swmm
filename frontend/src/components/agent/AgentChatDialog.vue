@@ -33,7 +33,7 @@
       <div class="messages" ref="messagesContainer">
         <div v-for="(msg, i) in messages" :key="i" :class="['message', msg.role]">
           <div class="message-content">{{ msg.text }}</div>
-          <div class="message-time">{{ formatTime(new Date()) }}</div>
+          <div class="message-time">{{ formatTime(msg.timestamp) }}</div>
         </div>
       </div>
 
@@ -70,10 +70,13 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
+import { flyToEntityByNameTool } from '@/tools/webgis'
+import { useViewerStore } from '@/stores/viewer'
+const viewerStore = useViewerStore()
 
 // 父组件可传的参数
 
-const serverUrl = 'ws://localhost:8080/agent/ws/chat/test-client'
+const serverUrl = 'ws://localhost:8080/agent/ws/test-client'
 const conversationId = 'conv-123'
 const userId = 'user-123'
 
@@ -83,58 +86,296 @@ function closeDialog() {
   showDialog.value = false
 }
 
-// WebSocket
-const ws = ref(null)
-const connected = ref(false)
-let heartbeatInterval = null
-
-function connectWS() {
-  ws.value = new WebSocket(serverUrl)
-
-  ws.value.onopen = () => {
-    connected.value = true
-    addMessage('system', '已连接到服务器')
-    startHeartbeat()
-  }
-
-  ws.value.onmessage = (event) => {
-    const data = JSON.parse(event.data)
-    handleResponse(data)
-  }
-
-  ws.value.onclose = () => {
-    connected.value = false
-    addMessage('system', '连接已断开')
-    stopHeartbeat()
-  }
-
-  ws.value.onerror = () => {
-    addMessage('system', '连接出错')
-  }
+/**
+ * 消息类型常量 - 与后端保持一致
+ */
+const MessageType = {
+  PING: 'ping',
+  PONG: 'pong',
+  START: 'start',
+  AI_MESSAGE: 'AIMessage',
+  HUMAN_FEEDBACK: 'HumanFeedback',
+  TOOL_MESSAGE: 'ToolMessage',
+  FUNCTION_CALL: 'FunctionCall',
+  COMPLETE: 'complete',
+  ERROR: 'error',
+  CHAT_ERROR: 'Chat processing failed',
+  STREAM_ERROR: 'Stream processing failed',
+  INVALID_JSON: 'INVALID_JSON',
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  PROCESSING_ERROR: 'PROCESSING_ERROR',
 }
 
-function disconnectWS() {
-  if (ws.value) ws.value.close()
-  stopHeartbeat()
-}
+/**
+ * WebSocket 连接管理器
+ */
+class WebSocketManager {
+  constructor(serverUrl, messageHandler, statusChangeHandler) {
+    this.serverUrl = serverUrl
+    this.messageHandler = messageHandler
+    this.statusChangeHandler = statusChangeHandler
+    this.ws = null
+    this.connected = false
+    this.heartbeatInterval = null
+  }
 
-function startHeartbeat() {
-  stopHeartbeat()
-  heartbeatInterval = setInterval(() => {
-    if (ws.value && ws.value.readyState === WebSocket.OPEN) {
-      ws.value.send(JSON.stringify({ type: 'ping' }))
+  connect() {
+    try {
+      this.ws = new WebSocket(this.serverUrl)
+      this.setupEventHandlers()
+    } catch (error) {
+      console.error('WebSocket 连接失败:', error)
+      this.statusChangeHandler(false, '连接失败')
     }
-  }, 30000)
-}
+  }
 
-function stopHeartbeat() {
-  if (heartbeatInterval) {
-    clearInterval(heartbeatInterval)
-    heartbeatInterval = null
+  setupEventHandlers() {
+    this.ws.onopen = () => {
+      this.connected = true
+      this.statusChangeHandler(true, '已连接到服务器')
+      this.startHeartbeat()
+      console.log('WebSocket 连接成功')
+    }
+
+    this.ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        this.messageHandler(data)
+      } catch (error) {
+        console.error('解析消息失败:', error)
+      }
+    }
+
+    this.ws.onclose = (event) => {
+      this.connected = false
+      this.stopHeartbeat()
+      this.statusChangeHandler(false, '连接已断开')
+      console.log('WebSocket 连接关闭:', event.code, event.reason)
+    }
+
+    this.ws.onerror = (error) => {
+      console.error('WebSocket 错误:', error)
+      this.statusChangeHandler(false, '连接出错')
+    }
+  }
+
+  send(data) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(data))
+      return true
+    } else {
+      console.warn('WebSocket 未连接，消息发送失败')
+      return false
+    }
+  }
+
+  disconnect() {
+    this.stopHeartbeat()
+    if (this.ws) {
+      this.ws.close()
+      this.ws = null
+    }
+    this.connected = false
+  }
+
+  startHeartbeat() {
+    this.stopHeartbeat()
+    this.heartbeatInterval = setInterval(() => {
+      if (this.connected) {
+        this.send({ type: MessageType.PING })
+      }
+    }, 30000)
+  }
+
+  stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval)
+      this.heartbeatInterval = null
+    }
+  }
+
+  isConnected() {
+    return this.connected
   }
 }
 
-// 消息管理
+/**
+ * 消息响应处理器
+ */
+class MessageResponseHandler {
+  constructor(messages, wsManager, addMessage) {
+    this.messages = messages
+    this.wsManager = wsManager
+    this.addMessage = addMessage
+    this.functionMap = {
+      flyToEntityByNameTool: flyToEntityByNameTool,
+      // 可以继续添加其他可调用的函数
+    }
+  }
+
+  /**
+   * 主要的响应处理入口
+   */
+  handle(data) {
+    console.log('收到响应:', data.type, data)
+
+    switch (data.type) {
+      case MessageType.PONG:
+        this.handlePong()
+        break
+      case MessageType.START:
+        this.handleStart(data)
+        break
+      case MessageType.AI_MESSAGE:
+        this.handleAIMessage(data)
+        break
+      case MessageType.HUMAN_FEEDBACK:
+        this.handleHumanFeedback(data)
+        break
+      case MessageType.TOOL_MESSAGE:
+        this.handleToolMessage(data)
+        break
+      case MessageType.FUNCTION_CALL:
+        this.handleFunctionCall(data)
+        break
+      case MessageType.COMPLETE:
+        this.handleComplete(data)
+        break
+      case MessageType.ERROR:
+      case MessageType.CHAT_ERROR:
+      case MessageType.STREAM_ERROR:
+      case MessageType.INVALID_JSON:
+      case MessageType.VALIDATION_ERROR:
+      case MessageType.PROCESSING_ERROR:
+        this.handleError(data)
+        break
+      default:
+        console.warn('未知消息类型:', data.type, data)
+    }
+  }
+
+  handlePong() {
+    console.log('收到心跳响应')
+  }
+
+  handleStart(data) {
+    this.addMessage('assistant', '')
+    console.log('开始处理响应:', data.message)
+  }
+
+  handleAIMessage(data) {
+    const lastMessage = this.getLastAssistantMessage()
+    if (lastMessage) {
+      lastMessage.text = data.accumulated_content || data.content || ''
+    }
+  }
+
+  handleHumanFeedback(data) {
+    const lastMessage = this.getLastAssistantMessage()
+    if (lastMessage) {
+      lastMessage.text = data.accumulated_content || data.content || ''
+    }
+  }
+
+  handleToolMessage(data) {
+    console.log('工具消息:', data.tool_name, data.content)
+    // 可以选择是否显示工具消息
+    // this.addMessage('system', `工具 ${data.tool_name}: ${data.content}`)
+  }
+
+  handleFunctionCall(data) {
+    try {
+      const { function_name, args } = data
+      const fn = this.functionMap[function_name]
+
+      if (typeof fn === 'function') {
+        // 执行函数调用
+        fn.apply(null, [viewerStore, ...(args ? Object.values(args) : [])])
+
+        const successMsg = `已成功执行：${function_name}，参数：${JSON.stringify(args)}`
+        this.sendFeedback(successMsg)
+        console.log('函数调用成功:', function_name, args)
+      } else {
+        const errorMsg = `未找到函数：${function_name}`
+        this.sendFeedback(errorMsg)
+        console.error('函数未找到:', function_name)
+      }
+    } catch (error) {
+      const errorMsg = `函数调用失败：${error.message}`
+      this.sendFeedback(errorMsg)
+      console.error('函数调用异常:', error)
+    }
+  }
+
+  handleComplete(data) {
+    const lastMessage = this.getLastAssistantMessage()
+    if (lastMessage && data.message) {
+      lastMessage.text = data.message
+    }
+    console.log('响应完成，总长度:', data.total_length)
+  }
+
+  handleError(data) {
+    const errorMsg = data.error || data.message || '发生未知错误'
+    this.addMessage('system', `错误: ${errorMsg}`)
+    console.error('收到错误响应:', data.type, errorMsg)
+  }
+
+  getLastAssistantMessage() {
+    const messages = this.messages.value
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant') {
+        return messages[i]
+      }
+    }
+    return null
+  }
+
+  sendFeedback(message) {
+    this.wsManager.send({
+      message,
+      conversation_id: conversationId,
+      user_id: userId,
+      feedback: true,
+    })
+  }
+}
+
+/**
+ * 消息发送管理器
+ */
+class MessageSender {
+  constructor(wsManager) {
+    this.wsManager = wsManager
+  }
+
+  sendChatMessage(message) {
+    return this.wsManager.send({
+      message,
+      conversation_id: conversationId,
+      user_id: userId,
+      feedback: false,
+    })
+  }
+
+  sendFeedback(message) {
+    return this.wsManager.send({
+      message,
+      conversation_id: conversationId,
+      user_id: userId,
+      feedback: true,
+    })
+  }
+
+  sendPing() {
+    return this.wsManager.send({
+      type: MessageType.PING,
+    })
+  }
+}
+
+// 状态管理
+const connected = ref(false)
 const messages = ref([])
 const input = ref('')
 const messagesContainer = ref(null)
@@ -148,19 +389,47 @@ function addMessage(role, text) {
   })
 }
 
+// 创建一个临时的消息处理函数
+let messageHandler = null
+
+// 初始化WebSocket管理器
+const wsManager = new WebSocketManager(
+  serverUrl,
+  (data) => messageHandler?.handle(data), // 使用可选链操作符
+  (isConnected, message) => {
+    connected.value = isConnected
+    if (message) {
+      addMessage('system', message)
+    }
+  },
+)
+
+// 现在创建实际的消息处理器
+messageHandler = new MessageResponseHandler(messages, wsManager, addMessage)
+const messageSender = new MessageSender(wsManager)
+
+function connectWS() {
+  wsManager.connect()
+}
+
+function disconnectWS() {
+  wsManager.disconnect()
+}
+
 function sendMessage() {
-  if (!connected.value || !input.value.trim()) return
+  if (!wsManager.isConnected() || !input.value.trim()) return
+
   const msg = input.value.trim()
   addMessage('user', msg)
-  ws.value.send(
-    JSON.stringify({
-      message: msg,
-      conversation_id: conversationId,
-      user_id: userId,
-    }),
-  )
-  input.value = ''
-  adjustTextareaHeight()
+
+  const success = messageSender.sendChatMessage(msg)
+
+  if (success) {
+    input.value = ''
+    adjustTextareaHeight()
+  } else {
+    addMessage('system', '消息发送失败，请检查连接')
+  }
 }
 
 function handleKeyDown(e) {
@@ -185,24 +454,6 @@ function formatTime(date) {
     minute: '2-digit',
     hour12: false,
   })
-}
-
-function handleResponse(data) {
-  if (data.type === 'start') {
-    addMessage('assistant', '')
-  } else if (data.type === 'chunk') {
-    const last = messages.value[messages.value.length - 1]
-    if (last && last.role === 'assistant') {
-      last.text = data.accumulated_content || last.text + data.content
-    }
-  } else if (data.type === 'complete') {
-    const last = messages.value[messages.value.length - 1]
-    if (last && last.role === 'assistant') {
-      last.text = data.message
-    }
-  } else if (data.message) {
-    addMessage('assistant', data.message)
-  }
 }
 
 // 拖拽 & 缩放

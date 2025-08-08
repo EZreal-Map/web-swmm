@@ -79,60 +79,12 @@ import { getStringAfterFirstDash } from '@/utils/convert'
 import { startDragHandlers, stopDragHandlers, initEntities } from '@/utils/useCesium'
 import { ElMessage } from 'element-plus'
 import CalculateDialog from '@/components/CalculateDialog.vue'
-import { fillClickedEntityDict } from '@/utils/entity'
-import { POINTPREFIX, POLYLINEPREFIX, POLYGONPREFIX } from '@/utils/constant'
-import { getPolygonCenter } from '@/utils/entity.js'
+import { findEntityByName, flyToEntity } from '@/utils/entity'
 import AgentChatDialog from '@/components/agent/AgentChatDialog.vue'
 
 const viewerStore = useViewerStore()
 
 // 1. 查找事件
-// 1.1 查找实体
-const findEntityByName = (name) => {
-  const entityJunction = viewerStore.viewer.entities.getById(POINTPREFIX + name)
-  const entityConduit = viewerStore.viewer.entities.getById(POLYLINEPREFIX + name)
-  const entitySubcatchment = viewerStore.viewer.entities.getById(POLYGONPREFIX + name)
-
-  let entity = null
-  let cartesian = null
-  let typeMessageName = null
-
-  if (entityJunction) {
-    typeMessageName = '节点'
-    entity = entityJunction
-    cartesian = entity.position.getValue()
-  } else if (entityConduit) {
-    typeMessageName = '渠道'
-    entity = entityConduit
-    // 渠道用第一个点坐标
-    cartesian = entity.polyline.positions.getValue()[0]
-  } else if (entitySubcatchment) {
-    typeMessageName = '汇水区'
-    entity = entitySubcatchment
-    const hierarchy = entity.polygon.hierarchy.getValue()
-    // 获取多边形中心点
-    cartesian = getPolygonCenter(hierarchy.positions)
-  }
-
-  return { entity, cartesian, typeMessageName }
-}
-
-// 1.2 飞行到实体
-const flyToEntity = (entity, cartesian) => {
-  viewerStore.clickedEntityDict = fillClickedEntityDict(entity)
-
-  const cartographic = Cesium.Cartographic.fromCartesian(cartesian)
-  const longitude = Cesium.Math.toDegrees(cartographic.longitude)
-  const latitude = Cesium.Math.toDegrees(cartographic.latitude)
-  const customHeight = 20000
-  const destination = Cesium.Cartesian3.fromDegrees(longitude, latitude, customHeight)
-
-  viewerStore.viewer.camera.flyTo({
-    destination,
-    duration: 2,
-  })
-}
-
 const queryEntityByName = async () => {
   await ElMessageBox.prompt('请输入要查找的实体名称', '查找', {
     confirmButtonText: '确定',
@@ -141,7 +93,7 @@ const queryEntityByName = async () => {
     inputErrorMessage: '不能为空',
     beforeClose: (action, instance, done) => {
       if (action === 'confirm') {
-        const { entity } = findEntityByName(instance.inputValue)
+        const { entity } = findEntityByName(viewerStore.viewer, instance.inputValue)
         if (!entity) {
           ElMessage.error('未找到实体名为 ' + instance.inputValue)
           return // 阻止关闭
@@ -153,9 +105,9 @@ const queryEntityByName = async () => {
     },
   })
     .then(({ value }) => {
-      const { entity, cartesian, typeMessageName } = findEntityByName(value)
+      const { entity, cartesian, typeMessageName } = findEntityByName(viewerStore.viewer, value)
       if (entity && cartesian) {
-        flyToEntity(entity, cartesian)
+        flyToEntity(viewerStore, entity, cartesian)
         ElMessage.success('已找到' + typeMessageName + '：' + value)
       }
     })

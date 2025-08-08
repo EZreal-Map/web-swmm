@@ -70,7 +70,9 @@ async def get_junctions():
             timeseries_name=timeseries_name,
         )
         junctions.append(junction_model)
-    return Result.success(data=junctions, message="成功获取所有节点数据")
+    return Result.success(
+        data=junctions, message=f"成功获取所有节点数据({len(junctions)}个)"
+    )
 
 
 @junctionsRouter.put(

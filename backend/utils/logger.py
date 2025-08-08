@@ -114,6 +114,7 @@ api_logger = get_logger("api")
 swmm_logger = get_logger("swmm")
 agent_logger = get_logger("agent")
 websocket_logger = get_logger("websocket")
+tools_logger = get_logger("tools")
 
 # 导出
-__all__ = ["get_logger", "app_logger", "api_logger", "swmm_logger", "agent_logger", "websocket_logger"]
+__all__ = ["get_logger", "app_logger", "api_logger", "swmm_logger", "agent_logger", "websocket_logger", "tools_logger"]

@@ -9,6 +9,8 @@ from utils.agent.llm_manager import create_openai_llm
 from utils.agent.serial_tool_node import SerialToolNode
 
 from langgraph.prebuilt import ToolNode
+
+from tools.web_ui import fly_to_entity_by_name_tool, init_entities_tool
 from tools.junction import (
     get_junctions_tool,
     batch_get_junctions_by_ids_tool,
@@ -16,7 +18,12 @@ from tools.junction import (
     delete_junction_tool,
     update_junction_tool,
 )
-from tools.web_ui import fly_to_entity_by_name_tool, init_entities_tool
+from tools.outfall import (
+    get_outfalls_tool,
+    update_outfall_tool,
+    create_outfall_tool,
+    delete_outfall_tool,
+)
 
 static_dir = os.path.join("static", "agent_graph")
 
@@ -59,6 +66,10 @@ class GraphInstance:
                 delete_junction_tool,
                 batch_get_junctions_by_ids_tool,
                 update_junction_tool,
+                get_outfalls_tool,
+                update_outfall_tool,
+                create_outfall_tool,
+                delete_outfall_tool,
             ]
 
             frontend_tools = [
@@ -257,7 +268,7 @@ frontend_tools: true
                 user_query = state.get("query", "")
 
                 agent_logger.info(
-                    f"前端工具节点 - 需要执行: {need_frontend}, 问题: {user_query} 注意事项：1.如果要调用**更新所有实体工具**，需要最先调用。2.所有前端功能不能重复调用。3.如果设计到更新实体数据和增加实体数据，需要先调用**更新所有实体工具**,再调用**跳转工具**"
+                    f"前端工具节点 - 需要执行: {need_frontend}, 问题: {user_query} 注意事项：1.如果要调用**更新所有实体工具**，需要最先调用。2.所有前端功能不能重复调用。3.如果涉及到**更新**实体数据和**增加**实体数据，需要先调用**更新所有实体工具**,再调用**跳转工具**,一定要**跳转**到新的**更新**实体。"
                 )
 
                 # 如果不需要前端工具，直接返回原状态

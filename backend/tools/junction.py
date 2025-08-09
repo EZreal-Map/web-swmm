@@ -120,7 +120,7 @@ def update_junction_tool(
     timeseries_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    节点信息更新工具，通过节点ID更新指定节点的部分或全部信息。
+    节点信息更新(更改)工具，通过节点ID更新指定节点的部分或全部信息。
 
     **功能特性**：
         - 支持更新节点的地理与水力参数

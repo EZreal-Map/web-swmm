@@ -5,7 +5,7 @@ from swmm_api.input_file.sections.node_component import Coordinate, Inflow
 from swmm_api.input_file.sections.link import Conduit
 from swmm_api.input_file.sections.link_component import CrossSection
 from swmm_api.input_file.sections.others import TimeseriesData
-
+from typing import List
 
 from utils.coordinate_converter import utm_to_wgs84, wgs84_to_utm
 from schemas.junction import JunctionModel
@@ -72,6 +72,68 @@ async def get_junctions():
         junctions.append(junction_model)
     return Result.success(
         data=junctions, message=f"成功获取所有节点数据({len(junctions)}个)"
+    )
+
+
+@junctionsRouter.post(
+    "/junctions/batch",
+    summary="批量获取指定节点的信息",
+    description="通过节点ID列表批量获取节点的基本信息，包括类型、名称、地理坐标（经纬度）、高程、最大水深、初始水深、超载水深、积水面积、是否有入流及入流时间序列名称。",
+)
+@with_exception_handler(default_message="获取失败，文件有误，发生未知错误")
+async def batch_get_junctions_by_ids(ids: List[str]):
+    """通过节点ID列表批量获取节点信息"""
+    INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    inp_junctions = INP.check_for_section(Junction)
+    inp_coordinates = INP.check_for_section(Coordinate)
+    inp_inflows = INP.check_for_section(Inflow)
+
+    # 获取所有入流的名称
+    inflow_nodes = [inflow.node for inflow in inp_inflows.values()]
+
+    junctions = []
+    junctions_name = []
+
+    for junction_id in ids:
+        junction = inp_junctions.get(junction_id)
+        if not junction:
+            continue
+
+        # 获取坐标
+        coord = inp_coordinates.get(junction.name)
+        lon_lat = utm_to_wgs84(coord.x, coord.y)
+        lon = lon_lat[0]
+        lat = lon_lat[1]
+
+        # 判断是否有入流
+        has_inflow = junction.name in inflow_nodes
+
+        # 获取时间序列名（如果有入流）
+        if has_inflow:
+            timeseries_name = inp_inflows[(junction.name, "FLOW")].time_series
+            # 移除时间序列类型前缀
+            timeseries_name = remove_timeseries_prefix(timeseries_name)
+        else:
+            timeseries_name = ""
+
+        # 构造 JunctionModel 对象并添加到列表
+        junction_model = JunctionModel(
+            name=junction.name,
+            lon=lon,
+            lat=lat,
+            elevation=junction.elevation,
+            depth_init=junction.depth_init,
+            depth_max=junction.depth_max,
+            depth_surcharge=junction.depth_surcharge,
+            area_ponded=junction.area_ponded,
+            has_inflow=has_inflow,
+            timeseries_name=timeseries_name,
+        )
+        junctions.append(junction_model)
+        junctions_name.append(junction.name)
+
+    return Result.success(
+        data=junctions, message=f"成功获取指定节点数据：{junctions_name}"
     )
 
 

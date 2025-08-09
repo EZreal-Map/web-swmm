@@ -1,5 +1,5 @@
 from langchain_core.tools import tool
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from schemas.junction import JunctionModel
 from schemas.result import Result
 import asyncio
@@ -8,6 +8,7 @@ from utils.logger import tools_logger
 
 from apis.junction import (
     get_junctions,
+    batch_get_junctions_by_ids,
     update_junction,
     create_junction,
     delete_junction,
@@ -59,54 +60,160 @@ def get_junctions_tool() -> str:
 
 
 @tool
+def batch_get_junctions_by_ids_tool(ids: List[str]):
+    """
+    节点信息批量获取工具，通过节点ID列表批量获取节点的详细信息。
+
+    **功能特性**：
+        - 支持通过节点ID列表查询多个节点的详细信息
+        - 返回节点的地理与水力参数，便于前端直接消费
+
+    **使用场景**：
+        - 批量查询节点信息
+        - 地图渲染或表格展示多个节点数据
+
+    **参数**：
+        - ids (List[str]): 节点ID列表
+
+    **返回值**：
+        Result.success(
+            data=junctions, message=f"成功获取指定节点数据({len(junctions)}个)"
+        )
+        其中 data（junctions）为 JunctionModel 列表，每个节点结构如下：
+        [
+            {
+                "name": str,              # 节点名称
+                "lon": float,             # 节点经度
+                "lat": float,             # 节点纬度
+                "elevation": float,       # 节点高程（米）
+                "depth_init": float,      # 初始水深（米）
+                "depth_max": float,       # 最大水深（米）
+                "depth_surcharge": float, # 超载水深（米）
+                "area_ponded": float,     # 积水面积（平方米）
+                "has_inflow": bool,       # 是否有入流
+                "timeseries_name": str    # 入流时间序列名称（无则为空字符串）
+            },
+            ...
+        ]
+    """
+    result = asyncio.run(batch_get_junctions_by_ids(ids))
+    tools_logger.info(
+        f"批量获取指定节点信息: {len(result.data)}个节点,其中类似于: {result.data[0]}"
+        if result.data
+        else "无节点信息"
+    )
+    return result
+
+
+@tool
 def update_junction_tool(
     junction_id: str,
-    name: str,
-    lon: float,
-    lat: float,
-    elevation: float = 0.0,
-    depth_init: float = 0.0,
-    depth_max: float = 9999.0,
-    depth_surcharge: float = 9999.0,
-    area_ponded: float = 0.0,
-    has_inflow: bool = False,
-    timeseries_name: str = "",
+    name: Optional[str] = None,
+    lon: Optional[float] = None,
+    lat: Optional[float] = None,
+    elevation: Optional[float] = None,
+    depth_init: Optional[float] = None,
+    depth_max: Optional[float] = None,
+    depth_surcharge: Optional[float] = None,
+    area_ponded: Optional[float] = None,
+    has_inflow: Optional[bool] = None,
+    timeseries_name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """通过节点名称，更新指定节点的所有信息.
-
-    通过节点名称，更新指定节点的所有信息，包括名称、经纬度、高程、最大水深、初始水深、超载水深、积水面积、是否有入流及入流时间序列名称。
-
-    Args:
-        junction_id: 要更新的节点ID
-        name: 节点名称
-        lon: 经度
-        lat: 纬度
-        elevation: 高程
-        depth_init: 初始水深
-        depth_max: 最大水深
-        depth_surcharge: 超载水深
-        area_ponded: 积水面积
-        has_inflow: 是否有入流
-        timeseries_name: 入流时间序列名称
-
-    Returns:
-        Dict[str, Any]: 更新结果字典
     """
+    节点信息更新工具，通过节点ID更新指定节点的部分或全部信息。
+
+    **功能特性**：
+        - 支持更新节点的地理与水力参数
+        - 可更新节点的入流信息及时间序列名称
+        - 仅更新传入的参数，未传入的参数保持原值不变
+
+    **使用场景**：
+        - 修改节点的部分属性，例如只更新高程 (elevation)
+        - 更新节点的地理坐标或水力参数
+        - 设置或取消节点的入流信息
+
+    **参数**：
+        - junction_id (str): 要更新的节点ID
+        - name (Optional[str]): 节点名称，不更新时传 None
+        - lon (Optional[float]): 节点经度，不更新时传 None
+        - lat (Optional[float]): 节点纬度，不更新时传 None
+        - elevation (Optional[float]): 节点高程，单位为米，不更新时传 None
+        - depth_init (Optional[float]): 初始水深，单位为米，不更新时传 None
+        - depth_max (Optional[float]): 最大水深，单位为米，不更新时传 None
+        - depth_surcharge (Optional[float]): 超载水深，单位为米，不更新时传 None
+        - area_ponded (Optional[float]): 积水面积，单位为平方米，不更新时传 None
+        - has_inflow (Optional[bool]): 是否有入流，不更新时传 None
+        - timeseries_name (Optional[str]): 入流时间序列名称，不更新时传 None
+
+    **返回值**：
+        Dict[str, Any]: 更新结果字典，包含更新后的节点信息。
+
+
+    **提示**：
+        - 如果某个字段不需要更新，请传 None。
+        - 如果只需要更新单个字段，例如高程 (elevation)，可以直接传入：
+          {
+              "elevation": 120
+          }
+        - 如果需要更新多个字段，可以传入：
+          {
+              "name": "new_junction_name",
+              "lon": 120.123,
+              "lat": 30.456,
+              "elevation": 120,
+              "depth_max": 10.0,
+          }
+    """
+    # 收集所有非 None 的参数
+    updates_args = {
+        "name": name,
+        "lon": lon,
+        "lat": lat,
+        "elevation": elevation,
+        "depth_init": depth_init,
+        "depth_max": depth_max,
+        "depth_surcharge": depth_surcharge,
+        "area_ponded": area_ponded,
+        "has_inflow": has_inflow,
+        "timeseries_name": timeseries_name,
+    }
+    updates_args = {k: v for k, v in updates_args.items() if v is not None}
+
+    if not updates_args:
+        raise ValueError("更新参数不能为空，请提供至少一个需要更新的字段")
+
+    # 获取当前节点信息
+    current_data_result = asyncio.run(batch_get_junctions_by_ids([junction_id]))
+    if not current_data_result or not current_data_result.data:
+        return {"success": False, "message": f"节点 {junction_id} 不存在，无法更新"}
+
+    # 从 Result 里面取出 JunctionModel 再变成字典
+    current_data = current_data_result.data[0].dict()
+
+    # 合并更新参数
+    updated_data = {**current_data, **updates_args}
+
+    # 构造 JunctionModel 对象
     junction_update = JunctionModel(
-        name=name,
-        lon=lon,
-        lat=lat,
-        elevation=elevation,
-        depth_init=depth_init,
-        depth_max=depth_max,
-        depth_surcharge=depth_surcharge,
-        area_ponded=area_ponded,
-        has_inflow=has_inflow,
-        timeseries_name=timeseries_name,
+        name=updated_data["name"],
+        lon=updated_data["lon"],
+        lat=updated_data["lat"],
+        elevation=updated_data["elevation"],
+        depth_init=updated_data["depth_init"],
+        depth_max=updated_data["depth_max"],
+        depth_surcharge=updated_data["depth_surcharge"],
+        area_ponded=updated_data["area_ponded"],
+        has_inflow=updated_data["has_inflow"],
+        timeseries_name=updated_data["timeseries_name"],
     )
 
-    result = update_junction(junction_id, junction_update)
-    return result
+    # 调用更新函数
+    result = asyncio.run(update_junction(junction_id, junction_update))
+    result_message = {
+        "message": result.get("message", "更新节点失败"),
+        "updated_args": updated_data,
+    }
+    return result_message
 
 
 @tool
@@ -175,7 +282,8 @@ def delete_junction_tool(junction_id: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: 删除结果字典
     """
-    result = delete_junction(junction_id)
+    result = asyncio.run(delete_junction(junction_id))
+    tools_logger.info(f"删除节点: {result} ")
     return result
 
 

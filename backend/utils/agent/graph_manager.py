@@ -9,7 +9,13 @@ from utils.agent.llm_manager import create_openai_llm
 from utils.agent.serial_tool_node import SerialToolNode
 
 from langgraph.prebuilt import ToolNode
-from tools.junction import get_junctions_tool, create_junction_tool
+from tools.junction import (
+    get_junctions_tool,
+    batch_get_junctions_by_ids_tool,
+    create_junction_tool,
+    delete_junction_tool,
+    update_junction_tool,
+)
 from tools.web_ui import fly_to_entity_by_name_tool, init_entities_tool
 
 static_dir = os.path.join("static", "agent_graph")
@@ -50,6 +56,9 @@ class GraphInstance:
             backend_tools = [
                 get_junctions_tool,
                 create_junction_tool,
+                delete_junction_tool,
+                batch_get_junctions_by_ids_tool,
+                update_junction_tool,
             ]
 
             frontend_tools = [
@@ -88,7 +97,8 @@ class GraphInstance:
 2. frontend_tools  
    - 用于 **前端界面交互**（例如：地图跳转、实体高亮、界面刷新等）。  
    - 如果问题需要让用户在界面上看到变化（如定位到某个节点、在地图上显示结果等），则需要该工具。  
-   - 注意：如果只是查询数据并将结果直接返回给用户（不要求地图或界面变化），则**不需要** frontend_tools。  
+   - 注意：如果只是查询数据并将结果直接返回给用户（不要求地图或界面变化），则**不需要** frontend_tools。
+   - 但凡涉及到数据的**更新，删除，增加**操作，都需要 frontend_tools，因为前端界面也要响应的变化更新。
 
 3. chatbot  
    - 用于 **普通对话、解释说明、总结回答** 等不需要操作数据或界面的场景。  
@@ -107,17 +117,40 @@ frontend_tools: [true/false]
 
 ### 示例  
 
-用户问题：帮我创建一个节点，节点信息如下名字为J1，纬度为110，纬度为30  
-回答：  
-backend_tools: true
-frontend_tools: true  
-说明: 创建节点需要调用 backend_tools 保存数据，同时需要 frontend_tools 在界面显示新节点。  
-
+##### 1 查询多个问题
 用户问题：帮我查询所有节点的信息  
 回答：  
 backend_tools: true  
 frontend_tools: false  
-说明: 查询节点信息只需调用 backend_tools 获取数据，无需界面交互。
+说明: 查询节点信息只需调用 backend_tools 获取数据表，数据太多无法在前端上一一显示，所以不需要 frontend_tools。
+
+##### 2 查询一个问题
+用户问题：帮我查询一个节点的信息，节点ID为J1  
+回答：  
+backend_tools: true  
+frontend_tools: true
+说明: 查询节点信息需调用 backend_tools 获取数据信息，因为数据只有1个，所以可以很方便的在前端界面显示，所以需要 frontend_tools。
+
+#### 3 创建问题
+用户问题：帮我创建一个节点，节点信息如下名字为J1，纬度为110，纬度为30  
+回答：  
+backend_tools: true
+frontend_tools: true  
+说明: 创建节点需要调用 backend_tools 保存数据，因为数据只有1个，所以可以很方便的在前端界面显示，所以需要 frontend_tools。
+
+#### 4 删除问题
+用户问题：帮我删除一个节点，节点ID为J1  
+回答：  
+backend_tools: true
+frontend_tools: true  
+说明: 删除节点需调用 backend_tools 删除数据，同时需要 frontend_tools 在界面显示更新后的节点信息。  
+
+##### 5 更新问题
+用户问题：帮我把节点J1的名字设置为J1_new  
+回答：  
+backend_tools: true
+frontend_tools: true  
+说明: 更新节点需要调用 backend_tools 保存数据，同时需要 frontend_tools 在界面显示更新后的节点信息。
 """
 
                 # 获取意图分析结果
@@ -224,7 +257,7 @@ frontend_tools: false
                 user_query = state.get("query", "")
 
                 agent_logger.info(
-                    f"前端工具节点 - 需要执行: {need_frontend}, 问题: {user_query} 注意事项：1.如果要更新所有实体，需要最先调用。2.所有前端功能不能重复调用。"
+                    f"前端工具节点 - 需要执行: {need_frontend}, 问题: {user_query} 注意事项：1.如果要调用**更新所有实体工具**，需要最先调用。2.所有前端功能不能重复调用。3.如果设计到更新实体数据和增加实体数据，需要先调用**更新所有实体工具**,再调用**跳转工具**"
                 )
 
                 # 如果不需要前端工具，直接返回原状态

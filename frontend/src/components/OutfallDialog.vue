@@ -88,7 +88,7 @@ const saveOutfallEntity = () => {
       const id = POINTPREFIX + res.data.id
       outfallEntity.value.id = id
       // 更新 Cesium 中的实体数据
-      initEntities(viewerStore.viewer)
+      initEntities(viewerStore)
       ElMessage.success(res.message)
     },
   )
@@ -98,7 +98,7 @@ const deleteOutfallEntity = () => {
   deleteOutfallByIdAxios(outfallEntity.value.id)
     .then((res) => {
       // 更新 Cesium 中的实体数据
-      initEntities(viewerStore.viewer)
+      initEntities(viewerStore)
       // 删除结束后，关闭弹窗
       showDialog.value = false
       ElMessage.success(res.message)

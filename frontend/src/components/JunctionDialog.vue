@@ -129,7 +129,7 @@ const saveJunctionEntity = () => {
     const id = POINTPREFIX + res.data.id
     junctionEntity.value.id = id
     // 更新 Cesium 中的实体数据
-    initEntities(viewerStore.viewer)
+    initEntities(viewerStore)
     ElMessage.success(res.message)
   })
 }
@@ -138,7 +138,7 @@ const deleteJunctionEntity = () => {
   deleteJunctionByIdAxios(junctionEntity.value.id)
     .then((res) => {
       // 更新 Cesium 中的实体数据
-      initEntities(viewerStore.viewer)
+      initEntities(viewerStore)
       // 删除结束后，关闭弹窗
       showDialog.value = false
       ElMessage.success(res.message)

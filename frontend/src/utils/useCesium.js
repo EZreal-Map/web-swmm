@@ -57,7 +57,7 @@ export const initCesium = async (containerId) => {
   // 将自定义的鼠标左键点击事件管理器存储到 Pinia 中，方便其他地方使用
   viewerStore.systemCustomLeftClickManager = systemCustomLeftClickManager
   // 初始化数据
-  initEntities(viewer)
+  initEntities(viewerStore)
 }
 
 // 开启鼠标拖动事件
@@ -185,7 +185,8 @@ const subcatchmentsInit = async (viewer) => {
   })
 }
 
-export const initEntities = async (viewer) => {
+export const initEntities = async (viewerStore) => {
+  const viewer = viewerStore.viewer
   // 清除所有实体
   viewer.entities.removeAll()
   // 创建所有实体
@@ -195,6 +196,5 @@ export const initEntities = async (viewer) => {
   await subcatchmentsInit(viewer) // 加载子汇水区
 
   // 设置默认高亮颜色
-  const viewerStore = useViewerStore() // 获取 Pinia store 实例
   highlightClickedEntityColor(viewer, viewerStore.clickedEntityDict)
 }

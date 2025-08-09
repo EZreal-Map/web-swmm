@@ -120,7 +120,7 @@ const saveConduitEntity = () => {
     .then((res) => {
       ElMessage.success(res.message)
       // 更新 Cesium 中的实体数据
-      initEntities(viewerStore.viewer)
+      initEntities(viewerStore)
       const id = POLYLINEPREFIX + res.data.id
       // 更新 id，解决不关闭弹窗时候，重复保存时，selectedEntity的id还是原来旧id的问题
       conduitEntity.value.id = id
@@ -135,7 +135,7 @@ const deleteConduitEntity = () => {
     .then((res) => {
       ElMessage.success(res.message)
       // 更新 Cesium 中的实体数据
-      initEntities(viewerStore.viewer)
+      initEntities(viewerStore)
       // 删除结束后，关闭弹窗
       showDialog.value = false
     })

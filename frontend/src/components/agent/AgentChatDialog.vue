@@ -70,15 +70,15 @@
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
-import { flyToEntityByNameTool } from '@/tools/webgis'
-import { useViewerStore } from '@/stores/viewer'
-const viewerStore = useViewerStore()
+import { flyToEntityByNameTool, initEntitiesTool } from '@/tools/webgis'
 
 // 父组件可传的参数
 
 const serverUrl = 'ws://localhost:8080/agent/ws/test-client'
-const conversationId = 'conv-123'
-const userId = 'user-123'
+// 帮我取随机数
+const conversationId = 'conv-' + Math.floor(Math.random() * 10000)
+
+const userId = 'user-1234'
 
 const showDialog = defineModel('showDialog')
 
@@ -209,6 +209,7 @@ class MessageResponseHandler {
     this.addMessage = addMessage
     this.functionMap = {
       flyToEntityByNameTool: flyToEntityByNameTool,
+      initEntitiesTool: initEntitiesTool,
       // 可以继续添加其他可调用的函数
     }
   }
@@ -283,16 +284,20 @@ class MessageResponseHandler {
     // this.addMessage('system', `工具 ${data.tool_name}: ${data.content}`)
   }
 
-  handleFunctionCall(data) {
+  async handleFunctionCall(data) {
     try {
-      const { function_name, args } = data
+      const { function_name, args, success_msg } = data
       const fn = this.functionMap[function_name]
 
       if (typeof fn === 'function') {
         // 执行函数调用
-        fn.apply(null, [viewerStore, ...(args ? Object.values(args) : [])])
+        // 将 args 对象的值作为参数数组传递
+        const functionArgs = args ? Object.values(args) : []
+        await fn(...functionArgs)
 
-        const successMsg = `已成功执行：${function_name}，参数：${JSON.stringify(args)}`
+        // 如果 后端工具没有定义 success_msg，就使用默认 success_msg
+        const successMsg =
+          success_msg || `已成功执行：${function_name}，参数：${JSON.stringify(args)}`
         this.sendFeedback(successMsg)
         console.log('函数调用成功:', function_name, args)
       } else {

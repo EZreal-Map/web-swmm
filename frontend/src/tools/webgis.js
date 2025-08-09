@@ -1,6 +1,9 @@
-import { findEntityByName, flyToEntity } from '@/utils/entity'
+import { findEntityByName, flyToEntity } from '@/utils/entity.js'
+import { initEntities } from '@/utils/useCesium.js'
+import { useViewerStore } from '@/stores/viewer'
 
-export const flyToEntityByNameTool = (viewerStore, name) => {
+export const flyToEntityByNameTool = async (name) => {
+  const viewerStore = useViewerStore()
   const { entity, cartesian, typeMessageName } = findEntityByName(viewerStore.viewer, name)
 
   if (entity && cartesian) {
@@ -10,4 +13,9 @@ export const flyToEntityByNameTool = (viewerStore, name) => {
   } else {
     throw new Error('未找到实体：' + name)
   }
+}
+
+export const initEntitiesTool = async () => {
+  const viewerStore = useViewerStore()
+  await initEntities(viewerStore)
 }

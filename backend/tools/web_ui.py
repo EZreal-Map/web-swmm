@@ -25,7 +25,7 @@ import asyncio
 # 而是直接返回你 resume 时传入的值（即 resume_value）。
 # 所以这次不会进入 except，print 也不会再执行，直接 return。
 @tool
-def jump_to_entity_tool(
+def fly_to_entity_by_name_tool(
     entity_name: str, client_id: Annotated[str, InjectedState("client_id")]
 ) -> dict:
     """
@@ -69,6 +69,7 @@ def jump_to_entity_tool(
             格式: {"function_name": "flyToEntityByNameTool", "args": {"entity_name": entity_name}}
     """
     frontend_feedback = None
+    print("**************进入前端跳转TOOL**************")
     try:
         # 直接调用前端的 interrupt 函数，传递跳转指令
         # interrupt括号里面的信息会被放进 AIMessage 的 tool calls的 args 里面
@@ -79,6 +80,7 @@ def jump_to_entity_tool(
             }
         )
     except Exception:
+        print("**************执行前端跳转TOOLL**************")
         # 只执行一次，当第一次interrupt时，Command(resume=...) 恢复节点时 不会再执行下面的代码，但是上面代码每次都会执行
         asyncio.run(
             websocket_manager.send_message(
@@ -94,5 +96,53 @@ def jump_to_entity_tool(
         )
         # 一定要raise异常，否则会导致节点不会中断
         # 一定不要带参数 会把刚刚捕获到的 GraphInterrupt 原样抛出，LangGraph 能正确识别和恢复
+        raise
+    return frontend_feedback
+
+
+@tool
+def init_entities_tool(client_id: Annotated[str, InjectedState("client_id")]) -> dict:
+    """
+    WebGIS实体初始化/刷新工具（用于实体有增删改时，通知前端刷新所有实体）
+
+    **功能描述**：
+        通知前端WebGIS刷新并重新加载所有实体（如节点、管道、子汇水区等），以保证前端展示的实体状态与后端一致。
+
+    **使用场景**：
+        - 后端实体有新增、删除、更新时
+        - 需要前端重新拉取并渲染所有实体时
+
+    **⚠️ 严格约束**：
+        - **最先执行约束**，该工具会导致前端重新加载所有实体，需要**保证**在**所有前端工具调用之前执行**。
+
+    **参数说明**:
+        不需要参数
+
+    **返回值**:
+        dict: 前端执行结果，包含成功确认信息
+            格式: {"function_name": "initEntitiesTool", "args": {}}
+    """
+    frontend_feedback = None
+    print("**************进入前端初始化TOOL**************")
+    try:
+        frontend_feedback = interrupt(
+            {
+                "function_name": "initEntitiesTool",
+                "args": {},
+            }
+        )
+    except Exception:
+        print("**************执行前端初始化TOOL**************")
+        asyncio.run(
+            websocket_manager.send_message(
+                client_id,
+                {
+                    "type": "FunctionCall",
+                    "function_name": "initEntitiesTool",
+                    "args": {},
+                    "success_message": "前端已刷新所有实体，展示为最新状态。",
+                },
+            )
+        )
         raise
     return frontend_feedback

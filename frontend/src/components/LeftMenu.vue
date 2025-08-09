@@ -152,7 +152,7 @@ const stopDrag = () => {
 
 // 3.3 还原未保存拖拽
 const restoreDrag = () => {
-  initEntities(viewerStore.viewer)
+  initEntities(viewerStore)
 }
 
 // 2. 新增事件

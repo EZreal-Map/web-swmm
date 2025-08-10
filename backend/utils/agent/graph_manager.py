@@ -234,7 +234,7 @@ frontend_tools: true
                 # 直接使用ToolNode执行后端工具
                 backend_tool_node = ToolNode(tools=backend_tools)
                 result = backend_tool_node.invoke(state)
-                agent_logger.info("后端工具执行完成")
+                agent_logger.info(f"后端工具执行完成, 结果: {result}")
 
                 return result
 
@@ -268,7 +268,7 @@ frontend_tools: true
                 user_query = state.get("query", "")
 
                 agent_logger.info(
-                    f"前端工具节点 - 需要执行: {need_frontend}, 问题: {user_query} 注意事项：1.如果要调用**更新所有实体工具**，需要最先调用。2.所有前端功能不能重复调用。3.如果涉及到**更新**实体数据和**增加**实体数据，需要先调用**更新所有实体工具**,再调用**跳转工具**,一定要**跳转**到新的**更新**实体。"
+                    f"前端工具节点 - 需要执行: {need_frontend}, 问题: {user_query} 注意事项：1.如果要调用**更新所有实体工具**，需要最先调用。3.如果涉及到**更新**实体数据和**增加**实体数据，需要调用**更新所有实体工具**。"
                 )
 
                 # 如果不需要前端工具，直接返回原状态

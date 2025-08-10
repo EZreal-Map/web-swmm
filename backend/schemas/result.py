@@ -9,6 +9,11 @@ class Result(BaseModel, Generic[T]):
     message: str
     data: Optional[T] = None
 
+    # 增加类似于字典的get方法
+    def get(self, key: str, default=None):
+        # 如果是字段名，就返回对应值，否则返回默认值
+        return getattr(self, key, default)
+
     @staticmethod
     def success(data: Optional[T] = None, message: str = "成功") -> "Result[T]":
         return Result(code=200, message=message, data=data)

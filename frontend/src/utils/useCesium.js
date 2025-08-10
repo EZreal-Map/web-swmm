@@ -195,6 +195,15 @@ export const initEntities = async (viewerStore) => {
   await conduitsInit(viewer) // 最后加载渠道
   await subcatchmentsInit(viewer) // 加载子汇水区
 
+  // 更新clickedEntityDict
+  // 1. 通过 之前的id 找到这个entity
+  if (viewerStore?.clickedEntityDict?.id) {
+    const entity = viewer.entities.getById(viewerStore?.clickedEntityDict?.id)
+    // 2. 调用实体填充clickedEntityDict方法
+    if (entity) {
+      viewerStore.clickedEntityDict = fillClickedEntityDict(entity)
+    }
+  }
   // 设置默认高亮颜色
   highlightClickedEntityColor(viewer, viewerStore.clickedEntityDict)
 }

@@ -211,7 +211,7 @@ def update_junction_tool(
     result = asyncio.run(update_junction(junction_id, junction_update))
     result_message = {
         "message": result.get("message", "更新节点失败"),
-        "updated_args": updated_data,
+        "updated_args": updates_args,
     }
     return result_message
 

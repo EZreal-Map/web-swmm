@@ -279,7 +279,7 @@ class ChatProcessor:
         state = {
             "messages": [{"role": "user", "content": chat_request.message}],
             "client_id": client_id,
-            "query": chat_request.message,  # 新增：保存用户问题到query字段
+            # "query": chat_request.message,  # 新增：保存用户问题到query字段 (可不填写，graph的第一个节点一开始会自动提取，并保存)
         }
 
         websocket_logger.info(f"开始处理用户消息: {chat_request.message}")

@@ -11,6 +11,7 @@ from utils.swmm_constant import (
     ENCODING,
 )
 from utils.utils import with_exception_handler
+from typing import List
 
 
 conduitRouter = APIRouter()
@@ -44,6 +45,44 @@ async def get_conduits():
         )
         conduits.append(conduit_model)
     return Result.success(data=conduits, message="成功获取所有渠道数据")
+
+
+@conduitRouter.post(
+    "/conduits/batch",
+    summary="批量获取指定渠道的信息",
+    description="通过渠道ID列表批量获取渠道的详细信息，包括名称、连接节点、长度、糙率、断面形状、高度、底宽、边坡、以及（如有）引用的非规则断面定义。",
+)
+@with_exception_handler(default_message="获取失败，文件有误，发生未知错误")
+async def batch_get_conduits_by_ids(ids: List[str]):
+    """通过渠道ID列表批量获取渠道信息"""
+    INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    inp_conduits = INP.check_for_section(Conduit)
+    inp_xsections = INP.check_for_section(CrossSection)
+    conduits = []
+    conduits_name = []
+    for conduit_id in ids:
+        conduit = inp_conduits.get(conduit_id)
+        if not conduit:
+            continue
+        xsection = inp_xsections.get(conduit.name)
+        conduit_model = ConduitResponseModel(
+            name=conduit.name,
+            from_node=conduit.from_node,
+            to_node=conduit.to_node,
+            length=conduit.length,
+            roughness=conduit.roughness,
+            transect=xsection.transect if xsection else None,
+            shape=xsection.shape if xsection else None,
+            height=xsection.height if xsection else None,
+            parameter_2=xsection.parameter_2 if xsection else None,
+            parameter_3=xsection.parameter_3 if xsection else None,
+            parameter_4=xsection.parameter_4 if xsection else None,
+        )
+        conduits.append(conduit_model)
+        conduits_name.append(conduit.name)
+    return Result.success(
+        data=conduits, message=f"成功获取指定渠道数据：{conduits_name}"
+    )
 
 
 # 通过conduit_id 获取该渠道的信息

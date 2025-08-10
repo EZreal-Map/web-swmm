@@ -1,5 +1,5 @@
 import os
-from typing import Optional, Annotated, Literal
+from typing import Optional, Annotated, Literal, Type, Union
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
@@ -7,6 +7,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from utils.logger import agent_logger
 from utils.agent.llm_manager import create_openai_llm
 from utils.agent.serial_tool_node import SerialToolNode
+from langchain_core.messages import AIMessage, HumanMessage
 
 from langgraph.prebuilt import ToolNode
 
@@ -23,6 +24,13 @@ from tools.outfall import (
     update_outfall_tool,
     create_outfall_tool,
     delete_outfall_tool,
+)
+from tools.conduit import (
+    get_conduits_tool,
+    update_conduit_tool,
+    create_conduit_tool,
+    delete_conduit_tool,
+    batch_get_conduits_by_ids_tool,
 )
 
 static_dir = os.path.join("static", "agent_graph")
@@ -70,6 +78,11 @@ class GraphInstance:
                 update_outfall_tool,
                 create_outfall_tool,
                 delete_outfall_tool,
+                get_conduits_tool,
+                update_conduit_tool,
+                create_conduit_tool,
+                delete_conduit_tool,
+                batch_get_conduits_by_ids_tool,
             ]
 
             frontend_tools = [
@@ -84,88 +97,91 @@ class GraphInstance:
             # 1. 意图判断节点：分析并标记需要的工具类型
             def intent_classifier_node(state: State) -> dict:
                 """意图判断节点：分析问题并标记需要后端/前端工具"""
-                user_message = state["messages"][-1] if state["messages"] else None
+                user_message = GraphInstance.get_recent_messages_by_type(
+                    state, n=1, msg_type=HumanMessage
+                )
                 if not user_message:
                     return {"query": "", "need_backend": False, "need_frontend": False}
-
                 # 提取用户查询
-                user_query = (
-                    user_message.get("content", "")
-                    if isinstance(user_message, dict)
-                    else str(user_message)
-                )
+                user_query = user_message.content
                 agent_logger.info(f"意图判断 - 用户问题: {user_query}")
 
                 # 使用提示词进行意图分析（可能包含多种需求）
+                # 新增：将state上下文也加入prompt
+                # TODO：promt需要放在其他文件，不要硬编码到核心代码里面
                 intent_prompt = f"""
-请阅读用户的问题 {user_query}，并根据需求判断需要调用哪些处理工具（可以同时需要多种）。  
+                                请阅读用户的问题 {user_query}，并根据需求判断需要调用哪些处理工具（可以同时需要多种）。  
 
-处理工具说明：  
-1. backend_tools  
-   - 用于 **SWMM 模型数据操作**（例如：节点/管道/子汇水区等数据的查询、创建、更新、删除）。  
-   - 如果问题涉及数据的增删改查，或者需要从数据库读取模型信息，都应选择该工具。  
+                                处理工具说明：  
+                                1. backend_tools  
+                                - 用于 **SWMM 模型数据操作**（例如：节点/管道/子汇水区等数据的查询、创建、更新、删除）。  
+                                - 如果问题涉及数据的增删改查，或者需要从数据库读取模型信息，都应选择该工具。  
 
-2. frontend_tools  
-   - 用于 **前端界面交互**（例如：地图跳转、实体高亮、界面刷新等）。  
-   - 如果问题需要让用户在界面上看到变化（如定位到某个节点、在地图上显示结果等），则需要该工具。  
-   - 注意：如果只是查询数据并将结果直接返回给用户（不要求地图或界面变化），则**不需要** frontend_tools。
-   - 但凡涉及到数据的**更新，删除，增加**操作，都需要 frontend_tools，因为前端界面也要响应的变化更新。
+                                2. frontend_tools  
+                                - 用于 **前端界面交互**（例如：地图跳转、实体高亮、界面刷新等）。  
+                                - 如果问题需要让用户在界面上看到变化（如定位到某个节点、在地图上显示结果等），则需要该工具。  
+                                - 注意：如果只是查询数据并将结果直接返回给用户（不要求地图或界面变化），则**不需要** frontend_tools。
+                                - 但凡涉及到数据的**更新，删除，增加**操作，都需要 frontend_tools，因为前端界面也要响应的变化更新。
 
-3. chatbot  
-   - 用于 **普通对话、解释说明、总结回答** 等不需要操作数据或界面的场景。  
-   - 当用户只提问概念性问题、流程指导，或不涉及数据和界面操作时，选该工具。  
+                                3. chatbot  
+                                - 用于 **普通对话、解释说明、总结回答** 等不需要操作数据或界面的场景。  
+                                - 当用户只提问概念性问题、流程指导，或不涉及数据和界面操作时，选该工具。  
 
----
+                                ---
 
-### 输出要求  
-只按以下格式回答（不要多余内容）：  
+                                ### 输出要求  
+                                只按以下格式回答（不要多余内容）：  
 
-backend_tools: [true/false]  
-frontend_tools: [true/false]  
-说明: [简短说明需要这些工具的原因]  
+                                backend_tools: [true/false]  
+                                frontend_tools: [true/false]  
+                                说明: [简短说明需要这些工具的原因]  
 
----
+                                ---
 
-### 示例  
+                                ### 示例  
 
-##### 1 查询多个问题
-用户问题：帮我查询所有节点的信息  
-回答：  
-backend_tools: true  
-frontend_tools: false  
-说明: 查询节点信息只需调用 backend_tools 获取数据表，数据太多无法在前端上一一显示，所以不需要 frontend_tools。
+                                ##### 1 查询多个问题
+                                用户问题：帮我查询所有节点的信息  
+                                回答：  
+                                backend_tools: true  
+                                frontend_tools: false  
+                                说明: 查询节点信息只需调用 backend_tools 获取数据表，数据太多无法在前端上一一显示，所以不需要 frontend_tools。
 
-##### 2 查询一个问题
-用户问题：帮我查询一个节点的信息，节点ID为J1  
-回答：  
-backend_tools: true  
-frontend_tools: true
-说明: 查询节点信息需调用 backend_tools 获取数据信息，因为数据只有1个，所以可以很方便的在前端界面显示，所以需要 frontend_tools。
+                                ##### 2 查询一个问题
+                                用户问题：帮我查询一个节点的信息，节点ID为J1  
+                                回答：  
+                                backend_tools: true  
+                                frontend_tools: true
+                                说明: 查询节点信息需调用 backend_tools 获取数据信息，因为数据只有1个，所以可以很方便的在前端界面显示，所以需要 frontend_tools。
 
-#### 3 创建问题
-用户问题：帮我创建一个节点，节点信息如下名字为J1，纬度为110，纬度为30  
-回答：  
-backend_tools: true
-frontend_tools: true  
-说明: 创建节点需要调用 backend_tools 保存数据，因为数据只有1个，所以可以很方便的在前端界面显示，所以需要 frontend_tools。
+                                #### 3 创建问题
+                                用户问题：帮我创建一个节点，节点信息如下名字为J1，纬度为110，纬度为30  
+                                回答：  
+                                backend_tools: true
+                                frontend_tools: true  
+                                说明: 创建节点需要调用 backend_tools 保存数据，因为数据只有1个，所以可以很方便的在前端界面显示，所以需要 frontend_tools。
 
-#### 4 删除问题
-用户问题：帮我删除一个节点，节点ID为J1  
-回答：  
-backend_tools: true
-frontend_tools: true  
-说明: 删除节点需调用 backend_tools 删除数据，同时需要 frontend_tools 在界面显示更新后的节点信息。  
+                                #### 4 删除问题
+                                用户问题：帮我删除一个节点，节点ID为J1  
+                                回答：  
+                                backend_tools: true
+                                frontend_tools: true  
+                                说明: 删除节点需调用 backend_tools 删除数据，同时需要 frontend_tools 在界面显示更新后的节点信息。  
 
-##### 5 更新问题
-用户问题：帮我把节点J1的名字设置为J1_new  
-回答：  
-backend_tools: true
-frontend_tools: true  
-说明: 更新节点需要调用 backend_tools 保存数据，同时需要 frontend_tools 在界面显示更新后的节点信息。
+                                ##### 5 更新问题
+                                用户问题：帮我把节点J1的名字设置为J1_new  
+                                回答：  
+                                backend_tools: true
+                                frontend_tools: true  
+                                说明: 更新节点需要调用 backend_tools 保存数据，同时需要 frontend_tools 在界面显示更新后的节点信息。
 """
+                # TODO:这里需要更改，根据之后处理 memory 引入数据库后，更加优雅的处理
+                # 将历史消息与意图prompt结合  (参考下面的frontend_messages节点的分析)
 
+                intent_messages = [HumanMessage(content=intent_prompt)]
+                # TODO：了解 langgraph的invoke 和 stream 其他异步流式调用，
+                # TODO：还有使用invoke会不会把这个role:user字典封HumanMessage，AIMessage
                 # 获取意图分析结果
-                intent_messages = [{"role": "user", "content": intent_prompt}]
                 intent_response = chatbot_llm.invoke(intent_messages)
                 response_content = intent_response.content.strip()
 
@@ -204,12 +220,13 @@ frontend_tools: true
                     agent_logger.warning("后端节点没有收到用户问题")
                     return {}
 
-                # 构建后端专用的消息，让后端LLM分析问题
+                # TODO:这里需要更改，根据之后处理 memory 引入数据库后，更加优雅的处理
+                # 将历史消息与意图prompt结合
+                # 构建后端专用的消息，让后端LLM分析问题 (参考下面的frontend_messages节点的分析)
                 backend_messages = [
-                    {
-                        "role": "user",
-                        "content": f"请根据以下问题调用合适的后端工具调用：{user_query}",
-                    }
+                    HumanMessage(
+                        content=f"""请根据以下问题调用合适的后端工具调用：{user_query}"""
+                    )
                 ]
 
                 # 后端LLM生成工具调用
@@ -268,7 +285,7 @@ frontend_tools: true
                 user_query = state.get("query", "")
 
                 agent_logger.info(
-                    f"前端工具节点 - 需要执行: {need_frontend}, 问题: {user_query} 注意事项：1.如果要调用**更新所有实体工具**，需要最先调用。3.如果涉及到**更新**实体数据和**增加**实体数据，需要调用**更新所有实体工具**。"
+                    f"前端工具节点 - 需要执行: {need_frontend}, 问题: {user_query} "
                 )
 
                 # 如果不需要前端工具，直接返回原状态
@@ -280,13 +297,26 @@ frontend_tools: true
                     agent_logger.warning("前端节点没有收到用户问题")
                     return {}
 
+                # TODO:这里需要更改，根据之后处理 memory 引入数据库后，更加优雅的处理
+                # 将历史消息与意图prompt结合 ，不能直接把 human_messages + frontend_messages
+                # 因为会让这个并列，有时候就会回答之前的问题去了，要把放进promt里面，包裹关系
+                # 还有一种办法，在graph最开始，有一个拼接上下文的llm，丰富问题上下文（这个更好）
+
+                # human_messages = GraphInstance.get_recent_messages_by_type(
+                #     state, n=3, msg_type=HumanMessage
+                # )
+
                 # 构建前端专用的消息，让前端LLM分析问题
                 frontend_messages = [
-                    {
-                        "role": "user",
-                        "content": f"请根据以下问题调用合适的前端工具：{user_query}",
-                    }
+                    HumanMessage(
+                        content=f"""请根据以下问题调用合适的前端工具：{user_query}
+                        前端工具调用**注意事项**：
+                        1.如果要调用**更新所有实体工具**，需要最先调用。
+                        2.如果涉及到**一次性更新单个实体**实体数据和**增加**实体数据，一定需要调用**更新所有实体工具**，最好再调用**跳转功能**。
+                        3.如果涉及一次性更新单个实体实体的**名字属性**的时候，尤其需要调用**跳转功能**，跳转到新的名字实体上。""",
+                    )
                 ]
+                # frontend_messages = message
 
                 # 前端LLM生成工具调用
                 frontend_response = frontend_llm.invoke(frontend_messages)
@@ -365,19 +395,16 @@ frontend_tools: true
 
                 # 添加总结提示
                 summary_prompt = f"""
-请基于以上的工具执行结果，为用户问题"{user_query}"生成一个清晰、完整的回答。
-
-要求：
-1. 总结所有工具的执行结果
-2. 回答用户的原始问题
-3. 如果有数据查询结果，请清晰展示
-4. 如果有界面操作，请确认操作已完成
-5. 语言要自然、友好
-"""
-
-                summary_messages = all_messages + [
-                    {"role": "user", "content": summary_prompt}
-                ]
+                请基于以上的工具执行结果，为用户问题"{user_query}"生成一个清晰、完整的回答。
+                要求：
+                1. 总结所有工具的执行结果
+                2. 回答用户的原始问题
+                3. 如果有数据查询结果，请清晰展示
+                4. 如果有界面操作，请确认操作已完成
+                5. 语言要自然、友好
+                """
+                # TODO: 优化总结上下文管理
+                summary_messages = all_messages + [HumanMessage(content=summary_prompt)]
 
                 # 使用纯聊天LLM生成总结
                 response = chatbot_llm.invoke(summary_messages)
@@ -451,6 +478,32 @@ frontend_tools: true
         """重置Graph管理器"""
         self._graph = None
         agent_logger.info("Graph管理器已重置")
+
+    @staticmethod
+    def get_recent_messages_by_type(
+        state, n=1, msg_type: Union[Type[HumanMessage], Type[AIMessage]] = AIMessage
+    ):
+        """
+        获取 state 最近 n 条 HumanMessage 或 AIMessage，按原始顺序返回。
+        msg_type: HumanMessage 或 AIMessage
+        如果不足 n 条，则尽可能多取。
+        """
+        messages = state.get("messages", [])
+        result_messages = []
+
+        # 倒序遍历，找到最近的 n 条
+        for message in reversed(messages):
+            if isinstance(message, msg_type):
+                result_messages.append(message)
+                if len(result_messages) >= n:
+                    break
+
+        # 要保持原始顺序，就在返回前反转
+        result_messages.reverse()
+
+        if n == 1:
+            return result_messages[-1] if result_messages else None
+        return result_messages
 
 
 # 全局实例

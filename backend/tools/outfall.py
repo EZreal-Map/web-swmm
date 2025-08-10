@@ -1,7 +1,6 @@
 from langchain_core.tools import tool
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any, Optional
 from schemas.outfall import OutfallModel
-from schemas.result import Result
 import asyncio
 from utils.logger import tools_logger
 

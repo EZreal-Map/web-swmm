@@ -95,7 +95,7 @@ class GraphInstance:
             chatbot_llm = llm  # 纯聊天用的LLM
 
             # 1. 意图判断节点：分析并标记需要的工具类型
-            def intent_classifier_node(state: State) -> dict:
+            async def intent_classifier_node(state: State) -> dict:
                 """意图判断节点：分析问题并标记需要后端/前端工具"""
                 user_message = GraphInstance.get_recent_messages_by_type(
                     state, n=1, msg_type=HumanMessage
@@ -110,7 +110,7 @@ class GraphInstance:
                 # 新增：将state上下文也加入prompt
                 # TODO：promt需要放在其他文件，不要硬编码到核心代码里面
                 intent_prompt = f"""
-                                请阅读用户的问题 {user_query}，并根据需求判断需要调用哪些处理工具（可以同时需要多种）。  
+                                请阅读用户的问题:<<** {user_query} **>>，并根据需求判断需要调用哪些处理工具（可以同时需要多种）。  
 
                                 处理工具说明：  
                                 1. backend_tools  
@@ -177,12 +177,9 @@ class GraphInstance:
 """
                 # TODO:这里需要更改，根据之后处理 memory 引入数据库后，更加优雅的处理
                 # 将历史消息与意图prompt结合  (参考下面的frontend_messages节点的分析)
-
                 intent_messages = [HumanMessage(content=intent_prompt)]
-                # TODO：了解 langgraph的invoke 和 stream 其他异步流式调用，
-                # TODO：还有使用invoke会不会把这个role:user字典封HumanMessage，AIMessage
                 # 获取意图分析结果
-                intent_response = chatbot_llm.invoke(intent_messages)
+                intent_response = await chatbot_llm.ainvoke(intent_messages)
                 response_content = intent_response.content.strip()
 
                 agent_logger.info(f"意图分析结果: {response_content}")
@@ -202,7 +199,7 @@ class GraphInstance:
                 }
 
             # 2. 后端工具节点：根据标记决定是否执行
-            def backend_tools_node(state: State) -> dict:
+            async def backend_tools_node(state: State) -> dict:
                 """后端工具节点：根据need_backend标记决定是否执行"""
                 need_backend = state.get("need_backend", False)
                 user_query = state.get("query", "")
@@ -230,7 +227,7 @@ class GraphInstance:
                 ]
 
                 # 后端LLM生成工具调用
-                backend_response = backend_llm.invoke(backend_messages)
+                backend_response = await backend_llm.ainvoke(backend_messages)
                 agent_logger.info(f"后端LLM响应: {backend_response}")
 
                 if not (
@@ -244,13 +241,13 @@ class GraphInstance:
                 return {"messages": [backend_response]}
 
             # 2a. 后端工具执行节点
-            def backend_tool_execution_node(state: State) -> dict:
+            async def backend_tool_execution_node(state: State) -> dict:
                 """后端工具执行节点：实际执行后端工具"""
                 agent_logger.info("执行后端工具")
 
                 # 直接使用ToolNode执行后端工具
                 backend_tool_node = ToolNode(tools=backend_tools)
-                result = backend_tool_node.invoke(state)
+                result = await backend_tool_node.ainvoke(state)
                 agent_logger.info(f"后端工具执行完成, 结果: {result}")
 
                 return result
@@ -279,7 +276,7 @@ class GraphInstance:
                 return "frontend_tools"
 
             # 3. 前端工具节点：根据标记决定是否生成工具调用
-            def frontend_tools_node(state: State) -> dict:
+            async def frontend_tools_node(state: State) -> dict:
                 """前端工具节点：根据need_frontend标记决定是否生成工具调用"""
                 need_frontend = state.get("need_frontend", False)
                 user_query = state.get("query", "")
@@ -319,7 +316,7 @@ class GraphInstance:
                 # frontend_messages = message
 
                 # 前端LLM生成工具调用
-                frontend_response = frontend_llm.invoke(frontend_messages)
+                frontend_response = await frontend_llm.ainvoke(frontend_messages)
                 agent_logger.info(f"前端LLM响应: {frontend_response}")
 
                 if not (
@@ -333,13 +330,13 @@ class GraphInstance:
                 return {"messages": [frontend_response]}
 
             # 3a. 前端工具执行节点
-            def frontend_tool_execution_node(state: State) -> dict:
+            async def frontend_tool_execution_node(state: State) -> dict:
                 """前端工具执行节点：实际执行前端工具"""
                 agent_logger.info("执行前端工具")
 
                 # 直接使用ToolNode执行前端工具
                 frontend_tool_node = SerialToolNode(tools=frontend_tools)
-                result = frontend_tool_node.invoke(state)
+                result = await frontend_tool_node.ainvoke(state)
                 agent_logger.info("前端工具执行完成")
 
                 return result
@@ -368,7 +365,7 @@ class GraphInstance:
                 return "chatbot_response"
 
             # 4. 最终总结节点
-            def chatbot_response(state: State) -> dict:
+            async def chatbot_response(state: State) -> dict:
                 """最终总结节点：基于所有执行结果生成总结回答"""
                 user_query = state.get("query", "")
                 need_backend = state.get("need_backend", False)
@@ -384,8 +381,8 @@ class GraphInstance:
 
                 # 如果没有任何工具需求，直接进行普通对话
                 if not need_backend and not need_frontend:
-                    chat_messages = [{"role": "user", "content": user_query}]
-                    response = chatbot_llm.invoke(chat_messages)
+                    chat_messages = [HumanMessage(content=user_query)]
+                    response = await chatbot_llm.ainvoke(chat_messages)
                     agent_logger.info(f"纯聊天回答: {response}")
                     return {"messages": [response]}
 
@@ -407,7 +404,7 @@ class GraphInstance:
                 summary_messages = all_messages + [HumanMessage(content=summary_prompt)]
 
                 # 使用纯聊天LLM生成总结
-                response = chatbot_llm.invoke(summary_messages)
+                response = await chatbot_llm.ainvoke(summary_messages)
                 agent_logger.info(f"最终总结: {response}")
 
                 return {"messages": [response]}
@@ -533,10 +530,10 @@ if __name__ == "__main__":
 
         # 测试简单对话
         config = {"configurable": {"thread_id": "test_conversation"}}
-        messages = [{"role": "user", "content": "帮我查询节点信息"}]
+        chat_messages = [HumanMessage(content="帮我查询节点信息")]
 
         graph = graph_instance.get_graph()
-        result = graph.invoke({"messages": messages}, config)
+        result = graph.invoke({"messages": chat_messages}, config)
         print(f"对话结果: {result}")
 
     except Exception as e:

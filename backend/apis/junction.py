@@ -71,7 +71,7 @@ async def get_junctions():
         )
         junctions.append(junction_model)
     return Result.success(
-        data=junctions, message=f"成功获取所有节点数据({len(junctions)}个)"
+        data=junctions, message=f"成功获取所有节点数据，共({len(junctions)}个)"
     )
 
 

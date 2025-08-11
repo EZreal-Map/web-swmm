@@ -55,7 +55,7 @@ async def get_subcatchments():
         temp_dict["polygon"] = polygon
         data.append(temp_dict)
     return Result.success(
-        message="成功获取子汇水（产流）模型参数和边界数据",
+        message=f"成功获取子汇水（产流）模型参数和边界数据，共({len(data)}个)",
         data=data,
     )
 

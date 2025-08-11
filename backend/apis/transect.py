@@ -25,7 +25,10 @@ async def get_transect_names():
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_transects = INP.check_for_section(Transect)
     transect_names = list(inp_transects.keys())
-    return Result.success(message="成功获取所有断面名称", data=transect_names)
+    return Result.success(
+        message=f"成功获取所有断面名称，共({len(transect_names)}个)",
+        data=transect_names,
+    )
 
 
 # 通过断面名称获取不规则断面信息

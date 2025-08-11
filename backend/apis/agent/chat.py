@@ -7,7 +7,7 @@ from utils.logger import websocket_logger
 from utils.agent.graph_manager import graph_instance
 from utils.agent.websocket_manager import websocket_manager
 from schemas.agent.chat import ChatRequest
-from langchain_core.messages import ToolMessage, AIMessage
+from langchain_core.messages import ToolMessage, AIMessage, HumanMessage
 from langgraph.types import Command
 
 
@@ -256,7 +256,7 @@ class ChatProcessor:
             feedback_state = {"feedback": chat_request.message}
             # 重点：使用Command来处理人类反馈，填充ToolMessage，恢复正常graph调用
             human_command = Command(resume={"data": feedback_state})
-            events = graph.invoke(human_command, config)
+            events = await graph.ainvoke(human_command, config)
             if "messages" in events:
                 last_message = events["messages"][-1]
                 if isinstance(last_message, AIMessage):
@@ -277,7 +277,7 @@ class ChatProcessor:
     ) -> None:
         """处理普通聊天请求"""
         state = {
-            "messages": [{"role": "user", "content": chat_request.message}],
+            "messages": [HumanMessage(content=chat_request.message)],
             "client_id": client_id,
             # "query": chat_request.message,  # 新增：保存用户问题到query字段 (可不填写，graph的第一个节点一开始会自动提取，并保存)
         }

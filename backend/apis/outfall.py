@@ -52,7 +52,9 @@ async def get_outfalls():
         and (lon := lon_lat[0])
         and (lat := lon_lat[1])
     ]
-    return Result.success(data=outfalls, message="成功获取所有出口数据")
+    return Result.success(
+        data=outfalls, message=f"成功获取所有出口数据，共({len(outfalls)}个)"
+    )
 
 
 @outfallRouter.put(

@@ -44,7 +44,10 @@ async def get_timeseries_names(
         if name.startswith(TIMESERIES_PREFIXES_MAP[type])
     ]
 
-    return Result.success(message="成功获取所有时间序列名称", data=filtered_names)
+    return Result.success(
+        message=f"成功获取所有时间序列名称，共({len(filtered_names)}个)",
+        data=filtered_names,
+    )
 
 
 def parse_datetime_safe(t):

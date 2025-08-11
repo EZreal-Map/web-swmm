@@ -15,7 +15,7 @@ from apis.conduit import (
 
 
 @tool
-def get_conduits_tool() -> str:
+async def get_conduits_tool() -> str:
     """渠道信息批量获取工具，可用作多个渠道信息查询。
     一次性获取SWMM模型中所有渠道（Conduit）的详细信息，包括地理与水力参数。
 
@@ -50,7 +50,7 @@ def get_conduits_tool() -> str:
             ...
         ]
     """
-    result = asyncio.run(get_conduits())
+    result = await get_conduits()
     tools_logger.info(
         f"获取所有渠道信息: {len(result.data)}个渠道,其中类似于: {result.data[0]}"
         if result.data
@@ -60,7 +60,7 @@ def get_conduits_tool() -> str:
 
 
 @tool
-def batch_get_conduits_by_ids_tool(ids: List[str]):
+async def batch_get_conduits_by_ids_tool(ids: List[str]):
     """
     渠道信息批量获取工具，通过渠道ID列表批量获取渠道的详细信息。
 
@@ -93,7 +93,7 @@ def batch_get_conduits_by_ids_tool(ids: List[str]):
             ...
         ]
     """
-    result = asyncio.run(batch_get_conduits_by_ids(ids))
+    result = await batch_get_conduits_by_ids(ids)
     tools_logger.info(
         f"批量获取指定渠道信息: {len(result.data)}个渠道,其中类似于: {result.data[0]}"
         if result.data
@@ -103,7 +103,7 @@ def batch_get_conduits_by_ids_tool(ids: List[str]):
 
 
 @tool
-def update_conduit_tool(
+async def update_conduit_tool(
     conduit_id: str,
     name: Optional[str] = None,
     from_node: Optional[str] = None,
@@ -147,7 +147,7 @@ def update_conduit_tool(
         - 只需更新部分字段时，仅传递需要变更的参数。
     """
     # 获取当前渠道信息
-    current_data = asyncio.run(get_conduit(conduit_id))
+    current_data = await get_conduit(conduit_id)
     if not current_data:
         return {"success": False, "message": f"渠道 {conduit_id} 不存在，无法更新"}
 
@@ -170,7 +170,7 @@ def update_conduit_tool(
         raise ValueError("更新参数不能为空，请提供至少一个需要更新的字段")
     updated_data = {**current_data.dict(), **updates}
     conduit_update = ConduitRequestModel(**updated_data)
-    result = asyncio.run(update_conduit(conduit_id, conduit_update))
+    result = await update_conduit(conduit_id, conduit_update)
     result_message = {
         "message": result.get("message", "更新渠道失败"),
         "updated_args": updates,
@@ -179,7 +179,7 @@ def update_conduit_tool(
 
 
 @tool
-def create_conduit_tool(
+async def create_conduit_tool(
     name: str,
     from_node: str,
     to_node: str,
@@ -229,13 +229,13 @@ def create_conduit_tool(
         parameter_3=parameter_3,
         parameter_4=parameter_4,
     )
-    result = asyncio.run(create_conduit(conduit_data))
+    result = await create_conduit(conduit_data)
     tools_logger.info(f"创建渠道: {result} ")
     return result
 
 
 @tool
-def delete_conduit_tool(conduit_id: str) -> Dict[str, Any]:
+async def delete_conduit_tool(conduit_id: str) -> Dict[str, Any]:
     """删除指定渠道.
     通过渠道ID删除渠道，并清理关联的断面数据。
     Args:
@@ -243,7 +243,7 @@ def delete_conduit_tool(conduit_id: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: 删除结果字典
     """
-    result = asyncio.run(delete_conduit(conduit_id))
+    result = await delete_conduit(conduit_id)
     tools_logger.info(f"删除渠道: {result} ")
     return result
 

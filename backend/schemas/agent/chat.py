@@ -1,8 +1,8 @@
 import uuid
-from typing import Optional
 from pydantic import BaseModel, Field, field_validator, ValidationError
 
 
+# TODO:没有用到，可以在graph更加规范的使用
 class ChatMessage(BaseModel):
     """聊天消息模型"""
 
@@ -12,6 +12,7 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     """聊天请求模型"""
+
     message: str = Field(..., description="用户消息", min_length=1, max_length=10000)
     conversation_id: str = Field(..., description="对话ID，用于多轮对话")
     user_id: str = Field(default="default_user", description="用户ID")
@@ -75,6 +76,7 @@ class ChatRequest(BaseModel):
         return "请求参数有误"
 
 
+# TODO:没有用到，可以在graph更加规范的使用
 class ChatResponse(BaseModel):
     """聊天响应模型"""
 

@@ -44,7 +44,9 @@ async def get_conduits():
             parameter_4=xsection.parameter_4,
         )
         conduits.append(conduit_model)
-    return Result.success(data=conduits, message="成功获取所有渠道数据")
+    return Result.success(
+        data=conduits, message=f"成功获取所有渠道数据，共({len(conduits)}个)"
+    )
 
 
 @conduitRouter.post(

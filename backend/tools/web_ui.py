@@ -25,7 +25,7 @@ import asyncio
 # 而是直接返回你 resume 时传入的值（即 resume_value）。
 # 所以这次不会进入 except，print 也不会再执行，直接 return。
 @tool
-def fly_to_entity_by_name_tool(
+async def fly_to_entity_by_name_tool(
     entity_name: str, client_id: Annotated[str, InjectedState("client_id")]
 ) -> dict:
     """
@@ -71,8 +71,6 @@ def fly_to_entity_by_name_tool(
     frontend_feedback = None
     print("**************进入前端跳转TOOL**************")
     try:
-        # 直接调用前端的 interrupt 函数，传递跳转指令
-        # interrupt括号里面的信息会被放进 AIMessage 的 tool calls的 args 里面
         frontend_feedback = interrupt(
             {
                 "function_name": "flyToEntityByNameTool",
@@ -81,27 +79,23 @@ def fly_to_entity_by_name_tool(
         )
     except Exception:
         print("**************执行前端跳转TOOLL**************")
-        # 只执行一次，当第一次interrupt时，Command(resume=...) 恢复节点时 不会再执行下面的代码，但是上面代码每次都会执行
-        asyncio.run(
-            websocket_manager.send_message(
-                client_id,
-                {
-                    "type": "FunctionCall",
-                    "function_name": "flyToEntityByNameTool",
-                    "args": {"entity_name": entity_name},
-                    # 预定义成功消息，当前端执行成功以后，再被返回给后端，后端可以放进Command里去，Command里的信息最终会被封装到ToolMessage里
-                    "success_message": f"前端界面已跳转到实体: {entity_name}，并高亮显示实体和实体信息弹窗。具体命令格式为: {{'function_name': 'flyToEntityByNameTool', 'args': {{'entity_name': '{entity_name}'}}}}",
-                },
-            )
+        await websocket_manager.send_message(
+            client_id,
+            {
+                "type": "FunctionCall",
+                "function_name": "flyToEntityByNameTool",
+                "args": {"entity_name": entity_name},
+                "success_message": f"前端界面已跳转到实体: {entity_name}，并高亮显示实体和实体信息弹窗。具体命令格式为: {{'function_name': 'flyToEntityByNameTool', 'args': {{'entity_name': '{entity_name}'}}}}",
+            },
         )
-        # 一定要raise异常，否则会导致节点不会中断
-        # 一定不要带参数 会把刚刚捕获到的 GraphInterrupt 原样抛出，LangGraph 能正确识别和恢复
         raise
     return frontend_feedback
 
 
 @tool
-def init_entities_tool(client_id: Annotated[str, InjectedState("client_id")]) -> dict:
+async def init_entities_tool(
+    client_id: Annotated[str, InjectedState("client_id")],
+) -> dict:
     """
     WebGIS实体初始化/刷新工具（用于实体有增删改时，通知前端刷新所有实体）
 
@@ -133,16 +127,14 @@ def init_entities_tool(client_id: Annotated[str, InjectedState("client_id")]) ->
         )
     except Exception:
         print("**************执行前端初始化TOOL**************")
-        asyncio.run(
-            websocket_manager.send_message(
-                client_id,
-                {
-                    "type": "FunctionCall",
-                    "function_name": "initEntitiesTool",
-                    "args": {},
-                    "success_message": "前端已刷新所有实体，展示为最新状态。",
-                },
-            )
+        await websocket_manager.send_message(
+            client_id,
+            {
+                "type": "FunctionCall",
+                "function_name": "initEntitiesTool",
+                "args": {},
+                "success_message": "前端已刷新所有实体，展示为最新状态。",
+            },
         )
         raise
     return frontend_feedback

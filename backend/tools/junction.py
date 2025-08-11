@@ -15,7 +15,7 @@ from apis.junction import (
 
 
 @tool
-def get_junctions_tool() -> str:
+async def get_junctions_tool() -> str:
     """节点信息批量获取工具，可用作多个节点信息查询。
     一次性获取SWMM模型中所有节点（Junction）的详细信息，包括地理与水力参数。
 
@@ -49,7 +49,7 @@ def get_junctions_tool() -> str:
             ...
         ]
     """
-    result = asyncio.run(get_junctions())
+    result = await get_junctions()
     tools_logger.info(
         f"获取所有节点信息: {len(result.data)}个节点,其中类似于: {result.data[0]}"
         if result.data
@@ -59,7 +59,7 @@ def get_junctions_tool() -> str:
 
 
 @tool
-def batch_get_junctions_by_ids_tool(ids: List[str]):
+async def batch_get_junctions_by_ids_tool(ids: List[str]):
     """
     节点信息批量获取工具，通过节点ID列表批量获取节点的详细信息。
 
@@ -95,7 +95,8 @@ def batch_get_junctions_by_ids_tool(ids: List[str]):
             ...
         ]
     """
-    result = asyncio.run(batch_get_junctions_by_ids(ids))
+    result = await batch_get_junctions_by_ids(ids)
+    # TODO：修改logger方式，找一个更高效的处理logger方式（模式）
     tools_logger.info(
         f"批量获取指定节点信息: {len(result.data)}个节点,其中类似于: {result.data[0]}"
         if result.data
@@ -105,7 +106,7 @@ def batch_get_junctions_by_ids_tool(ids: List[str]):
 
 
 @tool
-def update_junction_tool(
+async def update_junction_tool(
     junction_id: str,
     name: Optional[str] = None,
     lon: Optional[float] = None,
@@ -182,7 +183,7 @@ def update_junction_tool(
         raise ValueError("更新参数不能为空，请提供至少一个需要更新的字段")
 
     # 获取当前节点信息
-    current_data_result = asyncio.run(batch_get_junctions_by_ids([junction_id]))
+    current_data_result = await batch_get_junctions_by_ids([junction_id])
     if not current_data_result or not current_data_result.data:
         return {"success": False, "message": f"节点 {junction_id} 不存在，无法更新"}
 
@@ -207,7 +208,7 @@ def update_junction_tool(
     )
 
     # 调用更新函数
-    result = asyncio.run(update_junction(junction_id, junction_update))
+    result = await update_junction(junction_id, junction_update)
     result_message = {
         "message": result.get("message", "更新节点失败"),
         "updated_args": updates_args,
@@ -216,7 +217,7 @@ def update_junction_tool(
 
 
 @tool
-def create_junction_tool(
+async def create_junction_tool(
     name: str,
     lon: float,
     lat: float,
@@ -264,13 +265,13 @@ def create_junction_tool(
         timeseries_name=timeseries_name,
     )
 
-    result = asyncio.run(create_junction(junction_data))
+    result = await create_junction(junction_data)
     tools_logger.info(f"创建节点: {result} ")
     return result
 
 
 @tool
-def delete_junction_tool(junction_id: str) -> Dict[str, Any]:
+async def delete_junction_tool(junction_id: str) -> Dict[str, Any]:
     """删除指定节点.
 
     通过节点ID删除节点，并清理关联的渠道和坐标数据。
@@ -281,7 +282,7 @@ def delete_junction_tool(junction_id: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: 删除结果字典
     """
-    result = asyncio.run(delete_junction(junction_id))
+    result = await delete_junction(junction_id)
     tools_logger.info(f"删除节点: {result} ")
     return result
 

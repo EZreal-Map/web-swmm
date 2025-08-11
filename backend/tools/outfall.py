@@ -14,7 +14,7 @@ from apis.outfall import (
 
 
 @tool
-def get_outfalls_tool() -> str:
+async def get_outfalls_tool() -> str:
     """出口信息批量获取工具，可用作多个出口信息查询。
     一次性获取SWMM模型中所有出口（Outfall）的详细信息，包括地理与水力参数。
 
@@ -48,7 +48,7 @@ def get_outfalls_tool() -> str:
             ...
         ]
     """
-    result = asyncio.run(get_outfalls())
+    result = await get_outfalls()
     tools_logger.info(
         f"获取所有出口信息: {len(result.data)}个出口,其中类似于: {result.data[0]}"
         if result.data
@@ -58,7 +58,7 @@ def get_outfalls_tool() -> str:
 
 
 @tool
-def update_outfall_tool(
+async def update_outfall_tool(
     outfall_id: str,
     name: Optional[str] = None,
     lon: Optional[float] = None,
@@ -135,7 +135,7 @@ def update_outfall_tool(
         raise ValueError("更新参数不能为空，请提供至少一个需要更新的字段")
 
     # 获取当前出口信息（通过调用get_outfalls获取所有出口，然后筛选）
-    current_outfalls_result = asyncio.run(get_outfalls())
+    current_outfalls_result = await get_outfalls()
     if not current_outfalls_result or not current_outfalls_result.data:
         return {"success": False, "message": "获取出口信息失败"}
 
@@ -166,7 +166,7 @@ def update_outfall_tool(
     )
 
     # 调用更新函数
-    result = asyncio.run(update_outfall(outfall_id, outfall_update))
+    result = await update_outfall(outfall_id, outfall_update)
     result_message = {
         "message": result.get("message", "更新出口失败"),
         "updated_args": updated_data,
@@ -175,7 +175,7 @@ def update_outfall_tool(
 
 
 @tool
-def create_outfall_tool(
+async def create_outfall_tool(
     name: str,
     lon: float,
     lat: float,
@@ -211,13 +211,13 @@ def create_outfall_tool(
         data=data,
     )
 
-    result = asyncio.run(create_outfall(outfall_data))
+    result = await create_outfall(outfall_data)
     tools_logger.info(f"创建出口: {result} ")
     return result
 
 
 @tool
-def delete_outfall_tool(outfall_id: str) -> Dict[str, Any]:
+async def delete_outfall_tool(outfall_id: str) -> Dict[str, Any]:
     """删除指定出口.
 
     通过出口ID删除出口，并清理关联的渠道和坐标数据。
@@ -228,7 +228,7 @@ def delete_outfall_tool(outfall_id: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: 删除结果字典
     """
-    result = asyncio.run(delete_outfall(outfall_id))
+    result = await delete_outfall(outfall_id)
     tools_logger.info(f"删除出口: {result} ")
     return result
 

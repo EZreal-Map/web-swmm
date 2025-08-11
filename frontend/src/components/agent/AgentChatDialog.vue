@@ -267,14 +267,14 @@ class MessageResponseHandler {
   handleAIMessage(data) {
     const lastMessage = this.getLastAssistantMessage()
     if (lastMessage) {
-      lastMessage.text = data.accumulated_content || data.content || ''
+      lastMessage.text += data.content || ''
     }
   }
 
   handleHumanFeedback(data) {
     const lastMessage = this.getLastAssistantMessage()
     if (lastMessage) {
-      lastMessage.text = data.accumulated_content || data.content || ''
+      lastMessage.text += data.content || ''
     }
   }
 
@@ -285,8 +285,8 @@ class MessageResponseHandler {
   }
 
   async handleFunctionCall(data) {
+    const { function_name, args, success_msg } = data
     try {
-      const { function_name, args, success_msg } = data
       const fn = this.functionMap[function_name]
 
       if (typeof fn === 'function') {
@@ -306,17 +306,18 @@ class MessageResponseHandler {
         console.error('函数未找到:', function_name)
       }
     } catch (error) {
-      const errorMsg = `函数调用失败：${error.message}`
+      const errorMsg = `${function_name}函数调用失败：${error.message}，参数：${JSON.stringify(args)}`
       this.sendFeedback(errorMsg)
       console.error('函数调用异常:', error)
     }
   }
 
   handleComplete(data) {
-    const lastMessage = this.getLastAssistantMessage()
-    if (lastMessage && data.message) {
-      lastMessage.text = data.message
-    }
+    // const lastMessage = this.getLastAssistantMessage()
+    // if (lastMessage && data.message) {
+    //   lastMessage.text = data.message
+    // }
+    // TODO: 暂时保留 astream 流式输出 complete处理，实际上它只能算作一次流式输出的结束，并不是整个对话的complete
     console.log('响应完成，总长度:', data.total_length)
   }
 

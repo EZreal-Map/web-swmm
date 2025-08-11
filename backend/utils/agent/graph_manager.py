@@ -330,13 +330,14 @@ class GraphInstance:
                 return {"messages": [frontend_response]}
 
             # 3a. 前端工具执行节点
-            async def frontend_tool_execution_node(state: State) -> dict:
+            # (重点：这里用同步，异步会导致human in the loop问题)
+            def frontend_tool_execution_node(state: State) -> dict:
                 """前端工具执行节点：实际执行前端工具"""
                 agent_logger.info("执行前端工具")
 
                 # 直接使用ToolNode执行前端工具
                 frontend_tool_node = SerialToolNode(tools=frontend_tools)
-                result = await frontend_tool_node.ainvoke(state)
+                result = frontend_tool_node.invoke(state)
                 agent_logger.info("前端工具执行完成")
 
                 return result

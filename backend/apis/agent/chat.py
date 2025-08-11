@@ -94,28 +94,36 @@ class ChatMessageHandler:
         client_id: str,
         message: AIMessage,
         chat_request: ChatRequest,
-        is_feedback: bool = False,
-        accumulated_content: str = "",
-    ) -> str:
-        """处理AI消息，返回累积内容"""
+    ) -> None:
+        """处理AI普通消息，直接渲染content"""
         chunk_content = message.content or ""
-        accumulated_content += chunk_content
-
         if chunk_content:
-            response_type = (
-                MessageType.HUMAN_FEEDBACK if is_feedback else MessageType.AI_MESSAGE
-            )
             await ChatMessageHandler.send_response(
                 client_id,
-                response_type,
+                MessageType.AI_MESSAGE,
                 chat_request,
                 content=chunk_content,
-                accumulated_content=accumulated_content,
                 is_complete=False,
                 chunk_length=len(chunk_content),
             )
 
-        return accumulated_content
+    @staticmethod
+    async def handle_human_feedback_message(
+        client_id: str,
+        message: AIMessage,
+        chat_request: ChatRequest,
+    ) -> None:
+        """处理用户反馈消息，直接渲染content"""
+        chunk_content = message.content or ""
+        if chunk_content:
+            await ChatMessageHandler.send_response(
+                client_id,
+                MessageType.HUMAN_FEEDBACK,
+                chat_request,
+                content=chunk_content,
+                is_complete=False,
+                chunk_length=len(chunk_content),
+            )
 
     @staticmethod
     async def handle_function_call(
@@ -134,18 +142,17 @@ class ChatMessageHandler:
 
     @staticmethod
     async def send_completion(
-        client_id: str, chat_request: ChatRequest, accumulated_content: str
+        client_id: str, chat_request: ChatRequest, message: str = "complete"
     ) -> None:
         """发送完成响应"""
         await ChatMessageHandler.send_response(
             client_id,
             MessageType.COMPLETE,
             chat_request,
-            message=accumulated_content,
+            message=message,
             is_complete=True,
-            total_length=len(accumulated_content),
         )
-        websocket_logger.info(f"响应完成 - 总长度: {len(accumulated_content)} 字符")
+        websocket_logger.info(f"astream - 响应完成 - 总长度:")
 
     @staticmethod
     async def send_error(
@@ -246,32 +253,6 @@ class ChatProcessor:
             )
 
     @staticmethod
-    async def handle_feedback_request(
-        client_id: str, chat_request: ChatRequest, graph, config: Dict[str, Any]
-    ) -> None:
-        """处理反馈请求"""
-        websocket_logger.info(f"处理人类反馈: {chat_request.message}")
-        try:
-            # 使用直接的状态更新来处理人类反馈
-            feedback_state = {"feedback": chat_request.message}
-            # 重点：使用Command来处理人类反馈，填充ToolMessage，恢复正常graph调用
-            human_command = Command(resume={"data": feedback_state})
-            events = await graph.ainvoke(human_command, config)
-            if "messages" in events:
-                last_message = events["messages"][-1]
-                if isinstance(last_message, AIMessage):
-                    await ChatMessageHandler.handle_ai_message(
-                        client_id, last_message, chat_request, is_feedback=True
-                    )
-                else:
-                    websocket_logger.warning(
-                        f"反馈处理中收到未知消息类型: {type(last_message)}"
-                    )
-        except Exception as e:
-            websocket_logger.error(f"处理反馈请求失败: {e}")
-            await ChatMessageHandler.send_error(client_id, chat_request, str(e))
-
-    @staticmethod
     async def handle_normal_request(
         client_id: str, chat_request: ChatRequest, graph, config: Dict[str, Any]
     ) -> None:
@@ -287,46 +268,50 @@ class ChatProcessor:
             client_id, graph, state, config, chat_request
         )
 
+    @staticmethod
+    async def handle_feedback_request(
+        client_id: str, chat_request: ChatRequest, graph, config: Dict[str, Any]
+    ) -> None:
+        """处理反馈请求（流式处理）"""
+        websocket_logger.info(f"处理人类反馈: {chat_request.message}")
+        try:
+            feedback_state = {"feedback": chat_request.message}
+            human_command = Command(resume={"data": feedback_state})
+            await StreamProcessor.send_stream_graph_messages(
+                client_id,
+                chat_request,
+                graph,
+                human_command,
+                config,
+                ai_handler=ChatMessageHandler.handle_human_feedback_message,
+                tool_handler=ChatMessageHandler.handle_tool_message,
+            )
+        except Exception as e:
+            websocket_logger.error(f"处理反馈请求失败: {e}")
+            await ChatMessageHandler.send_error(client_id, chat_request, str(e))
+
 
 class StreamProcessor:
     """流式响应处理器"""
 
+    # 流式消息处理函数
     @staticmethod
     async def handle_stream_response(
         client_id: str, graph, state: dict, config: dict, chat_request: ChatRequest
     ):
         """处理流式响应"""
-        accumulated_content = ""
-
         try:
             # 发送开始响应
             await ChatMessageHandler.send_start(client_id, chat_request)
-
-            # 检查连接状态
-            if not websocket_manager.is_connected(client_id):
-                websocket_logger.warning(f"客户端 {client_id} 已断开，跳过处理")
-                return
-
-            # 流式处理
-            async for message_chunk, metadata in graph.astream(
-                state, config, stream_mode="messages"
-            ):
-                # 检查连接是否还活跃
-                if not websocket_manager.is_connected(client_id):
-                    websocket_logger.info(f"客户端 {client_id} 已断开，停止流式响应")
-                    break
-
-                # 处理不同类型的消息
-                accumulated_content = await StreamProcessor.process_message_chunk(
-                    client_id, message_chunk, chat_request, accumulated_content
-                )
-
-            # 发送完成响应
-            if websocket_manager.is_connected(client_id):
-                await ChatMessageHandler.send_completion(
-                    client_id, chat_request, accumulated_content
-                )
-
+            await StreamProcessor.send_stream_graph_messages(
+                client_id,
+                chat_request,
+                graph,
+                state,
+                config,
+                ai_handler=ChatMessageHandler.handle_ai_message,
+                tool_handler=ChatMessageHandler.handle_tool_message,
+            )
         except Exception as e:
             websocket_logger.error(f"流式处理异常: {e}")
             if websocket_manager.is_connected(client_id):
@@ -334,29 +319,40 @@ class StreamProcessor:
                     client_id, chat_request, str(e), MessageType.STREAM_ERROR
                 )
 
+    # 通用流式消息发送函数
     @staticmethod
-    async def process_message_chunk(
+    async def send_stream_graph_messages(
         client_id: str,
-        message_chunk,
         chat_request: ChatRequest,
-        accumulated_content: str,
-    ) -> str:
-        """处理消息块"""
-        if isinstance(message_chunk, ToolMessage):
-            await ChatMessageHandler.handle_tool_message(
-                client_id, message_chunk, chat_request
-            )
-        elif isinstance(message_chunk, AIMessage):
-            accumulated_content = await ChatMessageHandler.handle_ai_message(
-                client_id,
-                message_chunk,
-                chat_request,
-                accumulated_content=accumulated_content,
-            )
-        else:
-            websocket_logger.warning(f"未知消息类型: {type(message_chunk)}")
+        graph,
+        state_or_command,
+        config,
+        ai_handler=ChatMessageHandler.handle_ai_message,  # ai_handler 可能发送AIMessage或者HumanFeedbackMessage
+        tool_handler=ChatMessageHandler.handle_tool_message,
+    ):
+        """统一处理 graph.astream 下的流式消息分发和连接检查"""
+        # 检查连接状态
+        if not websocket_manager.is_connected(client_id):
+            websocket_logger.warning(f"客户端 {client_id} 已断开，跳过处理")
+            return
+        # 处理流式消息
+        async for message_chunk, metadata in graph.astream(
+            state_or_command, config, stream_mode="messages"
+        ):
+            if not websocket_manager.is_connected(client_id):
+                websocket_logger.info(f"客户端 {client_id} 已断开，停止流式响应")
+                break
+            if isinstance(message_chunk, AIMessage):
+                await ai_handler(client_id, message_chunk, chat_request)
+            elif isinstance(message_chunk, ToolMessage):
+                await tool_handler(client_id, message_chunk, chat_request)
+            else:
+                websocket_logger.warning(f"未知消息类型: {type(message_chunk)}")
 
-        return accumulated_content
+        # TODO: 暂时保留 astream 流式输出 complete处理，实际上它只能算作一次流式输出的结束，并不是整个对话的complete
+        # 发送完成响应
+        if websocket_manager.is_connected(client_id):
+            await ChatMessageHandler.send_completion(client_id, chat_request)
 
 
 @chatRouter.websocket("/ws/{client_id}")

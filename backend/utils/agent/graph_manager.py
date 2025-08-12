@@ -3,13 +3,12 @@ from typing import Optional, Annotated, Literal, Type, Union
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
-from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.messages import AIMessage, HumanMessage
+from langgraph.prebuilt import ToolNode
 from utils.logger import agent_logger
 from utils.agent.llm_manager import create_openai_llm
 from utils.agent.serial_tool_node import SerialToolNode
-from langchain_core.messages import AIMessage, HumanMessage
-
-from langgraph.prebuilt import ToolNode
+from utils.agent.async_store_manager import AsyncStoreManager
 
 from tools.web_ui import fly_to_entity_by_name_tool, init_entities_tool
 from tools.junction import (
@@ -46,18 +45,12 @@ class State(TypedDict):
 
 
 class GraphInstance:
-    """LangGraph 管理器 - 单例模式"""
+    """LangGraph 管理器 - 全静态方法"""
 
-    _instance: Optional["GraphInstance"] = None
     _graph: Optional[StateGraph] = None
 
-    def __new__(cls, llm=None):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance.create_graph(llm)  # 自动初始化
-        return cls._instance
-
-    def create_graph(self, llm=None) -> StateGraph:
+    @classmethod
+    def init(cls, llm=None) -> StateGraph:
         """创建和配置聊天机器人的状态图"""
         try:
             # 如果没有传入LLM，使用默认的OpenAI模型
@@ -431,50 +424,49 @@ class GraphInstance:
             graph_builder.add_edge("frontend_tool_execution", "chatbot_response")
             graph_builder.add_edge("chatbot_response", END)
 
-            # 使用内存存储
-            memory = MemorySaver()
-            self._graph = graph_builder.compile(checkpointer=memory)
-
+            # === 持久化存储 ===
+            checkpointer = AsyncStoreManager.checkpointer
+            print("checkpointer:", checkpointer)
+            store = AsyncStoreManager.store
+            print("store:", store)
+            cls._graph = graph_builder.compile(checkpointer=checkpointer, store=store)
             agent_logger.info(
                 "Graph创建成功 - 拆分架构: 意图判断 -> 后端决策/执行 -> 前端决策/执行 -> 最终总结"
             )
-            return self._graph
+            return cls._graph
 
         except Exception as e:
-            agent_logger.error(f"创建Graph失败: {str(e)}")
-            raise RuntimeError(f"Failed to create graph: {str(e)}")
+            agent_logger.error(
+                f"创建Graph失败: {str(e)} | type: {type(e).__name__} | repr: {repr(e)}"
+            )
+            return None
 
-    def get_graph(self) -> StateGraph:
-        """获取Graph实例"""
-        if self._graph is None:
-            raise RuntimeError("Graph未初始化，请先调用create_graph()")
-        return self._graph
+    @classmethod
+    def get_graph(cls) -> StateGraph:
+        if cls._graph is None:
+            raise RuntimeError("Graph未初始化，请先调用init()")
+        return cls._graph
 
-    def is_initialized(self) -> bool:
-        """检查Graph是否已初始化"""
-        return self._graph is not None
+    @classmethod
+    def is_initialized(cls) -> bool:
+        return cls._graph is not None
 
-    def save_visualization(self, filename: str = "graph.png") -> None:
-        """将构建的graph可视化保存为PNG文件"""
-        if not self.is_initialized():
+    @classmethod
+    def save_visualization(cls, filename: str = "graph.png") -> None:
+        if not cls.is_initialized():
             raise RuntimeError("Graph未初始化")
-
         try:
-            # 确保目录存在
             os.makedirs(static_dir, exist_ok=True)
-
-            # 构建完整路径
             full_path = os.path.join(static_dir, filename)
-
             with open(full_path, "wb") as f:
-                f.write(self._graph.get_graph().draw_mermaid_png())
+                f.write(cls._graph.get_graph().draw_mermaid_png())
             agent_logger.info(f"Graph可视化已保存为 {full_path}")
         except IOError as e:
             agent_logger.warning(f"保存Graph可视化失败: {str(e)}")
 
-    def reset(self) -> None:
-        """重置Graph管理器"""
-        self._graph = None
+    @classmethod
+    def reset(cls) -> None:
+        cls._graph = None
         agent_logger.info("Graph管理器已重置")
 
     @staticmethod
@@ -504,10 +496,6 @@ class GraphInstance:
         return result_messages
 
 
-# 全局实例
-graph_instance = GraphInstance()
-
-
 if __name__ == "__main__":
     # → 保存成 test_graph.png
     # python -m utils.agent.graph_manager test_graph.png
@@ -516,6 +504,7 @@ if __name__ == "__main__":
 
     import sys
     import time
+    import asyncio
 
     # 测试创建Graph
     try:
@@ -525,16 +514,18 @@ if __name__ == "__main__":
         else:
             timestamp = time.strftime("%Y%m%d_%H%M%S")
             filename = f"graph_{timestamp}.png"
+        # 初始化Graph
+        GraphInstance.init()
         # 保存可视化
-        graph_instance.save_visualization(filename)
+        GraphInstance.save_visualization(filename)
         print(f"图已保存为: {filename}")
 
         # 测试简单对话
         config = {"configurable": {"thread_id": "test_conversation"}}
         chat_messages = [HumanMessage(content="帮我查询节点信息")]
 
-        graph = graph_instance.get_graph()
-        result = graph.invoke({"messages": chat_messages}, config)
+        graph = GraphInstance.get_graph()
+        result = asyncio.run(graph.ainvoke({"messages": chat_messages}, config))
         print(f"对话结果: {result}")
 
     except Exception as e:

@@ -5,6 +5,8 @@ import uvicorn
 import time
 from utils.logger import app_logger, api_logger
 from contextlib import asynccontextmanager
+from utils.agent.async_store_manager import AsyncStoreManager
+from utils.agent.graph_manager import GraphInstance
 
 # 路由
 from apis.conduit import conduitRouter
@@ -15,20 +17,20 @@ from apis.timeseries import timeseriesRouter
 from apis.calculate import calculateRouter
 from apis.subcatchment import subcatchment
 from apis.agent.chat import chatRouter
-
 from apis.show import showRouter
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 启动应用
     app_logger.info("正在启动后端API服务...")
-
-    yield  # 在这里交还控制权给 FastAPI（应用运行期间）
-
-    # 关闭应用
+    # 初始化异步全局StoreManager（异步）
+    await AsyncStoreManager.init()
+    # 初始Graph实例
+    GraphInstance.init()
+    yield
     app_logger.info("正在关闭后端API服务...")
-    # 清理资源
+    # 关闭异步全局StoreManager
+    await AsyncStoreManager.close()
 
 
 application = FastAPI(

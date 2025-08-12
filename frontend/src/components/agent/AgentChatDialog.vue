@@ -76,9 +76,8 @@ import { flyToEntityByNameTool, initEntitiesTool } from '@/tools/webgis'
 
 const serverUrl = 'ws://localhost:8080/agent/ws/test-client'
 // 帮我取随机数
-const conversationId = 'conv-' + Math.floor(Math.random() * 10000)
-
-const userId = 'user-1234'
+const conversationId = 'conv-123'
+const userId = 'user-123'
 
 const showDialog = defineModel('showDialog')
 

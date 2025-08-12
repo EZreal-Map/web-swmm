@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 from utils.logger import websocket_logger
-from utils.agent.graph_manager import graph_instance
+from utils.agent.graph_manager import GraphInstance
 from utils.agent.websocket_manager import websocket_manager
 from schemas.agent.chat import ChatRequest
 from langchain_core.messages import ToolMessage, AIMessage, HumanMessage
@@ -226,11 +226,11 @@ class ChatProcessor:
         """处理聊天请求"""
         try:
             # 确保Graph已初始化
-            if not graph_instance.is_initialized():
+            if not GraphInstance.is_initialized():
                 websocket_logger.info("初始化Graph...")
-                graph_instance.create_graph()
+                GraphInstance.init()
 
-            graph = graph_instance.get_graph()
+            graph = GraphInstance.get_graph()
             config = {
                 "configurable": {
                     "thread_id": f"{chat_request.user_id}@@{chat_request.conversation_id}"
@@ -383,7 +383,7 @@ async def chat_health_check():
     """聊天服务健康检查"""
     return {
         "status": "healthy",
-        "graph_initialized": graph_instance.is_initialized(),
+        "graph_initialized": GraphInstance.is_initialized(),
         "active_connections": websocket_manager.get_connection_count(),
         "connected_clients": len(websocket_manager.get_connected_clients()),
     }

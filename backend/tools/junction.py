@@ -72,7 +72,7 @@ async def batch_get_junctions_by_ids_tool(ids: List[str]):
         - 地图渲染或表格展示多个节点数据
 
     **参数**：
-        - ids (List[str]): 节点ID列表
+        - ids (List[str]): 节点ID列表，比如["J1", "J2", "J3"]
 
     **返回值**：
         Result.success(

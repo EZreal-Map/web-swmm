@@ -69,7 +69,7 @@ async def batch_get_conduits_by_ids_tool(ids: List[str]):
         - 返回渠道的地理与水力参数，便于前端直接消费
 
     **参数**：
-        - ids (List[str]): 渠道ID列表
+        - ids (List[str]): 渠道ID列表，比如["C1", "C2", "C3"]
 
     **返回值**：
         Result.success(

@@ -1,4 +1,5 @@
 import os
+import json
 from typing import Optional, Annotated, Literal, Type, Union
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
@@ -9,8 +10,9 @@ from utils.logger import agent_logger
 from utils.agent.llm_manager import create_openai_llm
 from utils.agent.serial_tool_node import SerialToolNode
 from utils.agent.async_store_manager import AsyncStoreManager
+from langgraph.types import Send
 
-from tools.web_ui import fly_to_entity_by_name_tool, init_entities_tool
+from tools.webgis import fly_to_entity_by_name_tool, init_entities_tool
 from tools.junction import (
     get_junctions_tool,
     batch_get_junctions_by_ids_tool,
@@ -61,10 +63,10 @@ class GraphInstance:
             graph_builder = StateGraph(State)
 
             # 定义工具
-            backend_tools = [
+            # 1.1 普通后端工具
+            normal_backend_tools = [
                 get_junctions_tool,
                 create_junction_tool,
-                delete_junction_tool,
                 batch_get_junctions_by_ids_tool,
                 update_junction_tool,
                 get_outfalls_tool,
@@ -77,11 +79,35 @@ class GraphInstance:
                 delete_conduit_tool,
                 batch_get_conduits_by_ids_tool,
             ]
+            # 1.2 Human in the loop后端工具（人类反馈工具）
+            HIL_backend_tools = [
+                delete_junction_tool,
+                delete_outfall_tool,
+                delete_conduit_tool,
+            ]
+            HIL_backend_tools_name = [
+                tool.name for tool in HIL_backend_tools
+            ]  # HIL后端工具名字变量
+            # 1.3 后端工具集合（去重）
+            backend_tools = list(
+                dict.fromkeys(normal_backend_tools + HIL_backend_tools)
+            )
 
-            frontend_tools = [
+            # 2.1 普通前端工具
+            normal_frontend_tools = []
+            # 2.2 Human in the loop前端工具（人类反馈工具）
+            HIL_frontend_tools = [
                 init_entities_tool,
                 fly_to_entity_by_name_tool,
             ]
+            HIL_frontend_tools_name = [
+                tool.name for tool in HIL_frontend_tools
+            ]  # HIL前端工具名字变量
+            # 2.3 前端工具集合（去重）
+            frontend_tools = list(
+                dict.fromkeys(normal_frontend_tools + HIL_frontend_tools)
+            )
+
             # 创建LLM实例
             intent_llm = llm  # TODO:有可能加上 with_structured_output,但是就会失去流式输出,但是结果更加优雅,现在用 in 判断也没有出过问题
             backend_llm = llm.bind_tools(tools=backend_tools)
@@ -241,17 +267,21 @@ class GraphInstance:
                 # 返回包含工具调用的AI消息
                 return {"messages": [backend_response]}
 
+            # TODO: send 这个节点，分为并行（toolnode）（非人工干预）和 （serialtoolnode）（人工干预）
             # 2a. 后端工具执行节点
-            async def backend_tool_execution_node(state: State) -> dict:
+            async def backend_tool_execution_node(send_state: State) -> dict:
                 """后端工具执行节点：实际执行后端工具"""
                 agent_logger.info("执行后端工具")
-
-                # 直接使用ToolNode执行后端工具
-                backend_tool_node = ToolNode(tools=backend_tools)
-                result = await backend_tool_node.ainvoke(state)
-                agent_logger.info(f"后端工具执行完成, 结果: {result}")
-
-                return result
+                if send_state.get("human_in_the_loop", False):
+                    agent_logger.info("人类参与的后端工具执行")
+                    backend_tool_node = SerialToolNode(tools=backend_tools)
+                    result = backend_tool_node.invoke(send_state)
+                    return result
+                else:
+                    agent_logger.info("自动执行的后端工具执行")
+                    backend_tool_node = ToolNode(tools=backend_tools)
+                    result = await backend_tool_node.ainvoke(send_state)
+                    return result
 
             # 路由函数：决定是否执行后端工具
             def route_backend_tools(
@@ -267,14 +297,43 @@ class GraphInstance:
                     ai_message = messages[-1]
                 else:
                     agent_logger.warning("没有找到消息用于工具路由")
-                    return "frontend_tools"
+                    return Send("frontend_tools", state)
 
                 if hasattr(ai_message, "tool_calls") and len(ai_message.tool_calls) > 0:
-                    agent_logger.info("检测到后端工具调用，执行工具")
-                    return "backend_tool_execution"
-
-                agent_logger.info("没有后端工具调用，跳转到前端")
-                return "frontend_tools"
+                    agent_logger.info("检测到前端工具调用，执行工具")
+                    # 2.前端有工具调用
+                    # 记录 Send 返回结果
+                    send_list = []
+                    split_messages = GraphInstance.split_ai_message_by_tool_names(
+                        ai_message, HIL_backend_tools_name
+                    )
+                    # 2.1 分割后第一个消息为普通工具调用消息
+                    if split_messages[0]:
+                        send_list.append(
+                            Send(
+                                "backend_tool_execution",
+                                {
+                                    "messages": [split_messages[0]],
+                                    "client_id": state["client_id"],
+                                    "human_in_the_loop": False,
+                                },
+                            )
+                        )
+                    # 2.2 分割后第二个消息为人类参与的工具调用消息
+                    if split_messages[1]:
+                        send_list.append(
+                            Send(
+                                "backend_tool_execution",
+                                {
+                                    "messages": [split_messages[1]],
+                                    "client_id": state["client_id"],
+                                    "human_in_the_loop": True,
+                                },
+                            )
+                        )
+                    # 返回调用下一个节点工具执行
+                    return send_list
+                return Send("chatbot_response", state)
 
             # 3. 前端工具节点：根据标记决定是否生成工具调用
             async def frontend_tools_node(state: State) -> dict:
@@ -314,42 +373,34 @@ class GraphInstance:
                         3.如果涉及一次性更新单个实体实体的**名字属性**的时候，尤其需要调用**跳转功能**，跳转到新的名字实体上。""",
                     )
                 ]
-                # frontend_messages = message
-
                 # 前端LLM生成工具调用
                 frontend_response = await frontend_llm.ainvoke(frontend_messages)
                 agent_logger.info(f"前端LLM响应: {frontend_response}")
 
-                if not (
-                    hasattr(frontend_response, "tool_calls")
-                    and frontend_response.tool_calls
-                ):
-                    agent_logger.info("前端LLM没有生成工具调用")
-                    return {}
-
-                # 返回包含工具调用的AI消息
                 return {"messages": [frontend_response]}
 
             # 3a. 前端工具执行节点
             # (重点：这里用同步，异步会导致human in the loop问题)
-            def frontend_tool_execution_node(state: State) -> dict:
+            async def frontend_tool_execution_node(send_state: State) -> dict:
                 """前端工具执行节点：实际执行前端工具"""
                 agent_logger.info("执行前端工具")
-
-                # 直接使用ToolNode执行前端工具
-                frontend_tool_node = SerialToolNode(tools=frontend_tools)
-                result = frontend_tool_node.invoke(state)
-                agent_logger.info("前端工具执行完成")
-
-                return result
+                if send_state.get("human_in_the_loop", False):
+                    agent_logger.info("人类参与的前端工具执行")
+                    frontend_tool_node = SerialToolNode(tools=frontend_tools)
+                    result = frontend_tool_node.invoke(send_state)
+                    return result
+                else:
+                    agent_logger.info("自动执行的前端工具执行")
+                    frontend_tool_node = ToolNode(tools=frontend_tools)
+                    result = await frontend_tool_node.ainvoke(send_state)
+                    return result
 
             # 路由函数：决定是否执行前端工具
             def route_frontend_tools(
                 state: State,
             ) -> Literal["frontend_tool_execution", "chatbot_response"]:
                 """
-                决定是否执行前端工具
-                如果最后一条消息有tool_calls，则执行工具；否则跳过
+                根据最后上一个节点的消息决定是否执行工具：执行工具或跳转到下一个节点（chatbot_response）
                 """
                 if isinstance(state, list):
                     ai_message = state[-1]
@@ -357,14 +408,43 @@ class GraphInstance:
                     ai_message = messages[-1]
                 else:
                     agent_logger.warning("没有找到消息用于工具路由")
-                    return "chatbot_response"
+                    return Send("chatbot_response", state)
 
                 if hasattr(ai_message, "tool_calls") and len(ai_message.tool_calls) > 0:
                     agent_logger.info("检测到前端工具调用，执行工具")
-                    return "frontend_tool_execution"
-
-                agent_logger.info("没有前端工具调用，跳转到总结")
-                return "chatbot_response"
+                    # 2.前端有工具调用
+                    # 记录 Send 返回结果
+                    send_list = []
+                    split_messages = GraphInstance.split_ai_message_by_tool_names(
+                        ai_message, HIL_frontend_tools_name
+                    )
+                    # 2.1 分割后第一个消息为普通工具调用消息
+                    if split_messages[0]:
+                        send_list.append(
+                            Send(
+                                "frontend_tool_execution",
+                                {
+                                    "messages": [split_messages[0]],
+                                    "client_id": state["client_id"],
+                                    "human_in_the_loop": False,
+                                },
+                            )
+                        )
+                    # 2.2 分割后第二个消息为人类参与的工具调用消息
+                    if split_messages[1]:
+                        send_list.append(
+                            Send(
+                                "frontend_tool_execution",
+                                {
+                                    "messages": [split_messages[1]],
+                                    "client_id": state["client_id"],
+                                    "human_in_the_loop": True,
+                                },
+                            )
+                        )
+                    # 返回调用下一个节点工具执行
+                    return send_list
+                return Send("chatbot_response", state)
 
             # 4. 最终总结节点
             async def chatbot_response(state: State) -> dict:
@@ -430,7 +510,9 @@ class GraphInstance:
             graph_builder.add_edge("intent_classifier", "backend_tools")
             graph_builder.add_conditional_edges("backend_tools", route_backend_tools)
             graph_builder.add_edge("backend_tool_execution", "frontend_tools")
-            graph_builder.add_conditional_edges("frontend_tools", route_frontend_tools)
+            graph_builder.add_conditional_edges(
+                "frontend_tools", route_frontend_tools, ["frontend_tool_execution"]
+            )
             graph_builder.add_edge("frontend_tool_execution", "chatbot_response")
             graph_builder.add_edge("chatbot_response", END)
 
@@ -532,6 +614,116 @@ class GraphInstance:
             return rounds[-n:]  # 取最近 n 轮，顺序不变
         return rounds
 
+    @staticmethod
+    def split_ai_message_by_tool_names(
+        ai_msg: AIMessage, tool_names: list[str] = []
+    ) -> list[Optional[AIMessage]]:
+        """
+        拆分AIMessage，将tool_calls中tool_name在tool_names列表中的全部合并为一个AIMessage，其余的合并为另一个AIMessage。
+        返回长度为2的list:
+            - 第一个为去除所有需要独立运行tool_calls后的AIMessage（如无则为None）
+            - 第二个为所有需要独立运行的tool_calls合并成的AIMessage（如无则为None）
+
+        参数:
+            ai_msg: 原始AIMessage对象
+            tool_names: 需要单独拆分的tool_name列表
+
+        返回:
+            list[Optional[AIMessage]]: [剩余AIMessage, 独立AIMessage]
+        """
+        tool_calls = ai_msg.tool_calls or []
+        matched = [tc for tc in tool_calls if tc["name"] in tool_names]
+        unmatched = [tc for tc in tool_calls if tc["name"] not in tool_names]
+
+        def make_message(calls):
+            if not calls:
+                return None
+            return AIMessage(
+                content=ai_msg.content,
+                additional_kwargs={
+                    "tool_calls": [
+                        {
+                            "index": i,
+                            "id": tc["id"],
+                            "function": {
+                                "arguments": json.dumps(tc["args"]),
+                                "name": tc["name"],
+                            },
+                            "type": "function",
+                        }
+                        for i, tc in enumerate(calls)
+                    ]
+                },
+                response_metadata=ai_msg.response_metadata,
+                id=ai_msg.id,
+                tool_calls=calls,
+                usage_metadata=ai_msg.usage_metadata,
+            )
+
+        remain_msg = make_message(unmatched)
+        matched_msg = make_message(matched)
+        return [remain_msg, matched_msg]
+
+    # @staticmethod
+    # def split_ai_message_by_tool_names(
+    #     ai_msg: AIMessage, tool_names: list[str]
+    # ) -> list[AIMessage]:
+    #     """
+    #     拆分AIMessage，将tool_calls中tool_name在tool_names列表中的单独拆分为独立AIMessage。
+    #     返回的AIMessage list:
+    #         - 第一个为去除所有需要独立运行tool_calls后的AIMessage（如全部被拆则不返回）
+    #         - 其余每个为一个独立运行的AIMessage（每个只含一个tool_call）
+
+    #     参数:
+    #         ai_msg: 原始AIMessage对象
+    #         tool_names: 需要单独拆分的tool_name列表
+
+    #     返回:
+    #         list[AIMessage]: 拆分后的AIMessage列表
+    #     """
+    #     # 1. 拆分 tool_calls 为需要独立运行的(matched)和剩余的(unmatched)
+    #     tool_calls = ai_msg.tool_calls or []
+    #     matched = [tc for tc in tool_calls if tc["name"] in tool_names]
+    #     unmatched = [tc for tc in tool_calls if tc["name"] not in tool_names]
+
+    #     # 2. 构造新的AIMessage
+    #     def make_message(calls):
+    #         if not calls:
+    #             return None
+    #         return AIMessage(
+    #             content=ai_msg.content,
+    #             additional_kwargs={
+    #                 "tool_calls": [
+    #                     {
+    #                         "index": i,
+    #                         "id": tc["id"],
+    #                         "function": {
+    #                             "arguments": json.dumps(tc["args"]),
+    #                             "name": tc["name"],
+    #                         },
+    #                         "type": "function",
+    #                     }
+    #                     for i, tc in enumerate(calls)
+    #                 ]
+    #             },
+    #             response_metadata=ai_msg.response_metadata,
+    #             id=ai_msg.id,
+    #             tool_calls=calls,
+    #             usage_metadata=ai_msg.usage_metadata,
+    #         )
+
+    #     result = []
+    #     # 3. 先加剩余的AIMessage（如果有）
+    #     remain_msg = make_message(unmatched)
+    #     if remain_msg:
+    #         result.append(remain_msg)
+    #     # 4. 每个独立的tool_call生成一个AIMessage
+    #     for tc in matched:
+    #         single_msg = make_message([tc])
+    #         if single_msg:
+    #             result.append(single_msg)
+    #     return result
+
 
 if __name__ == "__main__":
     # → 保存成 test_graph.png
@@ -542,6 +734,7 @@ if __name__ == "__main__":
     import sys
     import time
     import asyncio
+    import traceback
 
     # 测试创建Graph
     try:
@@ -567,3 +760,6 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(f"测试失败: {e}")
+        print(f"异常类型: {type(e).__name__}")
+        print("详细堆栈信息：")
+        traceback.print_exc()

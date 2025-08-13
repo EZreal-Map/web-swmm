@@ -3,6 +3,7 @@ from langchain_core.messages import ToolMessage
 from utils.logger import agent_logger
 
 
+# 这里没有考虑 ToolNode 的 messages_key ，默认使用的是 messages
 class SerialToolNode(ToolNode):
     """继承ToolNode，将并行执行改为串行执行，支持interrupt机制"""
 
@@ -41,7 +42,7 @@ class SerialToolNode(ToolNode):
                 # 构造单个工具调用的输入
                 single_tool_input = {
                     **input,
-                    "messages": input.get("messages", [])[:-1] + [single_call_message],
+                    "messages": [single_call_message],
                 }
 
                 # 使用父类的invoke方法执行单个工具
@@ -70,5 +71,9 @@ class SerialToolNode(ToolNode):
                         tool_call_id=tool_call["id"],
                     )
                     outputs.append(error_message)
-
         return {"messages": outputs}
+
+
+# 注意：
+# 1. LLM.invoke 返回的是 返单个 AIMessage 对象（或 BaseMessage 子类）
+# 2. ToolNode.invoke 返回的是 {"messages": [ToolMessage, ...]} 格式 (这样ToolNode 为了保存State的兼容性)

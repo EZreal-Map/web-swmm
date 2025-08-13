@@ -237,6 +237,9 @@ class ChatProcessor:
                 }
             }
 
+            # states_message = graph.aget_state(config)
+            
+
             if chat_request.feedback:
                 await ChatProcessor.handle_feedback_request(
                     client_id, chat_request, graph, config

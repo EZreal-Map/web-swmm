@@ -83,6 +83,7 @@ class GraphInstance:
                 fly_to_entity_by_name_tool,
             ]
             # 创建LLM实例
+            intent_llm = llm  # TODO:有可能加上 with_structured_output,但是就会失去流式输出,但是结果更加优雅,现在用 in 判断也没有出过问题
             backend_llm = llm.bind_tools(tools=backend_tools)
             frontend_llm = llm.bind_tools(tools=frontend_tools)
             chatbot_llm = llm  # 纯聊天用的LLM
@@ -91,7 +92,7 @@ class GraphInstance:
             async def intent_classifier_node(state: State) -> dict:
                 """意图判断节点：分析问题并标记需要后端/前端工具"""
                 user_message = GraphInstance.get_recent_messages_by_type(
-                    state, n=1, msg_type=HumanMessage
+                    state.get("messages", []), n=1, msg_type=HumanMessage
                 )
                 if not user_message:
                     return {"query": "", "need_backend": False, "need_frontend": False}
@@ -167,19 +168,26 @@ class GraphInstance:
                                 backend_tools: true
                                 frontend_tools: true  
                                 说明: 更新节点需要调用 backend_tools 保存数据，同时需要 frontend_tools 在界面显示更新后的节点信息。
+
+                                ##### 6 前端问题
+                                用户问题：跳转到J1
+                                回答：
+                                backend_tools: true
+                                frontend_tools: true
+                                说明: 跳转到J1不需要查询后端数据，所有不需要backend_tools，前端工具可以直接处理跳转。
 """
                 # TODO:这里需要更改，根据之后处理 memory 引入数据库后，更加优雅的处理
                 # 将历史消息与意图prompt结合  (参考下面的frontend_messages节点的分析)
                 intent_messages = [HumanMessage(content=intent_prompt)]
                 # 获取意图分析结果
-                intent_response = await chatbot_llm.ainvoke(intent_messages)
+                intent_response = await intent_llm.ainvoke(intent_messages)
                 response_content = intent_response.content.strip()
 
                 agent_logger.info(f"意图分析结果: {response_content}")
 
                 # 解析回答
-                need_backend = "backend_tools: true" in response_content.lower()
-                need_frontend = "frontend_tools: true" in response_content.lower()
+                need_backend = "backend_tools: true" in response_content
+                need_frontend = "frontend_tools: true" in response_content
 
                 agent_logger.info(
                     f"需求分析 - 后端: {need_backend}, 前端: {need_frontend}"
@@ -380,10 +388,10 @@ class GraphInstance:
                     agent_logger.info(f"纯聊天回答: {response}")
                     return {"messages": [response]}
 
-                # 基于所有历史消息生成总结
-                # 包含用户问题和所有工具执行结果
-                all_messages = state.get("messages", [])
-
+                # 基于最近一轮消息生成总结 (包含用户问题和所有工具执行结果)
+                recent_dialogue_round = GraphInstance.get_split_dialogue_rounds(
+                    state.get("messages", []), 1
+                )
                 # 添加总结提示
                 summary_prompt = f"""
                 请基于以上的工具执行结果，为用户问题"{user_query}"生成一个清晰、完整的回答。
@@ -395,7 +403,9 @@ class GraphInstance:
                 5. 语言要自然、友好
                 """
                 # TODO: 优化总结上下文管理
-                summary_messages = all_messages + [HumanMessage(content=summary_prompt)]
+                summary_messages = recent_dialogue_round + [
+                    HumanMessage(content=summary_prompt)
+                ]
 
                 # 使用纯聊天LLM生成总结
                 response = await chatbot_llm.ainvoke(summary_messages)
@@ -426,15 +436,12 @@ class GraphInstance:
 
             # === 持久化存储 ===
             checkpointer = AsyncStoreManager.checkpointer
-            print("checkpointer:", checkpointer)
             store = AsyncStoreManager.store
-            print("store:", store)
             cls._graph = graph_builder.compile(checkpointer=checkpointer, store=store)
             agent_logger.info(
                 "Graph创建成功 - 拆分架构: 意图判断 -> 后端决策/执行 -> 前端决策/执行 -> 最终总结"
             )
             return cls._graph
-
         except Exception as e:
             agent_logger.error(
                 f"创建Graph失败: {str(e)} | type: {type(e).__name__} | repr: {repr(e)}"
@@ -471,14 +478,13 @@ class GraphInstance:
 
     @staticmethod
     def get_recent_messages_by_type(
-        state, n=1, msg_type: Union[Type[HumanMessage], Type[AIMessage]] = AIMessage
+        messages, n=1, msg_type: Union[Type[HumanMessage], Type[AIMessage]] = AIMessage
     ):
         """
-        获取 state 最近 n 条 HumanMessage 或 AIMessage，按原始顺序返回。
+        获取 messages 最近 n 条 HumanMessage 或 AIMessage，按原始顺序返回。
         msg_type: HumanMessage 或 AIMessage
         如果不足 n 条，则尽可能多取。
         """
-        messages = state.get("messages", [])
         result_messages = []
 
         # 倒序遍历，找到最近的 n 条
@@ -492,8 +498,39 @@ class GraphInstance:
         result_messages.reverse()
 
         if n == 1:
+            # 如果 n 为 1 返回单条消息，否则返回列表 (如果 n 为 1 不返回[],返回 BaseMessage)
             return result_messages[-1] if result_messages else None
         return result_messages
+
+    # TODO:也许这里2个方法要被移出去,看以后会不会有很多处理messages消息的类
+    @staticmethod
+    def get_split_dialogue_rounds(messages, n=None):
+        """
+        将消息列表按 HumanMessage 分为多轮，每轮以 HumanMessage 开头。
+        如果 n 不传递，返回全部轮次；
+        如果 n=1，返回最近 1 轮（最新的在最后）；
+        如果 n>1，返回最近 n 轮，顺序与原始消息一致。
+        返回：List[List[Message]]
+        """
+        from langchain.schema import HumanMessage
+
+        rounds = []
+        current_round = []
+
+        for msg in messages:
+            if isinstance(msg, HumanMessage):
+                if current_round:
+                    rounds.append(current_round)
+                    current_round = []
+            current_round.append(msg)
+        if current_round:
+            rounds.append(current_round)
+        if n == 1:
+            # 如果 n 为 1 返回单轮消息，否则返回列表 (不返回[[]], 之间返回[])
+            return rounds[-1] if rounds else []
+        if n is not None:
+            return rounds[-n:]  # 取最近 n 轮，顺序不变
+        return rounds
 
 
 if __name__ == "__main__":

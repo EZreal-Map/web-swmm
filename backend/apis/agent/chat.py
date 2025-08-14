@@ -6,7 +6,7 @@ from pydantic import ValidationError
 from utils.logger import websocket_logger
 from utils.agent.graph_manager import GraphInstance
 from utils.agent.websocket_manager import websocket_manager
-from schemas.agent.chat import ChatRequest
+from schemas.agent.chat import ChatRequest, ChatFeedback
 from langchain_core.messages import ToolMessage, AIMessage, HumanMessage
 from langgraph.types import Command
 
@@ -238,7 +238,6 @@ class ChatProcessor:
             }
 
             # states_message = graph.aget_state(config)
-            
 
             if chat_request.feedback:
                 await ChatProcessor.handle_feedback_request(
@@ -278,8 +277,10 @@ class ChatProcessor:
         """处理反馈请求（流式处理）"""
         websocket_logger.info(f"处理人类反馈: {chat_request.message}")
         try:
-            feedback_state = {"feedback": chat_request.message}
-            human_command = Command(resume={"data": feedback_state})
+            feedback_state = ChatFeedback(
+                success=chat_request.success, feedback_message=chat_request.message
+            ).model_dump()
+            human_command = Command(resume=feedback_state)
             await StreamProcessor.send_stream_graph_messages(
                 client_id,
                 chat_request,

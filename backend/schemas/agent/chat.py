@@ -2,12 +2,7 @@ import uuid
 from pydantic import BaseModel, Field, field_validator, ValidationError
 
 
-# TODO:没有用到，可以在graph更加规范的使用
-class ChatMessage(BaseModel):
-    """聊天消息模型"""
 
-    role: str = Field(..., description="消息角色: user 或 assistant")
-    content: str = Field(..., description="消息内容")
 
 
 class ChatRequest(BaseModel):
@@ -17,6 +12,7 @@ class ChatRequest(BaseModel):
     conversation_id: str = Field(..., description="对话ID，用于多轮对话")
     user_id: str = Field(default="default_user", description="用户ID")
     feedback: bool = Field(default=False, description="用户反馈，可选")
+    success: bool = Field(default=True, description="用于HIL反馈函数执行成功与否")
 
     @field_validator("message")
     @classmethod
@@ -85,3 +81,9 @@ class ChatResponse(BaseModel):
     conversation_id: str = Field(..., description="对话ID")
     user_id: str = Field(..., description="用户ID")
     is_complete: bool = Field(default=False, description="响应是否完整")
+
+
+class ChatFeedback(BaseModel):
+    success: bool = Field(default=True, description="反馈是否成功")
+    feedback_message: str = Field(..., description="用户反馈消息")
+

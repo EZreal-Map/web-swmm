@@ -185,6 +185,7 @@ const subcatchmentsInit = async (viewer) => {
   })
 }
 
+// 所有实体初始化（节点、出口、渠道、子汇水区）
 export const initEntities = async (viewerStore) => {
   const viewer = viewerStore.viewer
   // 清除所有实体

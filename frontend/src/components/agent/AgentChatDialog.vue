@@ -32,7 +32,17 @@
     <div v-if="!collapsed" class="chat-body">
       <div class="messages" ref="messagesContainer">
         <div v-for="(msg, i) in messages" :key="i" :class="['message', msg.role]">
-          <div class="message-content">{{ msg.text }}</div>
+          <div class="message-content">
+            {{ msg.text }}
+            <!-- 只在 assistant 消息且有确认弹窗时显示按钮 -->
+            <template v-if="msg.role === 'assistant' && msg.type === 'confirm' && !msg.confirmed">
+              <div style="margin-top: 8px">
+                <span>{{ msg.confirmQuestion }}</span>
+                <button @click="handleConfirm(msg, true)" style="margin-left: 8px">是</button>
+                <button @click="handleConfirm(msg, false)" style="margin-left: 4px">否</button>
+              </div>
+            </template>
+          </div>
           <div class="message-time">{{ formatTime(msg.timestamp) }}</div>
         </div>
       </div>
@@ -75,8 +85,8 @@ import { flyToEntityByNameTool, initEntitiesTool } from '@/tools/webgis'
 // 父组件可传的参数
 
 const serverUrl = 'ws://localhost:8080/agent/ws/test-client'
-// 帮我取随机数
-const conversationId = 'conv-123'
+// 生成唯一会话ID
+const conversationId = 'conv-123' + Math.random().toString(36).substring(2, 15)
 const userId = 'user-123'
 
 const showDialog = defineModel('showDialog')
@@ -209,6 +219,7 @@ class MessageResponseHandler {
     this.functionMap = {
       flyToEntityByNameTool: flyToEntityByNameTool,
       initEntitiesTool: initEntitiesTool,
+      showConfirmInChat: showConfirmInChat,
       // 可以继续添加其他可调用的函数
     }
   }
@@ -284,29 +295,31 @@ class MessageResponseHandler {
   }
 
   async handleFunctionCall(data) {
-    const { function_name, args, success_msg } = data
+    const { function_name, args, success_msg, is_direct_feedback } = data
     try {
       const fn = this.functionMap[function_name]
 
       if (typeof fn === 'function') {
-        // 执行函数调用
+        // 1. 执行函数调用
         // 将 args 对象的值作为参数数组传递
         const functionArgs = args ? Object.values(args) : []
         await fn(...functionArgs)
-
-        // 如果 后端工具没有定义 success_msg，就使用默认 success_msg
-        const successMsg =
-          success_msg || `已成功执行：${function_name}，参数：${JSON.stringify(args)}`
-        this.sendFeedback(successMsg)
-        console.log('函数调用成功:', function_name, args)
+        // 2. 如果是直接反馈函数，就是可以直接运行得到反馈（回调），不要人工回调
+        if (is_direct_feedback) {
+          // 2.2 如果 后端工具没有定义 success_msg，就使用默认 success_msg
+          const successMsg =
+            success_msg || `已成功执行：${function_name}，参数：${JSON.stringify(args)}`
+          this.sendFeedback(successMsg)
+          console.log('函数调用成功:', function_name, args)
+        }
       } else {
         const errorMsg = `未找到函数：${function_name}`
-        this.sendFeedback(errorMsg)
+        this.sendFeedback(errorMsg, false)
         console.error('函数未找到:', function_name)
       }
     } catch (error) {
       const errorMsg = `${function_name}函数调用失败：${error.message}，参数：${JSON.stringify(args)}`
-      this.sendFeedback(errorMsg)
+      this.sendFeedback(errorMsg, false)
       console.error('函数调用异常:', error)
     }
   }
@@ -336,12 +349,13 @@ class MessageResponseHandler {
     return null
   }
 
-  sendFeedback(message) {
+  sendFeedback(message, success = true) {
     this.wsManager.send({
       message,
       conversation_id: conversationId,
       user_id: userId,
       feedback: true,
+      success,
     })
   }
 }
@@ -363,15 +377,6 @@ class MessageSender {
     })
   }
 
-  sendFeedback(message) {
-    return this.wsManager.send({
-      message,
-      conversation_id: conversationId,
-      user_id: userId,
-      feedback: true,
-    })
-  }
-
   sendPing() {
     return this.wsManager.send({
       type: MessageType.PING,
@@ -386,12 +391,80 @@ const input = ref('')
 const messagesContainer = ref(null)
 const inputRef = ref(null)
 
-function addMessage(role, text) {
-  messages.value.push({ role, text, timestamp: new Date() })
+function addMessage(role, text, type = 'text', extra = {}) {
+  messages.value.push({ role, text, type, ...extra, timestamp: new Date() })
   nextTick(() => {
     const el = messagesContainer.value
     if (el) el.scrollTop = el.scrollHeight
   })
+}
+
+// 唤起确认组件的函数
+/**
+ * 唤起确认组件，返回 keepGoing 参数（true/false）
+ * @param {string} confirm_question - 确认内容
+ * @param {object} [options] - 可选，定制按钮行为
+ * @param {string} [options.yesMsg] - 确认时发送的内容
+ * @param {string} [options.noMsg] - 取消时发送的内容
+ * @returns {Promise<boolean>} - keepGoing true/false
+ */
+/**
+ * 在最后一条 assistant 消息下渲染确认弹窗
+ * @param {string} question - 确认内容
+ * @param {object} [options] - 可选，定制按钮行为
+ * @param {string} [options.yesMsg] - 确认时发送的内容
+ * @param {string} [options.noMsg] - 取消时发送的内容
+ * @returns {Promise<{msg: string, keepGoing: boolean}>}
+ */
+function showConfirmInChat(question, { yesMsg = '人工确定', noMsg = '人工取消' } = {}) {
+  return new Promise((resolve) => {
+    // 找到最后一条 assistant 消息
+    const lastMessage = messageHandler.getLastAssistantMessage()
+    if (!lastMessage) {
+      // 没有 assistant 消息，插入一条
+      addMessage('assistant', question)
+      const msg = messageHandler.getLastAssistantMessage()
+      if (!msg) return resolve({ msg: '无可确认消息', keepGoing: false })
+      msg.type = 'confirm'
+      msg.confirmed = false
+      msg.confirmQuestion = question
+      msg.onYes = () => {
+        msg.confirmed = true
+        messageHandler.sendFeedback(yesMsg, true)
+        resolve({ msg: yesMsg, keepGoing: true })
+      }
+      msg.onNo = () => {
+        msg.confirmed = true
+        messageHandler.sendFeedback(noMsg, false)
+        resolve({ msg: noMsg, keepGoing: false })
+      }
+    } else {
+      // 在 lastMessage 上挂载确认弹窗
+      lastMessage.type = 'confirm'
+      lastMessage.confirmed = false
+      lastMessage.confirmQuestion = question
+      lastMessage.onYes = () => {
+        lastMessage.confirmed = true
+        messageHandler.sendFeedback(yesMsg, true)
+        resolve({ msg: yesMsg, keepGoing: true })
+      }
+      lastMessage.onNo = () => {
+        lastMessage.confirmed = true
+        messageHandler.sendFeedback(noMsg, false)
+        resolve({ msg: noMsg, keepGoing: false })
+      }
+    }
+  })
+}
+
+// 处理按钮点击
+function handleConfirm(msg, isYes) {
+  msg.confirmed = true // 禁用按钮
+  if (isYes) {
+    msg.onYes && msg.onYes()
+  } else {
+    msg.onNo && msg.onNo()
+  }
 }
 
 // 创建一个临时的消息处理函数

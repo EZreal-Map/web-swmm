@@ -88,10 +88,8 @@ class GraphInstance:
             HIL_backend_tools_name = [
                 tool.name for tool in HIL_backend_tools
             ]  # HIL后端工具名字变量
-            # 1.3 后端工具集合（去重）
-            backend_tools = list(
-                dict.fromkeys(normal_backend_tools + HIL_backend_tools)
-            )
+            # 1.3 后端工具集合
+            backend_tools = normal_backend_tools + HIL_backend_tools
 
             # 2.1 普通前端工具
             normal_frontend_tools = []
@@ -103,10 +101,8 @@ class GraphInstance:
             HIL_frontend_tools_name = [
                 tool.name for tool in HIL_frontend_tools
             ]  # HIL前端工具名字变量
-            # 2.3 前端工具集合（去重）
-            frontend_tools = list(
-                dict.fromkeys(normal_frontend_tools + HIL_frontend_tools)
-            )
+            # 2.3 前端工具集合
+            frontend_tools = normal_frontend_tools + HIL_frontend_tools
 
             # 创建LLM实例
             intent_llm = llm  # TODO:有可能加上 with_structured_output,但是就会失去流式输出,但是结果更加优雅,现在用 in 判断也没有出过问题
@@ -249,7 +245,7 @@ class GraphInstance:
                 # 构建后端专用的消息，让后端LLM分析问题 (参考下面的frontend_messages节点的分析)
                 backend_messages = [
                     HumanMessage(
-                        content=f"""请根据以下问题调用合适的后端工具调用：{user_query}"""
+                        content=f"""请根据以下问题一次性调用合适的后端工具调用：{user_query}"""
                     )
                 ]
 
@@ -366,7 +362,7 @@ class GraphInstance:
                 # 构建前端专用的消息，让前端LLM分析问题
                 frontend_messages = [
                     HumanMessage(
-                        content=f"""请根据以下问题调用合适的前端工具：{user_query}
+                        content=f"""请根据以下问题一次性调用合适的前端工具：{user_query}
                         前端工具调用**注意事项**：
                         1.如果要调用**更新所有实体工具**，需要最先调用。
                         2.如果涉及到**一次性更新单个实体**实体数据和**增加**实体数据，一定需要调用**更新所有实体工具**，最好再调用**跳转功能**。

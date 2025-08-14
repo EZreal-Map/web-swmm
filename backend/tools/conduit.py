@@ -3,6 +3,11 @@ from typing import List, Dict, Any, Optional
 from schemas.conduit import ConduitRequestModel
 import asyncio
 from utils.logger import tools_logger
+from langgraph.prebuilt import InjectedState
+from langgraph.types import interrupt
+from typing_extensions import Annotated
+from langgraph.errors import GraphInterrupt
+from utils.agent.websocket_manager import websocket_manager
 
 from apis.conduit import (
     get_conduits,
@@ -235,17 +240,52 @@ async def create_conduit_tool(
 
 
 @tool
-async def delete_conduit_tool(conduit_id: str) -> Dict[str, Any]:
+def delete_conduit_tool(
+    conduit_id: str,
+    confirm_question: str,
+    client_id: Annotated[str, InjectedState("client_id")],
+) -> Dict[str, Any]:
     """删除指定渠道.
     通过渠道ID删除渠道，并清理关联的断面数据。
     Args:
-        conduit_id: 要删除的渠道ID
+        conduit_id: 要删除的渠道ID，比如 "C1"
+        confirm_question: 确认删除的提示问题，比如 "您确定要删除 "C1" 渠道吗？"，一定要带上具体的渠道名称（conduit_id）
+        client_id: 前端会话ID
     Returns:
         Dict[str, Any]: 删除结果字典
     """
-    result = await delete_conduit(conduit_id)
-    tools_logger.info(f"删除渠道: {result} ")
-    return result
+    frontend_feedback = None
+    try:
+        # 触发前端弹窗确认
+        frontend_feedback = interrupt(
+            {
+                "function_name": "showConfirmInChat",
+                "args": {"confirm_question": confirm_question},
+            }
+        )
+        if frontend_feedback.get("keep_going", False):
+            result = asyncio.run(delete_conduit(conduit_id))
+            tools_logger.info(f"删除渠道: {result} ")
+            return result
+        else:
+            return frontend_feedback
+    except GraphInterrupt:
+        # 第一次 interrupt 时会进入这里，通知前端弹窗
+        asyncio.run(
+            websocket_manager.send_message(
+                client_id,
+                {
+                    "type": "FunctionCall",
+                    "function_name": "showConfirmInChat",
+                    "args": {"confirm_question": confirm_question},
+                    "is_direct_feedback": False,
+                },
+            )
+        )
+        raise
+    except Exception as e:
+        tools_logger.error(f"删除渠道失败: {e}")
+        return {"success": False, "message": str(e)}
 
 
 if __name__ == "__main__":

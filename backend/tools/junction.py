@@ -3,6 +3,11 @@ from typing import List, Dict, Any, Optional
 from schemas.junction import JunctionModel
 import asyncio
 from utils.logger import tools_logger
+from langgraph.prebuilt import InjectedState
+from utils.agent.websocket_manager import websocket_manager
+from langgraph.types import interrupt
+from typing_extensions import Annotated
+from langgraph.errors import GraphInterrupt
 
 
 from apis.junction import (
@@ -271,20 +276,56 @@ async def create_junction_tool(
 
 
 @tool
-async def delete_junction_tool(junction_id: str) -> Dict[str, Any]:
+def delete_junction_tool(
+    junction_id: str,
+    confirm_question: str,
+    client_id: Annotated[str, InjectedState("client_id")],
+) -> Dict[str, Any]:
     """删除指定节点.
 
     通过节点ID删除节点，并清理关联的渠道和坐标数据。
 
     Args:
-        junction_id: 要删除的节点ID
+        junction_id: 要删除的节点ID，比如 "J1"
+        confirm_question: 确认删除的提示问题，比如 "您确定要删除 "J1" 节点吗？"，一定要带上具体的节点名称（junction_id）
 
     Returns:
         Dict[str, Any]: 删除结果字典
     """
-    result = await delete_junction(junction_id)
-    tools_logger.info(f"删除节点: {result} ")
-    return result
+    frontend_feedback = None
+    try:
+        # 触发前端弹窗确认
+        frontend_feedback = interrupt(
+            {
+                "function_name": "showConfirmInChat",
+                "args": {"confirm_question": confirm_question},
+            }
+        )
+        if frontend_feedback.get("keep_going", False):
+            # keep_going 为 True，表示用户确认删除
+            result = asyncio.run(delete_junction(junction_id))
+            tools_logger.info(f"删除节点: {result} ")
+            return result
+        else:
+            # keep_going 为 False，表示用户取消删除
+            return frontend_feedback
+    except GraphInterrupt:
+        # 第一次 interrupt 时会进入这里，通知前端弹窗
+        asyncio.run(
+            websocket_manager.send_message(
+                client_id,
+                {
+                    "type": "FunctionCall",
+                    "function_name": "showConfirmInChat",
+                    "args": {"confirm_question": confirm_question},
+                    "is_direct_feedback": False,
+                },
+            )
+        )
+        raise
+    except Exception as e:
+        tools_logger.error(f"删除节点失败: {e}")
+        return {"success": False, "message": str(e)}
 
 
 if __name__ == "__main__":

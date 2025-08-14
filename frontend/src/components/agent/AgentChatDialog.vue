@@ -36,10 +36,12 @@
             {{ msg.text }}
             <!-- 只在 assistant 消息且有确认弹窗时显示按钮 -->
             <template v-if="msg.role === 'assistant' && msg.type === 'confirm' && !msg.confirmed">
-              <div style="margin-top: 8px">
-                <span>{{ msg.confirmQuestion }}</span>
-                <button @click="handleConfirm(msg, true)" style="margin-left: 8px">是</button>
-                <button @click="handleConfirm(msg, false)" style="margin-left: 4px">否</button>
+              <div class="confirm-box">
+                <span class="confirm-question">{{ msg.confirmQuestion }}</span>
+                <div class="confirm-actions">
+                  <button class="confirm-btn yes" @click="handleConfirm(msg, true)">是</button>
+                  <button class="confirm-btn no" @click="handleConfirm(msg, false)">否</button>
+                </div>
               </div>
             </template>
           </div>
@@ -406,7 +408,6 @@ function addMessage(role, text, type = 'text', extra = {}) {
  * @param {object} [options] - 可选，定制按钮行为
  * @param {string} [options.yesMsg] - 确认时发送的内容
  * @param {string} [options.noMsg] - 取消时发送的内容
- * @returns {Promise<boolean>} - keepGoing true/false
  */
 /**
  * 在最后一条 assistant 消息下渲染确认弹窗
@@ -414,47 +415,39 @@ function addMessage(role, text, type = 'text', extra = {}) {
  * @param {object} [options] - 可选，定制按钮行为
  * @param {string} [options.yesMsg] - 确认时发送的内容
  * @param {string} [options.noMsg] - 取消时发送的内容
- * @returns {Promise<{msg: string, keepGoing: boolean}>}
  */
 function showConfirmInChat(question, { yesMsg = '人工确定', noMsg = '人工取消' } = {}) {
-  return new Promise((resolve) => {
-    // 找到最后一条 assistant 消息
-    const lastMessage = messageHandler.getLastAssistantMessage()
-    if (!lastMessage) {
-      // 没有 assistant 消息，插入一条
-      addMessage('assistant', question)
-      const msg = messageHandler.getLastAssistantMessage()
-      if (!msg) return resolve({ msg: '无可确认消息', keepGoing: false })
-      msg.type = 'confirm'
-      msg.confirmed = false
-      msg.confirmQuestion = question
-      msg.onYes = () => {
-        msg.confirmed = true
-        messageHandler.sendFeedback(yesMsg, true)
-        resolve({ msg: yesMsg, keepGoing: true })
-      }
-      msg.onNo = () => {
-        msg.confirmed = true
-        messageHandler.sendFeedback(noMsg, false)
-        resolve({ msg: noMsg, keepGoing: false })
-      }
-    } else {
-      // 在 lastMessage 上挂载确认弹窗
-      lastMessage.type = 'confirm'
-      lastMessage.confirmed = false
-      lastMessage.confirmQuestion = question
-      lastMessage.onYes = () => {
-        lastMessage.confirmed = true
-        messageHandler.sendFeedback(yesMsg, true)
-        resolve({ msg: yesMsg, keepGoing: true })
-      }
-      lastMessage.onNo = () => {
-        lastMessage.confirmed = true
-        messageHandler.sendFeedback(noMsg, false)
-        resolve({ msg: noMsg, keepGoing: false })
-      }
+  // 找到最后一条 assistant 消息
+  const lastMessage = messageHandler.getLastAssistantMessage()
+  if (!lastMessage) {
+    // 没有 assistant 消息，插入一条
+    addMessage('assistant', question)
+    const msg = messageHandler.getLastAssistantMessage()
+    msg.type = 'confirm'
+    msg.confirmed = false
+    msg.confirmQuestion = question
+    msg.onYes = () => {
+      msg.confirmed = true
+      messageHandler.sendFeedback(yesMsg, true)
     }
-  })
+    msg.onNo = () => {
+      msg.confirmed = true
+      messageHandler.sendFeedback(noMsg, false)
+    }
+  } else {
+    // 在 lastMessage 上挂载确认弹窗
+    lastMessage.type = 'confirm'
+    lastMessage.confirmed = false
+    lastMessage.confirmQuestion = question
+    lastMessage.onYes = () => {
+      lastMessage.confirmed = true
+      messageHandler.sendFeedback(yesMsg, true)
+    }
+    lastMessage.onNo = () => {
+      lastMessage.confirmed = true
+      messageHandler.sendFeedback(noMsg, false)
+    }
+  }
 }
 
 // 处理按钮点击
@@ -956,5 +949,58 @@ onBeforeUnmount(() => {
   );
   background-size: 4px 4px;
   opacity: 0.5;
+}
+</style>
+<style scoped>
+.confirm-box {
+  margin-top: 10px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 10px;
+  background: #f9fafb;
+  padding: 14px 18px 12px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  box-shadow: 0 2px 8px 0 rgba(102, 126, 234, 0.06);
+  max-width: 320px;
+}
+.confirm-question {
+  color: #333;
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+}
+.confirm-btn {
+  min-width: 20px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s;
+}
+.confirm-btn.yes {
+  background: linear-gradient(90deg, #667eea 0%, #d8c3f0 100%);
+  color: #fff;
+  border: none;
+}
+.confirm-btn.yes:hover {
+  background: linear-gradient(90deg, #5a67d8 0%, #6c4997 100%);
+}
+.confirm-btn.no {
+  background: #f3f3f3;
+  color: #666;
+  border: 1px solid #e0e0e0;
+}
+.confirm-btn.no:hover {
+  background: #f8d7da;
+  color: #c0392b;
+  border-color: #f5c6cb;
 }
 </style>

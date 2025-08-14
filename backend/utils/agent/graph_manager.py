@@ -329,7 +329,7 @@ class GraphInstance:
                         )
                     # 返回调用下一个节点工具执行
                     return send_list
-                return Send("chatbot_response", state)
+                return Send("frontend_tools", state)
 
             # 3. 前端工具节点：根据标记决定是否生成工具调用
             async def frontend_tools_node(state: State) -> dict:

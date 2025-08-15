@@ -45,7 +45,7 @@ def setup_logging():
     log_dir = Path(LoggerConfig.LOG_DIR)
     log_dir.mkdir(exist_ok=True)
 
-    # 设置第三方库的日志级别，减少噪音
+    # 设置第三方库的日志级别,减少噪音
     logging.getLogger("watchfiles").setLevel(
         getattr(logging, LoggerConfig.WATCHFILES_LOG_LEVEL)
     )
@@ -81,7 +81,7 @@ def get_logger(name: str = "app") -> logging.Logger:
         console_handler.setFormatter(colored_formatter)
         logger.addHandler(console_handler)
 
-        # 文件输出 - 使用轮转文件处理器（限制大小）
+        # 文件输出 - 使用轮转文件处理器(限制大小)
         if LoggerConfig.ENABLE_FILE_LOGGING:
             log_file_path = Path(LoggerConfig.get_log_file_path())
 
@@ -117,4 +117,12 @@ websocket_logger = get_logger("websocket")
 tools_logger = get_logger("tools")
 
 # 导出
-__all__ = ["get_logger", "app_logger", "api_logger", "swmm_logger", "agent_logger", "websocket_logger", "tools_logger"]
+__all__ = [
+    "get_logger",
+    "app_logger",
+    "api_logger",
+    "swmm_logger",
+    "agent_logger",
+    "websocket_logger",
+    "tools_logger",
+]

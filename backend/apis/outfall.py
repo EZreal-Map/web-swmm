@@ -24,15 +24,15 @@ outfallRouter = APIRouter()
     "/outfalls",
     summary="获取所有出口的所有信息",
     description="""
-    获取所有出口节点的基本信息，包括：
-    - 出口名称（name）
-    - 地理坐标（经纬度 lon/lat）
-    - 高程（elevation）
-    - 出流类型（kind: FREE、NORMAL 或 FIXED）
-    - 固定水位值（仅当 kind 为 FIXED 时返回 data 值，其余为 None）
+    获取所有出口节点的基本信息,包括:
+    - 出口名称(name)
+    - 地理坐标(经纬度 lon/lat)
+    - 高程(elevation)
+    - 出流类型(kind: FREE、NORMAL 或 FIXED)
+    - 固定水位值(仅当 kind 为 FIXED 时返回 data 值,其余为 None)
     """,
 )
-@with_exception_handler(default_message="获取失败，文件有误，发生未知错误")
+@with_exception_handler(default_message="获取失败,文件有误,发生未知错误")
 async def get_outfalls():
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_outfalls = INP.check_for_section(Outfall)
@@ -53,16 +53,16 @@ async def get_outfalls():
         and (lat := lon_lat[1])
     ]
     return Result.success(
-        data=outfalls, message=f"成功获取所有出口数据，共({len(outfalls)}个)"
+        data=outfalls, message=f"成功获取所有出口数据,共({len(outfalls)}个)"
     )
 
 
 @outfallRouter.put(
     "/outfall/{outfall_id:path}",
     summary="更新指定出口的坐标",
-    description="通过指定出口ID，更新出口的相关信息",
+    description="通过指定出口ID,更新出口的相关信息",
 )
-@with_exception_handler(default_message="更新失败，文件有误，发生未知错误")
+@with_exception_handler(default_message="更新失败,文件有误,发生未知错误")
 async def update_outfall(outfall_id: str, outfall_update: OutfallModel):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_outfalls = INP.check_for_section(Outfall)
@@ -70,27 +70,27 @@ async def update_outfall(outfall_id: str, outfall_update: OutfallModel):
     inp_junctions = INP.check_for_section(Junction)
     inp_conduits = INP.check_for_section(Conduit)
 
-    # 检查出口是否存在，如果不存在，则抛出异常
+    # 检查出口是否存在,如果不存在,则抛出异常
     if outfall_id not in inp_outfalls:
         raise HTTPException(
             status_code=404,
-            detail=f"保存失败，需要修改的出口名称 [ {outfall_id} ] 不存在，请检查出口名称是否正确",
+            detail=f"保存失败,需要修改的出口名称 [ {outfall_id} ] 不存在,请检查出口名称是否正确",
         )
-    # 检查新名称是否已存在，如果新名称与现有节点名称冲突，则抛出异常
+    # 检查新名称是否已存在,如果新名称与现有节点名称冲突,则抛出异常
     if outfall_update.name in inp_outfalls and outfall_update.name != outfall_id:
         raise HTTPException(
             status_code=400,
-            detail=f"保存失败，出口名称 [ {outfall_update.name} ] 已存在，请使用其他名称",
+            detail=f"保存失败,出口名称 [ {outfall_update.name} ] 已存在,请使用其他名称",
         )
     if outfall_update.name in inp_junctions:
         raise HTTPException(
             status_code=400,
-            detail=f"保存失败，出口名称与节点名称不能重复，请使用其他名称",
+            detail=f"保存失败,出口名称与节点名称不能重复,请使用其他名称",
         )
     if outfall_update.name in inp_coordinates and outfall_update.name != outfall_id:
         raise HTTPException(
             status_code=400,
-            detail=f"保存失败，坐标名称 [ {outfall_update.name} ] 已存在，请使用其他名称",
+            detail=f"保存失败,坐标名称 [ {outfall_update.name} ] 已存在,请使用其他名称",
         )
 
     # 1.更新OUTFALLS数据
@@ -111,7 +111,7 @@ async def update_outfall(outfall_id: str, outfall_update: OutfallModel):
     )
 
     # 3.更新CONDUITS的起点和终点的名称
-    # 如果出口名称发生变化，则需要更新所有与该节点相关的渠道的出口和终点名称
+    # 如果出口名称发生变化,则需要更新所有与该节点相关的渠道的出口和终点名称
     if outfall_id != outfall_update.name:
         for conduit in inp_conduits.values():
             if conduit.from_node == outfall_id:
@@ -129,9 +129,9 @@ async def update_outfall(outfall_id: str, outfall_update: OutfallModel):
 @outfallRouter.post(
     "/outfall",
     summary="创建新的出口节点",
-    description="在 SWMM 模型中创建一个新的 Outfall，并更新坐标数据",
+    description="在 SWMM 模型中创建一个新的 Outfall,并更新坐标数据",
 )
-@with_exception_handler(default_message="创建失败，文件有误，发生未知错误")
+@with_exception_handler(default_message="创建失败,文件有误,发生未知错误")
 async def create_outfall(outfall_data: OutfallModel):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_outfalls = INP.check_for_section(Outfall)
@@ -148,7 +148,7 @@ async def create_outfall(outfall_data: OutfallModel):
     if outfall_data.name in inp_junctions:
         raise HTTPException(
             status_code=400,
-            detail=f"保存失败，出口名称与节点名称不能重复，请使用其他名称",
+            detail=f"保存失败,出口名称与节点名称不能重复,请使用其他名称",
         )
 
     # 1. 创建新的 Outfall 并添加到 OUTFALLS
@@ -174,10 +174,10 @@ async def create_outfall(outfall_data: OutfallModel):
 @outfallRouter.delete(
     "/outfall/{outfall_id:path}",
     summary="删除指定出口",
-    description="通过出口ID删除出口，并清理关联的坐标数据",
+    description="通过出口ID删除出口,并清理关联的坐标数据",
     response_model=Result,
 )
-@with_exception_handler(default_message="删除失败，文件有误，发生未知错误")
+@with_exception_handler(default_message="删除失败,文件有误,发生未知错误")
 async def delete_outfall(outfall_id: str):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_outfalls = INP.check_for_section(Outfall)
@@ -185,11 +185,11 @@ async def delete_outfall(outfall_id: str):
     inp_conduits = INP.check_for_section(Conduit)
     inp_xsections = INP.check_for_section(CrossSection)
 
-    # 检查出口是否存在，如果不存在，则抛出异常
+    # 检查出口是否存在,如果不存在,则抛出异常
     if outfall_id not in inp_outfalls:
         raise HTTPException(
             status_code=404,
-            detail=f"删除失败，出口 [ {outfall_id} ] 不存在",
+            detail=f"删除失败,出口 [ {outfall_id} ] 不存在",
         )
 
     # 1. 检查关联渠道并记录
@@ -199,10 +199,10 @@ async def delete_outfall(outfall_id: str):
         if conduit.from_node == outfall_id or conduit.to_node == outfall_id
     ]
 
-    # 2. 删除关联渠道（强制级联删除）
+    # 2. 删除关联渠道(强制级联删除)
     for conduit_id in related_conduits:
         del inp_conduits[conduit_id]
-        # 删除断面信息（如果存在）
+        # 删除断面信息(如果存在)
         if conduit_id in inp_xsections:
             del inp_xsections[conduit_id]
 
@@ -218,6 +218,6 @@ async def delete_outfall(outfall_id: str):
     # 构建响应信息
     message = f"节点 [ {outfall_id} ] 删除成功"
     if related_conduits:
-        message += f"，同时删除 {len(related_conduits)} 条关联渠道"
+        message += f",同时删除 {len(related_conduits)} 条关联渠道"
 
     return Result.success(message=message)

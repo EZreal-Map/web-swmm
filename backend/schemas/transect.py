@@ -18,10 +18,10 @@ class TransectModel(BaseModel):
         if not isinstance(values, list):
             raise HTTPException(
                 status_code=400,
-                detail="断面高程数据格式错误，必须是列表",
+                detail="断面高程数据格式错误,必须是列表",
             )
 
-        # 过滤掉 None 和负值，并按 X 坐标升序排序
+        # 过滤掉 None 和负值,并按 X 坐标升序排序
         filtered_sorted = sorted(
             (
                 pair
@@ -37,7 +37,7 @@ class TransectModel(BaseModel):
         if len(filtered_sorted) != len(values):
             raise HTTPException(
                 status_code=400,
-                detail="坐标中存在无效的值，必须是非负数",
+                detail="坐标中存在无效的值,必须是非负数",
             )
 
         return filtered_sorted
@@ -66,7 +66,7 @@ class TransectModel(BaseModel):
         else:
             field_name_alias = info.field_name
 
-        # 这里检测数值类型和正数，主要只是检查 length 和 roughness，并且结构化报错，其实不用检查，也会被 float 检查
+        # 这里检测数值类型和正数,主要只是检查 length 和 roughness,并且结构化报错,其实不用检查,也会被 float 检查
         if not isinstance(value, (int, float)):
             raise HTTPException(
                 status_code=400,

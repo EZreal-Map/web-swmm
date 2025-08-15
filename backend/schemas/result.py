@@ -11,7 +11,7 @@ class Result(BaseModel, Generic[T]):
 
     # 增加类似于字典的get方法
     def get(self, key: str, default=None):
-        # 如果是字段名，就返回对应值，否则返回默认值
+        # 如果是字段名,就返回对应值,否则返回默认值
         return getattr(self, key, default)
 
     @staticmethod

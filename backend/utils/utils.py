@@ -4,7 +4,7 @@ from schemas.timeseries import TIMESERIES_PREFIXES_MAP
 from utils.logger import api_logger
 
 
-def with_exception_handler(default_message="操作失败，发生未知错误"):
+def with_exception_handler(default_message="操作失败,发生未知错误"):
     def decorator(func):
         @wraps(func)
         async def wrapper(*args, **kwargs):
@@ -26,11 +26,11 @@ def remove_timeseries_prefix(name: str, custom_prefix: str = None) -> str:
     """
     从 name 中移除指定或已知的时间序列前缀。
 
-    参数：
+    参数:
     - name: 原始名称字符串
-    - custom_prefix: 自定义前缀（优先使用），如果为 None，则使用已知的时间序列前缀集合 TIMESERIES_PREFIXES_MAP
+    - custom_prefix: 自定义前缀(优先使用),如果为 None,则使用已知的时间序列前缀集合 TIMESERIES_PREFIXES_MAP
 
-    返回：
+    返回:
     - 移除前缀后的字符串
     """
     if custom_prefix:

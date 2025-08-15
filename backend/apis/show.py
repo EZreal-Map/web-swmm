@@ -13,7 +13,7 @@ showRouter = APIRouter()
 
 
 @showRouter.get("/show", summary="计算结果滚动展示")
-@with_exception_handler(default_message="获取失败，文件有误，发生未知错误")
+@with_exception_handler(default_message="获取失败,文件有误,发生未知错误")
 async def show_calculate_result():
     OUT = SwmmOutput(SWMM_FILE_OUT_PATH, encoding=ENCODING)
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
@@ -84,17 +84,17 @@ def get_from_node_info(
     conduit_name, dict_name, inp_conduits, inp_coordinates, inp_junctions, inp_outfalls
 ):
     """
-    获取指定 conduit 的起点节点信息，包括类型、名称、经纬度坐标。
+    获取指定 conduit 的起点节点信息,包括类型、名称、经纬度坐标。
 
-    参数：
+    参数:
         conduit_name: 管道名称
         dict_name: "from_node" / "to_node"
         inp_conduits: 管道信息字典
         inp_coordinates: 坐标信息字典
         inp_junctions: 交叉口信息字典
 
-    返回：
-        from_node: 字典，包含 'type'、'name'、'lon'、'lat'；如果未找到，返回 None
+    返回:
+        from_node: 字典,包含 'type'、'name'、'lon'、'lat'；如果未找到,返回 None
     """
     node_info = inp_conduits.get(conduit_name)
     if not node_info:
@@ -127,7 +127,7 @@ def get_link_variable_extremes(df, variables=["flow", "depth", "velocity"]):
     """
     获取 df 中 link 类型的 flow / depth / velocity 三个变量的最大值和最小值
 
-    返回结构：
+    返回结构:
     {
         "flow": {"max": ..., "min": ...},
         "depth": {"max": ..., "min": ...},
@@ -146,8 +146,8 @@ def get_link_variable_extremes(df, variables=["flow", "depth", "velocity"]):
         if not cols.empty:
             data = df[cols]
             result[var] = {
-                "max": data.max().max(),  # 所有列的最大值，再取最大
-                "min": data.min().min(),  # 所有列的最小值，再取最小
+                "max": data.max().max(),  # 所有列的最大值,再取最大
+                "min": data.min().min(),  # 所有列的最小值,再取最小
             }
         else:
             result[var] = {"max": None, "min": None}

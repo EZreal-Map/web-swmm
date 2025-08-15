@@ -23,7 +23,7 @@ from apis.show import showRouter
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app_logger.info("正在启动后端API服务...")
-    # 初始化异步全局StoreManager（异步）
+    # 初始化异步全局StoreManager(异步)
     await AsyncStoreManager.init()
     # 初始Graph实例
     GraphInstance.init()
@@ -86,5 +86,5 @@ if __name__ == "__main__":
         host=SystemConfig.HOST,
         port=SystemConfig.PORT,
         reload=SystemConfig.APP_DEBUG,  # 根据配置决定是否热启动
-        access_log=False,  # 禁用uvicorn的访问日志，使用我们的中间件
+        access_log=False,  # 禁用uvicorn的访问日志,使用我们的中间件
     )

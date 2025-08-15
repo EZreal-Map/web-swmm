@@ -24,20 +24,20 @@ timeseriesRouter = APIRouter()
 # 获取所有时间序列信息的name集合
 @timeseriesRouter.get(
     "/timeseries/name",
-    summary="获取所有时间序列的名称列表（不包含数据）",
-    description="获取所有时间序列的名称列表集合（不包含数据）",
+    summary="获取所有时间序列的名称列表(不包含数据)",
+    description="获取所有时间序列的名称列表集合(不包含数据)",
 )
-@with_exception_handler(default_message="获取失败，文件有误，发生未知错误")
+@with_exception_handler(default_message="获取失败,文件有误,发生未知错误")
 async def get_timeseries_names(
     type: Annotated[
         TimeSeriesTypeModel,
-        Query(description="时间序列类型，必须是 INFLOW 或 RAINGAGE"),
+        Query(description="时间序列类型,必须是 INFLOW 或 RAINGAGE"),
     ] = TimeSeriesTypeModel.INFLOW,
 ):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_timeseries = INP.check_for_section(TimeseriesData)
     timeseries_names = list(inp_timeseries.keys())
-    # 筛选出符合前缀的，并移除前缀
+    # 筛选出符合前缀的,并移除前缀
     filtered_names = [
         remove_timeseries_prefix(name, custom_prefix=TIMESERIES_PREFIXES_MAP[type])
         for name in timeseries_names
@@ -45,7 +45,7 @@ async def get_timeseries_names(
     ]
 
     return Result.success(
-        message=f"成功获取所有时间序列名称，共({len(filtered_names)}个)",
+        message=f"成功获取所有时间序列名称,共({len(filtered_names)}个)",
         data=filtered_names,
     )
 
@@ -53,8 +53,8 @@ async def get_timeseries_names(
 def parse_datetime_safe(t):
     """
     安全解析时间字符串为 datetime 对象
-    支持格式：MM/DD/YYYY HH:MM:SS
-    因为：window读取swmm文件得到的是 timeseries.data [(datetime.datetime(2025, 5, 14, 12, 0), 10.0)]
+    支持格式:MM/DD/YYYY HH:MM:SS
+    因为:window读取swmm文件得到的是 timeseries.data [(datetime.datetime(2025, 5, 14, 12, 0), 10.0)]
     而linux读取swmm文件得到的是 timeseries.data [('04/07/2025 00:00:00', 1000.0)]
     这里需要将字符串转换为 datetime 对象
     """
@@ -73,14 +73,14 @@ def parse_datetime_safe(t):
 @timeseriesRouter.get(
     "/timeseries/{timeseries_id:path}",
     summary="获取指定时间序列信息",
-    description="通过指定时间序列名字，获取该时间序列的相关的所有信息",
+    description="通过指定时间序列名字,获取该时间序列的相关的所有信息",
 )
-@with_exception_handler(default_message="获取失败，文件有误，发生未知错误")
+@with_exception_handler(default_message="获取失败,文件有误,发生未知错误")
 async def get_timeseries_by_id(
     timeseries_id: str,
     type: Annotated[
         TimeSeriesTypeModel,
-        Query(description="时间序列类型，必须是 INFLOW 或 RAINGAGE"),
+        Query(description="时间序列类型,必须是 INFLOW 或 RAINGAGE"),
     ] = TimeSeriesTypeModel.INFLOW,
 ):
     # 加上时间序列类型前缀
@@ -93,7 +93,7 @@ async def get_timeseries_by_id(
         raise HTTPException(
             status_code=404, detail=f"时间序列 [ {timeseries_id} ] 不存在"
         )
-    # 解析时间字符串为 datetime 对象，处理不同操作系统的时间格式
+    # 解析时间字符串为 datetime 对象,处理不同操作系统的时间格式
     data = []
     for t, v in timeseries.data:
         t = parse_datetime_safe(t)
@@ -115,15 +115,15 @@ async def get_timeseries_by_id(
 @timeseriesRouter.put(
     "/timeseries/{timeseries_id:path}",
     summary="更新指定时间序列信息",
-    description="通过指定时间序列ID，更新时间序列的相关信息",
+    description="通过指定时间序列ID,更新时间序列的相关信息",
 )
-@with_exception_handler(default_message="更新失败，文件有误，发生未知错误")
+@with_exception_handler(default_message="更新失败,文件有误,发生未知错误")
 async def update_timeseries_by_id(
     timeseries_id: str,
     timeseries: TimeSeriesModel,
     type: Annotated[
         TimeSeriesTypeModel,
-        Query(description="时间序列类型，必须是 INFLOW 或 RAINGAGE"),
+        Query(description="时间序列类型,必须是 INFLOW 或 RAINGAGE"),
     ] = TimeSeriesTypeModel.INFLOW,
 ):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
@@ -138,12 +138,12 @@ async def update_timeseries_by_id(
     if timeseries_id not in inp_timeseries:
         raise HTTPException(
             status_code=404,
-            detail=f"保存失败，需要修改的时间序列名称 [ {timeseries_id} ] 不存在，请检查时间序列名称是否正确",
+            detail=f"保存失败,需要修改的时间序列名称 [ {timeseries_id} ] 不存在,请检查时间序列名称是否正确",
         )
     if timeseries.name in inp_timeseries and timeseries.name != timeseries_id:
         raise HTTPException(
             status_code=400,
-            detail=f"保存失败，时间序列名称 [ {timeseries.name} ] 已存在，请使用不同的时间序列名称",
+            detail=f"保存失败,时间序列名称 [ {timeseries.name} ] 已存在,请使用不同的时间序列名称",
         )
 
     # 1.更新时间序列信息
@@ -155,7 +155,7 @@ async def update_timeseries_by_id(
     inp_timeseries[timeseries_id] = new_timeseries
     # 2.更新时间序列相关的数据
     related_entity_ids = []
-    # 2.1 如果是 INFLOW 类型，则更新对应的 Inflow
+    # 2.1 如果是 INFLOW 类型,则更新对应的 Inflow
     if type == TimeSeriesTypeModel.INFLOW:
         if timeseries_id != timeseries.name:
             for inflow in inp_inflows.values():
@@ -163,7 +163,7 @@ async def update_timeseries_by_id(
                     inflow.time_series = timeseries.name
                     related_entity_ids.append(inflow.node)
 
-    # 2.2.如果是 RAINGAGE 类型，则更新对应的 RainGage
+    # 2.2.如果是 RAINGAGE 类型,则更新对应的 RainGage
     if type == TimeSeriesTypeModel.RAINGAGE:
         related_entity_ids = update_raingage(
             INP,
@@ -181,7 +181,7 @@ async def update_timeseries_by_id(
         message = f"时间序列更新成功"
     # 构建响应信息
     if len(related_entity_ids) > 0:
-        message += f"，同时更新了 {len(related_entity_ids)} 条引用"
+        message += f",同时更新了 {len(related_entity_ids)} 条引用"
 
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     return Result.success(
@@ -194,14 +194,14 @@ async def update_timeseries_by_id(
 @timeseriesRouter.post(
     "/timeseries",
     summary="创建新的时间序列",
-    description="创建一个新的时间序列，并写入 SWMM 文件",
+    description="创建一个新的时间序列,并写入 SWMM 文件",
 )
-@with_exception_handler(default_message="创建失败，文件有误，发生未知错误")
+@with_exception_handler(default_message="创建失败,文件有误,发生未知错误")
 async def create_timeseries(
     timeseries_data: TimeSeriesModel,
     type: Annotated[
         TimeSeriesTypeModel,
-        Query(description="时间序列类型，必须是 INFLOW 或 RAINGAGE"),
+        Query(description="时间序列类型,必须是 INFLOW 或 RAINGAGE"),
     ] = TimeSeriesTypeModel.INFLOW,
 ):
     """
@@ -216,7 +216,7 @@ async def create_timeseries(
     if name in inp_timeseries:
         raise HTTPException(
             status_code=400,
-            detail=f"创建失败，时间序列名称 [ {timeseries_data.name} ] 已存在，请使用不同的时间序列名称",
+            detail=f"创建失败,时间序列名称 [ {timeseries_data.name} ] 已存在,请使用不同的时间序列名称",
         )
 
     # 1.创建新的时间序列信息
@@ -226,7 +226,7 @@ async def create_timeseries(
     )
     inp_timeseries[name] = new_timeseries
 
-    # 2.如果是 RAINGAGE 类型，则创建对应的 RainGage
+    # 2.如果是 RAINGAGE 类型,则创建对应的 RainGage
     if type == TimeSeriesTypeModel.RAINGAGE:
         create_raingage(INP, timeseries_name=name)
 
@@ -246,13 +246,13 @@ async def create_timeseries(
 @timeseriesRouter.delete(
     "/timeseries/{timeseries_id:path}",
     summary="删除指定时间序列",
-    description="通过时间序列ID删除时间序列，并清理关联的节点数据",
+    description="通过时间序列ID删除时间序列,并清理关联的节点数据",
 )
 async def delete_timeseries(
     timeseries_id: str,
     type: Annotated[
         TimeSeriesTypeModel,
-        Query(description="时间序列类型，必须是 INFLOW 或 RAINGAGE"),
+        Query(description="时间序列类型,必须是 INFLOW 或 RAINGAGE"),
     ] = TimeSeriesTypeModel.INFLOW,
 ):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
@@ -266,22 +266,22 @@ async def delete_timeseries(
     if id not in inp_timeseries:
         raise HTTPException(
             status_code=404,
-            detail=f"删除失败，时间序列 [ {timeseries_id} ] 不存在",
+            detail=f"删除失败,时间序列 [ {timeseries_id} ] 不存在",
         )
     # 1.检查关联的节点并记录
     related_inflows = [
         inflow.node for inflow in inp_inflows.values() if inflow.time_series == id
     ]
     if related_inflows:
-        # 无法删除时间序列，因为有节点引用了它
+        # 无法删除时间序列,因为有节点引用了它
         raise HTTPException(
             status_code=400,
-            detail=f"删除失败，时间序列 [ {timeseries_id} ] 被 {len(related_inflows)} 条节点引用，请先取消引用再删除，节点名称为：{related_inflows}",
+            detail=f"删除失败,时间序列 [ {timeseries_id} ] 被 {len(related_inflows)} 条节点引用,请先取消引用再删除,节点名称为:{related_inflows}",
         )
     # 2.删除时间序列数据
     del inp_timeseries[id]
 
-    # 3.如果是 RAINGAGE 类型，则删除对应的 RainGage
+    # 3.如果是 RAINGAGE 类型,则删除对应的 RainGage
     if type == TimeSeriesTypeModel.RAINGAGE:
         delete_raingage(INP, timeseries_name=remove_timeseries_prefix(id))
 

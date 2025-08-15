@@ -54,7 +54,7 @@ class JunctionModel(BaseModel):
         else:
             field_name_alias = info.field_name
 
-        # 这里检测数值类型和正数，主要只是检查 length 和 roughness，并且结构化报错，其实不用检查，也会被 float 检查
+        # 这里检测数值类型和正数,主要只是检查 length 和 roughness,并且结构化报错,其实不用检查,也会被 float 检查
         if not isinstance(value, (int, float)):
             raise HTTPException(
                 status_code=400,
@@ -69,10 +69,10 @@ class JunctionModel(BaseModel):
 
     @model_validator(mode="before")
     def check_timeseries_name(cls, values):
-        # 如果 has_inflow 为 True，timeseries_name 不能为空
+        # 如果 has_inflow 为 True,timeseries_name 不能为空
         if values.get("has_inflow") and not values.get("timeseries_name"):
             raise HTTPException(
                 status_code=400,
-                detail="节点有入流时，必须提供入流时间序列名称",
+                detail="节点有入流时,必须提供入流时间序列名称",
             )
         return values

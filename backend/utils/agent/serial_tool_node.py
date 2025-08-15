@@ -3,15 +3,15 @@ from langchain_core.messages import ToolMessage
 from utils.logger import agent_logger
 
 
-# 这里没有考虑 ToolNode 的 messages_key ，默认使用的是 messages
+# 这里没有考虑 ToolNode 的 messages_key ,默认使用的是 messages
 class SerialToolNode(ToolNode):
-    """继承ToolNode，将并行执行改为串行执行，支持interrupt机制"""
+    """继承ToolNode,将并行执行改为串行执行,支持interrupt机制"""
 
     def __init__(self, tools: list):
         super().__init__(tools)
 
     def invoke(self, input, config=None, **kwargs):
-        """串行执行工具调用，按tool_calls顺序执行，支持interrupt"""
+        """串行执行工具调用,按tool_calls顺序执行,支持interrupt"""
         if isinstance(input, list):
             message = input[-1]
         elif messages := input.get("messages", []):
@@ -26,10 +26,6 @@ class SerialToolNode(ToolNode):
         # 按照tool_calls的顺序串行执行每个工具
         for i, tool_call in enumerate(message.tool_calls):
             try:
-                agent_logger.info(
-                    f"串行执行工具 {i+1}/{len(message.tool_calls)}: {tool_call['name']}"
-                )
-
                 # 为每个工具调用创建单独的消息和状态
                 single_call_message = type(message)(
                     content=message.content,
@@ -52,18 +48,22 @@ class SerialToolNode(ToolNode):
                 if "messages" in result:
                     outputs.extend(result["messages"])
 
-                agent_logger.info(f"串行执行工具 {tool_call['name']} 完成")
+                agent_logger.info(
+                    f"串行执行工具 {tool_call['name']} 完成 ({i+1}/{len(message.tool_calls)}, result={result})"
+                )
 
             except Exception as e:
-                # 检查是否是Interrupt异常（前端工具的正常行为）
+                # 检查是否是Interrupt异常(前端工具的正常行为)
                 if "Interrupt" in str(type(e)) or "interrupt" in str(e).lower():
                     agent_logger.info(
-                        f"工具 {tool_call['name']} 触发interrupt，等待人类反馈"
+                        f"工具 {tool_call['name']} ({i+1}/{len(message.tool_calls)}) 触发interrupt,等待人类反馈"
                     )
-                    # 对于interrupt，直接重新抛出，让LangGraph处理
+                    # 对于interrupt,直接重新抛出,让LangGraph处理
                     raise e
                 else:
-                    agent_logger.error(f"串行执行工具 {tool_call['name']} 失败: {e}")
+                    agent_logger.error(
+                        f"串行执行工具 {tool_call['name']} ({i+1}/{len(message.tool_calls)}) 失败: {e}"
+                    )
                     # 创建错误消息
                     error_message = ToolMessage(
                         content=f"工具执行失败: {str(e)}",
@@ -74,6 +74,6 @@ class SerialToolNode(ToolNode):
         return {"messages": outputs}
 
 
-# 注意：
-# 1. LLM.invoke 返回的是 返单个 AIMessage 对象（或 BaseMessage 子类）
+# 注意:
+# 1. LLM.invoke 返回的是 返单个 AIMessage 对象(或 BaseMessage 子类)
 # 2. ToolNode.invoke 返回的是 {"messages": [ToolMessage, ...]} 格式 (这样ToolNode 为了保存State的兼容性)

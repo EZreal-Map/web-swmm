@@ -24,9 +24,9 @@ junctionsRouter = APIRouter()
 @junctionsRouter.get(
     "/junctions",
     summary="获取所有节点的所有信息",
-    description="获取所有节点的基本信息，包括类型、名称、地理坐标（经纬度）、高程、最大水深、初始水深、超载水深、积水面积、是否有入流及入流时间序列名称。",
+    description="获取所有节点的基本信息,包括类型、名称、地理坐标(经纬度)、高程、最大水深、初始水深、超载水深、积水面积、是否有入流及入流时间序列名称。",
 )
-@with_exception_handler(default_message="获取失败，文件有误，发生未知错误")
+@with_exception_handler(default_message="获取失败,文件有误,发生未知错误")
 async def get_junctions():
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_junctions = INP.check_for_section(Junction)
@@ -48,7 +48,7 @@ async def get_junctions():
         # 判断是否有入流
         has_inflow = junction.name in inflow_nodes
 
-        # 获取时间序列名（如果有入流）
+        # 获取时间序列名(如果有入流)
         if has_inflow:
             timeseries_name = inp_inflows[(junction.name, "FLOW")].time_series
             # 移除时间序列类型前缀
@@ -71,16 +71,16 @@ async def get_junctions():
         )
         junctions.append(junction_model)
     return Result.success(
-        data=junctions, message=f"成功获取所有节点数据，共({len(junctions)}个)"
+        data=junctions, message=f"成功获取所有节点数据,共({len(junctions)}个)"
     )
 
 
 @junctionsRouter.post(
     "/junctions/batch",
     summary="批量获取指定节点的信息",
-    description="通过节点ID列表批量获取节点的基本信息，包括类型、名称、地理坐标（经纬度）、高程、最大水深、初始水深、超载水深、积水面积、是否有入流及入流时间序列名称。",
+    description="通过节点ID列表批量获取节点的基本信息,包括类型、名称、地理坐标(经纬度)、高程、最大水深、初始水深、超载水深、积水面积、是否有入流及入流时间序列名称。",
 )
-@with_exception_handler(default_message="获取失败，文件有误，发生未知错误")
+@with_exception_handler(default_message="获取失败,文件有误,发生未知错误")
 async def batch_get_junctions_by_ids(ids: List[str]):
     """通过节点ID列表批量获取节点信息"""
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
@@ -108,7 +108,7 @@ async def batch_get_junctions_by_ids(ids: List[str]):
         # 判断是否有入流
         has_inflow = junction.name in inflow_nodes
 
-        # 获取时间序列名（如果有入流）
+        # 获取时间序列名(如果有入流)
         if has_inflow:
             timeseries_name = inp_inflows[(junction.name, "FLOW")].time_series
             # 移除时间序列类型前缀
@@ -133,16 +133,16 @@ async def batch_get_junctions_by_ids(ids: List[str]):
         junctions_name.append(junction.name)
 
     return Result.success(
-        data=junctions, message=f"成功获取指定节点数据：{junctions_name}"
+        data=junctions, message=f"成功获取指定节点数据:{junctions_name}"
     )
 
 
 @junctionsRouter.put(
     "/junction/{junction_id:path}",
-    summary="通过节点名称，更新指定节点的所有信息",
-    description="通过节点名称，更新指定节点的所有信息，包括名称、经纬度、高程、最大水深、初始水深、超载水深、积水面积、是否有入流及入流时间序列名称。",
+    summary="通过节点名称,更新指定节点的所有信息",
+    description="通过节点名称,更新指定节点的所有信息,包括名称、经纬度、高程、最大水深、初始水深、超载水深、积水面积、是否有入流及入流时间序列名称。",
 )
-@with_exception_handler(default_message="修改失败，文件有误，发生未知错误")
+@with_exception_handler(default_message="修改失败,文件有误,发生未知错误")
 async def update_junction(junction_id: str, junction_update: JunctionModel):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_junctions = INP.check_for_section(Junction)
@@ -156,24 +156,24 @@ async def update_junction(junction_id: str, junction_update: JunctionModel):
     if junction_id not in inp_junctions:
         raise HTTPException(
             status_code=404,
-            detail=f"保存失败，需要修改的节点名称 [ {junction_id} ] 不存在，请检查节点名称是否正确",
+            detail=f"保存失败,需要修改的节点名称 [ {junction_id} ] 不存在,请检查节点名称是否正确",
         )
 
-    # 检查新名称是否已存在，如果新名称与现有节点名称冲突，则抛出异常
+    # 检查新名称是否已存在,如果新名称与现有节点名称冲突,则抛出异常
     if junction_update.name in inp_junctions and junction_update.name != junction_id:
         raise HTTPException(
             status_code=400,
-            detail=f"修改失败，节点名称 [ {junction_update.name} ] 已存在，请使用不同的节点名称",
+            detail=f"修改失败,节点名称 [ {junction_update.name} ] 已存在,请使用不同的节点名称",
         )
     if junction_update.name in inp_outfalls:
         raise HTTPException(
             status_code=400,
-            detail=f"保存失败，节点名称与出口名称不能重复，请使用其他名称",
+            detail=f"保存失败,节点名称与出口名称不能重复,请使用其他名称",
         )
     if junction_update.name in inp_coordinates and junction_update.name != junction_id:
         raise HTTPException(
             status_code=400,
-            detail=f"保存失败，坐标名称 [ {junction_update.name} ] 已存在，请使用不同的节点名称",
+            detail=f"保存失败,坐标名称 [ {junction_update.name} ] 已存在,请使用不同的节点名称",
         )
 
     # 1.更新JUNCTIONS数据
@@ -195,7 +195,7 @@ async def update_junction(junction_id: str, junction_update: JunctionModel):
     )
 
     # 3.更新CONDUITS的起点和终点的名称
-    # 如果节点名称发生变化，则需要更新所有与该节点相关的渠道的起点和终点名称
+    # 如果节点名称发生变化,则需要更新所有与该节点相关的渠道的起点和终点名称
     if junction_id != junction_update.name:
         for conduit in inp_conduits.values():
             if conduit.from_node == junction_id:
@@ -214,9 +214,9 @@ async def update_junction(junction_id: str, junction_update: JunctionModel):
         if junction_update.timeseries_name not in inp_timeseries:
             raise HTTPException(
                 status_code=404,
-                detail=f"保存失败，需要修改的时间序列名称 [ {remove_timeseries_prefix(junction_update.timeseries_name)} ] 不存在，请检查时间序列名称是否正确",
+                detail=f"保存失败,需要修改的时间序列名称 [ {remove_timeseries_prefix(junction_update.timeseries_name)} ] 不存在,请检查时间序列名称是否正确",
             )
-        # 4.2 如果节点有入流，则删除原来的入流信息
+        # 4.2 如果节点有入流,则删除原来的入流信息
         if (junction_id, "FLOW") in inp_inflows:
             del inp_inflows[(junction_id, "FLOW")]
         # 4.3 创建新的入流信息并添加到 INFLWS 中
@@ -226,7 +226,7 @@ async def update_junction(junction_id: str, junction_update: JunctionModel):
         )
         inp_inflows[(junction_update.name, "FLOW")] = new_inflow
     else:
-        # 4.4 如果节点没有入流，则删除入流信息
+        # 4.4 如果节点没有入流,则删除入流信息
         if (junction_id, "FLOW") in inp_inflows:
             del inp_inflows[(junction_id, "FLOW")]
 
@@ -241,9 +241,9 @@ async def update_junction(junction_id: str, junction_update: JunctionModel):
 @junctionsRouter.post(
     "/junction",
     summary="创建新的 Junction 节点",
-    description="在 SWMM 模型中创建一个新的 Junction，并更新坐标数据",
+    description="在 SWMM 模型中创建一个新的 Junction,并更新坐标数据",
 )
-@with_exception_handler(default_message="创建失败，文件有误，发生未知错误")
+@with_exception_handler(default_message="创建失败,文件有误,发生未知错误")
 async def create_junction(junction_data: JunctionModel):
     # 读取 SWMM 输入文件
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
@@ -255,12 +255,12 @@ async def create_junction(junction_data: JunctionModel):
     if junction_data.name in inp_junctions or junction_data.name in inp_coordinates:
         raise HTTPException(
             status_code=400,
-            detail=f"创建失败，节点名称 [ {junction_data.name} ] 已存在，请使用不同的名称",
+            detail=f"创建失败,节点名称 [ {junction_data.name} ] 已存在,请使用不同的名称",
         )
     if junction_data.name in inp_outfalls:
         raise HTTPException(
             status_code=400,
-            detail=f"保存失败，节点名称与出口名称不能重复，请使用其他名称",
+            detail=f"保存失败,节点名称与出口名称不能重复,请使用其他名称",
         )
 
     # 1. 创建新的 Junction 并添加到 JUNCTIONS
@@ -294,10 +294,10 @@ async def create_junction(junction_data: JunctionModel):
 @junctionsRouter.delete(
     "/junction/{junction_id:path}",
     summary="删除指定节点",
-    description="通过节点ID删除节点，并清理关联的渠道和坐标数据",
+    description="通过节点ID删除节点,并清理关联的渠道和坐标数据",
     response_model=Result,
 )
-@with_exception_handler(default_message="删除失败，文件有误，发生未知错误")
+@with_exception_handler(default_message="删除失败,文件有误,发生未知错误")
 async def delete_junction(junction_id: str):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_junctions = INP.check_for_section(Junction)
@@ -309,7 +309,7 @@ async def delete_junction(junction_id: str):
     # 检查节点是否存在
     if junction_id not in inp_junctions:
         raise HTTPException(
-            status_code=404, detail=f"删除失败，节点 [ {junction_id} ] 不存在"
+            status_code=404, detail=f"删除失败,节点 [ {junction_id} ] 不存在"
         )
 
     # 1. 检查关联渠道并记录
@@ -319,10 +319,10 @@ async def delete_junction(junction_id: str):
         if conduit.from_node == junction_id or conduit.to_node == junction_id
     ]
 
-    # 2. 删除关联渠道（强制级联删除）
+    # 2. 删除关联渠道(强制级联删除)
     for conduit_id in related_conduits:
         del inp_conduits[conduit_id]
-        # 删除断面信息（如果存在）
+        # 删除断面信息(如果存在)
         if conduit_id in inp_xsections:
             del inp_xsections[conduit_id]
 
@@ -333,7 +333,7 @@ async def delete_junction(junction_id: str):
     if junction_id in inp_coordinates:
         del inp_coordinates[junction_id]
 
-    # 5. 删除入流信息（如果存在）
+    # 5. 删除入流信息(如果存在)
     if (junction_id, "FLOW") in inp_inflows:
         del inp_inflows[(junction_id, "FLOW")]
 
@@ -343,5 +343,5 @@ async def delete_junction(junction_id: str):
     # 构建响应信息
     message = f"节点 [ {junction_id} ] 删除成功"
     if related_conduits:
-        message += f"，同时删除 {len(related_conduits)} 条关联渠道"
+        message += f",同时删除 {len(related_conduits)} 条关联渠道"
     return Result.success(message=message)

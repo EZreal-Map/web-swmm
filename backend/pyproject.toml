@@ -3,7 +3,7 @@ name = "backend"
 version = "0.1.0"
 description = "使用swmm-api处理swmm文件的后端程序"
 authors = ["tangkaiwen00@gmail.com"]
-package-mode = false # 关闭包模式，只是用作依赖安装
+package-mode = false # 关闭包模式,只是用作依赖安装
 
 [tool.poetry.dependencies]
 python = "^3.11"

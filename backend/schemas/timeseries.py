@@ -9,11 +9,11 @@ class TimeSeriesModel(BaseModel):
     name: str
     data: list[tuple[datetime, float]]
 
-    # 定义根验证器，确保data字段为空时设置为默认值
+    # 定义根验证器,确保data字段为空时设置为默认值
     @root_validator(pre=True)
     def set_default_data(cls, values):
         data = values.get("data")
-        if not data:  # 如果data为空，包括None、""、[]等
+        if not data:  # 如果data为空,包括None、""、[]等
             default_time = datetime.now()
             values["data"] = [(default_time, 10.0)]  # 设置默认数据
         return values
@@ -30,10 +30,10 @@ class TimeSeriesModel(BaseModel):
             )
         return value
 
-    # 根据 data 判断获取等间隔时间（如不是等间隔使用默认值 1:00），用作raingage的interval使用
+    # 根据 data 判断获取等间隔时间(如不是等间隔使用默认值 1:00),用作raingage的interval使用
     def get_interval(self, default=RAINGAGE_DEFAULT_INTERVAL) -> str:
         """
-        根据 data 判断是否为等间隔。如果是，返回实际间隔（hh:mm格式），否则返回默认值。
+        根据 data 判断是否为等间隔。如果是,返回实际间隔(hh:mm格式),否则返回默认值。
         """
         if len(self.data) < 2:
             return default

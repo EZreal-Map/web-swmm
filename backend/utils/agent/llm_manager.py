@@ -28,8 +28,8 @@ def create_openai_llm(
         temperature = float(os.getenv("OPENAI_TEMPERATURE", DEFAULT_TEMPERATURE))
 
     if not api_key:
-        agent_logger.error("API_KEY未设置，请检查环境变量OPENAI_API_KEY")
-        raise ValueError("API_KEY未设置，请检查环境变量OPENAI_API_KEY")
+        agent_logger.error("API_KEY未设置,请检查环境变量OPENAI_API_KEY")
+        raise ValueError("API_KEY未设置,请检查环境变量OPENAI_API_KEY")
 
     # 初始化参数
     init_params = {"model": model, "api_key": api_key, "temperature": temperature}

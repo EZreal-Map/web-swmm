@@ -108,6 +108,26 @@ const MessageType = {
   FUNCTION_CALL: 'FunctionCall',
   COMPLETE: 'complete',
   ERROR: 'error',
+  CHAT: 'chat',
+  FEEDBACK: 'feedback',
+}
+
+// 前端请求消息类型
+const RequestMessageType = {
+  PING: 'ping',
+  CHAT: 'chat',
+  FEEDBACK: 'feedback',
+}
+
+// 后端响应消息类型
+const ResponseMessageType = {
+  PONG: 'pong',
+  START: 'start',
+  AI_MESSAGE: 'AIMessage',
+  TOOL_MESSAGE: 'ToolMessage',
+  FUNCTION_CALL: 'FunctionCall',
+  COMPLETE: 'complete',
+  ERROR: 'error',
 }
 
 /**
@@ -186,7 +206,7 @@ class WebSocketManager {
     this.stopHeartbeat()
     this.heartbeatInterval = setInterval(() => {
       if (this.connected) {
-        this.send({ type: MessageType.PING })
+        this.send({ type: RequestMessageType.PING })
       }
     }, 30000)
   }
@@ -226,25 +246,25 @@ class MessageResponseHandler {
     console.log('收到响应:', data.type, data)
 
     switch (data.type) {
-      case MessageType.PONG:
+      case ResponseMessageType.PONG:
         this.handlePong()
         break
-      case MessageType.START:
+      case ResponseMessageType.START:
         this.handleStart(data)
         break
-      case MessageType.AI_MESSAGE:
+      case ResponseMessageType.AI_MESSAGE:
         this.handleAIMessage(data)
         break
-      case MessageType.TOOL_MESSAGE:
+      case ResponseMessageType.TOOL_MESSAGE:
         this.handleToolMessage(data)
         break
-      case MessageType.FUNCTION_CALL:
+      case ResponseMessageType.FUNCTION_CALL:
         this.handleFunctionCall(data)
         break
-      case MessageType.COMPLETE:
+      case ResponseMessageType.COMPLETE:
         this.handleComplete(data)
         break
-      case MessageType.ERROR:
+      case ResponseMessageType.ERROR:
         this.handleError(data)
         break
       default:
@@ -340,21 +360,21 @@ class MessageSender {
   sendChatMessage(message) {
     return this.wsManager.send({
       message,
-      feedback: false,
+      type: RequestMessageType.CHAT,
     })
   }
 
   sendFeedbackMessage(message, success = true) {
     return this.wsManager.send({
       message,
-      feedback: true,
+      type: RequestMessageType.FEEDBACK,
       success,
     })
   }
 
   sendPing() {
     return this.wsManager.send({
-      type: MessageType.PING,
+      type: RequestMessageType.PING,
     })
   }
 }

@@ -7,7 +7,7 @@ from langgraph.prebuilt import InjectedState
 from langgraph.types import interrupt
 from typing_extensions import Annotated
 from langgraph.errors import GraphInterrupt
-from utils.agent.websocket_manager import websocket_manager
+from utils.agent.websocket_manager import ChatMessageSendHandler
 
 
 from apis.outfall import (
@@ -257,14 +257,11 @@ def delete_outfall_tool(
     except GraphInterrupt:
         # 第一次 interrupt 时会进入这里，通知前端弹窗
         asyncio.run(
-            websocket_manager.send_message(
-                client_id,
-                {
-                    "type": "FunctionCall",
-                    "function_name": "showConfirmInChat",
-                    "args": {"confirm_question": confirm_question},
-                    "is_direct_feedback": False,
-                },
+            ChatMessageSendHandler.send_function_call(
+                client_id=client_id,
+                function_name="showConfirmInChat",
+                args={"confirm_question": confirm_question},
+                is_direct_feedback=False,
             )
         )
         raise

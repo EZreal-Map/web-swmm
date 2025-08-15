@@ -85,12 +85,11 @@ import { ref, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
 import { flyToEntityByNameTool, initEntitiesTool } from '@/tools/webgis'
 
 // 父组件可传的参数
-
-const serverUrl = 'ws://localhost:8080/agent/ws/test-client'
 // 生成唯一会话ID
 const conversationId = 'conv-123' + Math.random().toString(36).substring(2, 15)
 const userId = 'user-123'
-
+const clientId = userId + '@@' + conversationId
+const serverUrl = `ws://localhost:8080/agent/ws/${clientId}`
 const showDialog = defineModel('showDialog')
 
 function closeDialog() {
@@ -105,16 +104,10 @@ const MessageType = {
   PONG: 'pong',
   START: 'start',
   AI_MESSAGE: 'AIMessage',
-  HUMAN_FEEDBACK: 'HumanFeedback',
   TOOL_MESSAGE: 'ToolMessage',
   FUNCTION_CALL: 'FunctionCall',
   COMPLETE: 'complete',
   ERROR: 'error',
-  CHAT_ERROR: 'Chat processing failed',
-  STREAM_ERROR: 'Stream processing failed',
-  INVALID_JSON: 'INVALID_JSON',
-  VALIDATION_ERROR: 'VALIDATION_ERROR',
-  PROCESSING_ERROR: 'PROCESSING_ERROR',
 }
 
 /**
@@ -242,9 +235,6 @@ class MessageResponseHandler {
       case MessageType.AI_MESSAGE:
         this.handleAIMessage(data)
         break
-      case MessageType.HUMAN_FEEDBACK:
-        this.handleHumanFeedback(data)
-        break
       case MessageType.TOOL_MESSAGE:
         this.handleToolMessage(data)
         break
@@ -255,11 +245,6 @@ class MessageResponseHandler {
         this.handleComplete(data)
         break
       case MessageType.ERROR:
-      case MessageType.CHAT_ERROR:
-      case MessageType.STREAM_ERROR:
-      case MessageType.INVALID_JSON:
-      case MessageType.VALIDATION_ERROR:
-      case MessageType.PROCESSING_ERROR:
         this.handleError(data)
         break
       default:
@@ -277,13 +262,6 @@ class MessageResponseHandler {
   }
 
   handleAIMessage(data) {
-    const lastMessage = this.getLastAssistantMessage()
-    if (lastMessage) {
-      lastMessage.text += data.content || ''
-    }
-  }
-
-  handleHumanFeedback(data) {
     const lastMessage = this.getLastAssistantMessage()
     if (lastMessage) {
       lastMessage.text += data.content || ''
@@ -311,17 +289,17 @@ class MessageResponseHandler {
           // 2.2 如果 后端工具没有定义 success_msg，就使用默认 success_msg
           const successMsg =
             success_msg || `已成功执行：${function_name}，参数：${JSON.stringify(args)}`
-          this.sendFeedback(successMsg)
+          messageSender.sendFeedbackMessage(successMsg)
           console.log('函数调用成功:', function_name, args)
         }
       } else {
         const errorMsg = `未找到函数：${function_name}`
-        this.sendFeedback(errorMsg, false)
+        messageSender.sendFeedbackMessage(errorMsg, false)
         console.error('函数未找到:', function_name)
       }
     } catch (error) {
       const errorMsg = `${function_name}函数调用失败：${error.message}，参数：${JSON.stringify(args)}`
-      this.sendFeedback(errorMsg, false)
+      messageSender.sendFeedbackMessage(errorMsg, false)
       console.error('函数调用异常:', error)
     }
   }
@@ -331,8 +309,7 @@ class MessageResponseHandler {
     // if (lastMessage && data.message) {
     //   lastMessage.text = data.message
     // }
-    // TODO: 暂时保留 astream 流式输出 complete处理，实际上它只能算作一次流式输出的结束，并不是整个对话的complete
-    console.log('响应完成，总长度:', data.total_length)
+    console.log('响应完成，总长度:', data)
   }
 
   handleError(data) {
@@ -350,16 +327,6 @@ class MessageResponseHandler {
     }
     return null
   }
-
-  sendFeedback(message, success = true) {
-    this.wsManager.send({
-      message,
-      conversation_id: conversationId,
-      user_id: userId,
-      feedback: true,
-      success,
-    })
-  }
 }
 
 /**
@@ -373,9 +340,15 @@ class MessageSender {
   sendChatMessage(message) {
     return this.wsManager.send({
       message,
-      conversation_id: conversationId,
-      user_id: userId,
       feedback: false,
+    })
+  }
+
+  sendFeedbackMessage(message, success = true) {
+    return this.wsManager.send({
+      message,
+      feedback: true,
+      success,
     })
   }
 
@@ -428,11 +401,11 @@ function showConfirmInChat(question, { yesMsg = '人工确定', noMsg = '人工�
     msg.confirmQuestion = question
     msg.onYes = () => {
       msg.confirmed = true
-      messageHandler.sendFeedback(yesMsg, true)
+      messageHandler.sendFeedbackMessage(yesMsg, true)
     }
     msg.onNo = () => {
       msg.confirmed = true
-      messageHandler.sendFeedback(noMsg, false)
+      messageHandler.sendFeedbackMessage(noMsg, false)
     }
   } else {
     // 在 lastMessage 上挂载确认弹窗
@@ -441,11 +414,11 @@ function showConfirmInChat(question, { yesMsg = '人工确定', noMsg = '人工�
     lastMessage.confirmQuestion = question
     lastMessage.onYes = () => {
       lastMessage.confirmed = true
-      messageHandler.sendFeedback(yesMsg, true)
+      messageSender.sendFeedbackMessage(yesMsg, true)
     }
     lastMessage.onNo = () => {
       lastMessage.confirmed = true
-      messageHandler.sendFeedback(noMsg, false)
+      messageSender.sendFeedbackMessage(noMsg, false)
     }
   }
 }

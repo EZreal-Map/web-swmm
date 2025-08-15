@@ -10,6 +10,7 @@ from utils.logger import agent_logger
 from utils.agent.llm_manager import create_openai_llm
 from utils.agent.serial_tool_node import SerialToolNode
 from utils.agent.async_store_manager import AsyncStoreManager
+from utils.agent.websocket_manager import ChatMessageSendHandler
 from langgraph.types import Send
 
 from tools.webgis import fly_to_entity_by_name_tool, init_entities_tool
@@ -487,6 +488,8 @@ class GraphInstance:
                 response = await chatbot_llm.ainvoke(summary_messages)
                 agent_logger.info(f"最终总结: {response}")
 
+                await ChatMessageSendHandler.send_complete(state["client_id"])
+
                 return {"messages": [response]}
 
             # 构建图结构 - 拆分工具调用和执行
@@ -659,66 +662,6 @@ class GraphInstance:
         remain_msg = make_message(unmatched)
         matched_msg = make_message(matched)
         return [remain_msg, matched_msg]
-
-    # @staticmethod
-    # def split_ai_message_by_tool_names(
-    #     ai_msg: AIMessage, tool_names: list[str]
-    # ) -> list[AIMessage]:
-    #     """
-    #     拆分AIMessage，将tool_calls中tool_name在tool_names列表中的单独拆分为独立AIMessage。
-    #     返回的AIMessage list:
-    #         - 第一个为去除所有需要独立运行tool_calls后的AIMessage（如全部被拆则不返回）
-    #         - 其余每个为一个独立运行的AIMessage（每个只含一个tool_call）
-
-    #     参数:
-    #         ai_msg: 原始AIMessage对象
-    #         tool_names: 需要单独拆分的tool_name列表
-
-    #     返回:
-    #         list[AIMessage]: 拆分后的AIMessage列表
-    #     """
-    #     # 1. 拆分 tool_calls 为需要独立运行的(matched)和剩余的(unmatched)
-    #     tool_calls = ai_msg.tool_calls or []
-    #     matched = [tc for tc in tool_calls if tc["name"] in tool_names]
-    #     unmatched = [tc for tc in tool_calls if tc["name"] not in tool_names]
-
-    #     # 2. 构造新的AIMessage
-    #     def make_message(calls):
-    #         if not calls:
-    #             return None
-    #         return AIMessage(
-    #             content=ai_msg.content,
-    #             additional_kwargs={
-    #                 "tool_calls": [
-    #                     {
-    #                         "index": i,
-    #                         "id": tc["id"],
-    #                         "function": {
-    #                             "arguments": json.dumps(tc["args"]),
-    #                             "name": tc["name"],
-    #                         },
-    #                         "type": "function",
-    #                     }
-    #                     for i, tc in enumerate(calls)
-    #                 ]
-    #             },
-    #             response_metadata=ai_msg.response_metadata,
-    #             id=ai_msg.id,
-    #             tool_calls=calls,
-    #             usage_metadata=ai_msg.usage_metadata,
-    #         )
-
-    #     result = []
-    #     # 3. 先加剩余的AIMessage（如果有）
-    #     remain_msg = make_message(unmatched)
-    #     if remain_msg:
-    #         result.append(remain_msg)
-    #     # 4. 每个独立的tool_call生成一个AIMessage
-    #     for tc in matched:
-    #         single_msg = make_message([tc])
-    #         if single_msg:
-    #             result.append(single_msg)
-    #     return result
 
 
 if __name__ == "__main__":

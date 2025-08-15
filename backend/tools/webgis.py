@@ -2,8 +2,8 @@ from langchain_core.tools import tool
 from langgraph.types import interrupt
 from langgraph.prebuilt import InjectedState
 from typing_extensions import Annotated
-from utils.agent.websocket_manager import websocket_manager
 from langgraph.errors import GraphInterrupt
+from utils.agent.websocket_manager import ChatMessageSendHandler
 import asyncio
 
 # 在 LangGraph 的 interrupt 机制下，节点被 resume 时会重新执行整个节点函数，所以 print("human_in_lood 之前") 也会被执行两次（一次是第一次中断时，一次是 resume 时）。这是 LangGraph 的设计：resume 后节点会完整重跑。
@@ -85,16 +85,13 @@ def fly_to_entity_by_name_tool(
         print("**************执行前端跳转TOOLL**************")
         # 只执行一次，当第一次interrupt时，Command(resume=...) 恢复节点时 不会再执行下面的代码，但是上面代码每次都会执行
         asyncio.run(
-            websocket_manager.send_message(
-                client_id,
-                {
-                    "type": "FunctionCall",
-                    "function_name": "flyToEntityByNameTool",
-                    "args": {"entity_name": entity_name},
-                    # 预定义成功消息，当前端执行成功以后，再被返回给后端，后端可以放进Command里去，Command里的信息最终会被封装到ToolMessage里
-                    "success_message": f"前端界面已跳转到实体: {entity_name}，并高亮显示实体和实体信息弹窗。具体命令格式为: {{'function_name': 'flyToEntityByNameTool', 'args': {{'entity_name': '{entity_name}'}}}}",
-                    "is_direct_feedback": True,
-                },
+            ChatMessageSendHandler.send_function_call(
+                client_id=client_id,
+                function_name="flyToEntityByNameTool",
+                args={"entity_name": entity_name},
+                is_direct_feedback=True,
+                # 预定义成功消息，当前端执行成功以后，再被返回给后端，后端可以放进Command里去，Command里的信息最终会被封装到ToolMessage里
+                success_message=f"前端界面已跳转到实体: {entity_name}，并高亮显示实体和实体信息弹窗。具体命令格式为: {{'function_name': 'flyToEntityByNameTool', 'args': {{'entity_name': '{entity_name}'}}}}",
             )
         )
         # 一定要raise异常，否则会导致节点不会中断
@@ -137,15 +134,12 @@ def init_entities_tool(client_id: Annotated[str, InjectedState("client_id")]) ->
     except GraphInterrupt:
         print("**************执行前端初始化TOOL**************")
         asyncio.run(
-            websocket_manager.send_message(
-                client_id,
-                {
-                    "type": "FunctionCall",
-                    "function_name": "initEntitiesTool",
-                    "args": {},
-                    "success_message": "前端已刷新所有实体，展示为最新状态。",
-                    "is_direct_feedback": True,
-                },
+            ChatMessageSendHandler.send_function_call(
+                client_id=client_id,
+                function_name="initEntitiesTool",
+                args={},
+                is_direct_feedback=True,
+                success_message="前端已刷新所有实体，展示为最新状态。",
             )
         )
         raise

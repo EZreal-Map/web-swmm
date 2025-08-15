@@ -2,15 +2,10 @@ import uuid
 from pydantic import BaseModel, Field, field_validator, ValidationError
 
 
-
-
-
 class ChatRequest(BaseModel):
     """聊天请求模型"""
 
     message: str = Field(..., description="用户消息", min_length=1, max_length=10000)
-    conversation_id: str = Field(..., description="对话ID，用于多轮对话")
-    user_id: str = Field(default="default_user", description="用户ID")
     feedback: bool = Field(default=False, description="用户反馈，可选")
     success: bool = Field(default=True, description="用于HIL反馈函数执行成功与否")
 
@@ -20,28 +15,6 @@ class ChatRequest(BaseModel):
         """验证消息内容"""
         if not v.strip():
             raise ValueError("消息内容不能为空")
-        return v.strip()
-
-    @field_validator("conversation_id")
-    @classmethod
-    def validate_conversation_id(cls, v):
-        """验证会话ID格式"""
-        if not v or not v.strip():
-            raise ValueError("会话ID不能为空")
-        # 验证会话ID格式（可以是 conv-xxx 或 temp-xxx 格式）
-        if not (v.startswith("conv-") or v.startswith("temp-")):
-            raise ValueError("会话ID格式无效，必须以 'conv-' 或 'temp-' 开头")
-        return v.strip()
-
-    @field_validator("user_id")
-    @classmethod
-    def validate_user_id(cls, v):
-        """验证用户ID格式"""
-        if not v or not v.strip():
-            raise ValueError("用户ID不能为空")
-        # 简单的用户ID格式验证
-        if len(v.strip()) < 3:
-            raise ValueError("用户ID长度至少为3个字符")
         return v.strip()
 
     @staticmethod
@@ -58,8 +31,6 @@ class ChatRequest(BaseModel):
         # 错误信息映射
         error_messages = {
             "message": "消息内容不能为空或过长（最多10000字符）",
-            "conversation_id": "会话ID无效",
-            "user_id": "用户ID无效",
         }
 
         # 获取第一个错误的字段名
@@ -87,3 +58,15 @@ class ChatFeedback(BaseModel):
     success: bool = Field(default=True, description="反馈是否成功")
     feedback_message: str = Field(..., description="用户反馈消息")
 
+
+class MessageType:
+    """消息类型常量"""
+
+    PING = "ping"
+    PONG = "pong"
+    START = "start"
+    AI_MESSAGE = "AIMessage"
+    TOOL_MESSAGE = "ToolMessage"
+    FUNCTION_CALL = "FunctionCall"
+    COMPLETE = "complete"
+    ERROR = "error"

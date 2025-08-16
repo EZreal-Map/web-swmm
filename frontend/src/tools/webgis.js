@@ -1,7 +1,6 @@
 import { findEntityByName, flyToEntity } from '@/utils/entity.js'
 import { initEntities } from '@/utils/useCesium.js'
 import { useViewerStore } from '@/stores/viewer'
-import { ElMessage } from 'element-plus'
 
 export const flyToEntityByNameTool = async (name) => {
   const viewerStore = useViewerStore()

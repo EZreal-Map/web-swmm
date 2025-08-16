@@ -293,24 +293,24 @@ def delete_junction_tool(
         # 触发前端弹窗确认
         frontend_feedback = interrupt(
             {
-                "function_name": "showConfirmInChat",
+                "function_name": "showConfirmBoxUITool",
                 "args": {"confirm_question": confirm_question},
             }
         )
-        if frontend_feedback.get("keep_going", False):
-            # keep_going 为 True,表示用户确认删除
+        if frontend_feedback.get("success", False):
+            # success 为 True,表示用户确认删除
             result = asyncio.run(delete_junction(junction_id))
             tools_logger.info(f"删除节点: {result} ")
             return result
         else:
-            # keep_going 为 False,表示用户取消删除
+            # success 为 False,表示用户取消删除
             return frontend_feedback
     except GraphInterrupt:
         # 第一次 interrupt 时会进入这里,通知前端弹窗
         asyncio.run(
             ChatMessageSendHandler.send_function_call(
                 client_id=client_id,
-                function_name="showConfirmInChat",
+                function_name="showConfirmBoxUITool",
                 args={"confirm_question": confirm_question},
                 is_direct_feedback=False,
             )

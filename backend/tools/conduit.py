@@ -255,11 +255,11 @@ def delete_conduit_tool(
         # 触发前端弹窗确认
         frontend_feedback = interrupt(
             {
-                "function_name": "showConfirmInChat",
+                "function_name": "showConfirmBoxUITool",
                 "args": {"confirm_question": confirm_question},
             }
         )
-        if frontend_feedback.get("keep_going", False):
+        if frontend_feedback.get("success", False):
             result = asyncio.run(delete_conduit(conduit_id))
             tools_logger.info(f"删除渠道: {result} ")
             return result
@@ -270,7 +270,7 @@ def delete_conduit_tool(
         asyncio.run(
             ChatMessageSendHandler.send_function_call(
                 client_id=client_id,
-                function_name="showConfirmInChat",
+                function_name="showConfirmBoxUITool",
                 args={"confirm_question": confirm_question},
                 is_direct_feedback=False,
             )

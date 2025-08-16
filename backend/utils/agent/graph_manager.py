@@ -346,7 +346,7 @@ class GraphInstance:
                 need_frontend = state.get("need_frontend", False)
                 user_query = state.get("query", "")
                 agent_logger.info(
-                    f"{state.get('client_id')} - 进入前端工具节点: need_frontend:{need_frontend}, user_query: {user_query}"
+                    f"{state.get('client_id')} - 进入前端工具节点: need_frontend: {need_frontend}, user_query: {user_query}"
                 )
 
                 # 如果不需要前端工具,直接返回原状态
@@ -491,9 +491,9 @@ class GraphInstance:
                 要求:
                 1. 总结所有工具的执行结果
                 2. 回答用户的原始问题
-                3. 如果有数据查询结果,请清晰展示
-                4. 如果有界面操作,请确认操作已完成
-                5. 语言要自然、友好
+                3. 如果有数据查询结果,请清晰展示,如果数据过长请进行适当的截断，除非用户要求保留完整和精确的数据。
+                4. 浮点数小数位如果过长，可以适当截取，比如经纬度，适当截取保留5位就差不多了，除非用户要求保留完整和精确的数据。
+                5. 尽量使用markdown格式回答，如果有多组同样格式数据，可以适当使用表格，确保信息清晰可读。
                 """
                 # TODO: 优化总结上下文管理
                 summary_messages = recent_dialogue_round + [

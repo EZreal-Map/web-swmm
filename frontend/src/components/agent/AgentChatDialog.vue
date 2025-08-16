@@ -1,7 +1,7 @@
 <template>
-  <div v-if="showDialog" class="chat-widget" :style="widgetStyle" @mousedown="startDrag">
+  <div v-if="showDialog" class="chat-widget" :style="widgetStyle">
     <!-- Header -->
-    <div class="chat-header" @mousedown.stop="startDrag">
+    <div class="chat-header" @mousedown="startDrag">
       <div class="header-left">
         <div class="chat-avatar">🤖</div>
         <span class="chat-title">AI 聊天助手</span>
@@ -30,47 +30,15 @@
 
     <!-- Chat Body -->
     <div v-if="!collapsed" class="chat-body">
-      <div class="messages" ref="messagesContainer">
-        <div v-for="(msg, i) in messages" :key="i" :class="['message', msg.role]">
-          <div class="message-content">
-            {{ msg.text }}
-            <!-- 只在 assistant 消息且有确认弹窗时显示按钮 -->
-            <template v-if="msg.role === 'assistant' && msg.type === 'confirm' && !msg.confirmed">
-              <div class="confirm-box">
-                <span class="confirm-question">{{ msg.confirmQuestion }}</span>
-                <div class="confirm-actions">
-                  <button class="confirm-btn yes" @click="handleConfirm(msg, true)">是</button>
-                  <button class="confirm-btn no" @click="handleConfirm(msg, false)">否</button>
-                </div>
-              </div>
-            </template>
-          </div>
-          <div class="message-time">{{ formatTime(msg.timestamp) }}</div>
-        </div>
-      </div>
-
-      <div class="input-container">
-        <div class="input-box">
-          <textarea
-            v-model="input"
-            @keydown="handleKeyDown"
-            placeholder="输入消息... (Shift+Enter 换行)"
-            class="message-input"
-            rows="1"
-            ref="inputRef"
-          ></textarea>
-          <button
-            @click="sendMessage"
-            :disabled="!connected || !input.trim()"
-            class="send-btn"
-            title="发送消息"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-            </svg>
-          </button>
-        </div>
-      </div>
+      <!-- 消息列表组件 -->
+      <MessageList :messages="messages" :is-loading="isLoading" ref="messageListRef" />
+      <!-- 输入框组件 -->
+      <ChatInput
+        v-model="input"
+        :disabled="!connected"
+        :placeholder="'请输入您的问题...'"
+        @send="sendMessage"
+      />
     </div>
 
     <!-- Resize handles -->
@@ -81,16 +49,23 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, computed } from 'vue'
 import { flyToEntityByNameTool, initEntitiesTool } from '@/tools/webgis'
+import { showConfirmBoxUITool } from '@/tools/webui'
+import MessageList from './MessageList.vue'
+import ChatInput from './ChatInput.vue'
+import { useAgentStore } from '@/stores/agent'
 
-// 父组件可传的参数
-// 生成唯一会话ID
-const conversationId = 'conv-123' + Math.random().toString(36).substring(2, 15)
+const agentStore = useAgentStore()
+
+// 使用 defineModel 处理 showDialog 的双向绑定
+const showDialog = defineModel('showDialog', { type: Boolean, default: false })
+
+// 生成唯一会话ID - 使用模板字符串
+const conversationId = `conv-123${Math.random().toString(36).substring(2, 15)}`
 const userId = 'user-123'
-const clientId = userId + '@@' + conversationId
+const clientId = `${userId}@@${conversationId}`
 const serverUrl = `ws://localhost:8080/agent/ws/${clientId}`
-const showDialog = defineModel('showDialog')
 
 function closeDialog() {
   showDialog.value = false
@@ -99,19 +74,6 @@ function closeDialog() {
 /**
  * 消息类型常量 - 与后端保持一致
  */
-const MessageType = {
-  PING: 'ping',
-  PONG: 'pong',
-  START: 'start',
-  AI_MESSAGE: 'AIMessage',
-  TOOL_MESSAGE: 'ToolMessage',
-  FUNCTION_CALL: 'FunctionCall',
-  COMPLETE: 'complete',
-  ERROR: 'error',
-  CHAT: 'chat',
-  FEEDBACK: 'feedback',
-}
-
 // 前端请求消息类型
 const RequestMessageType = {
   PING: 'ping',
@@ -231,10 +193,11 @@ class MessageResponseHandler {
     this.messages = messages
     this.wsManager = wsManager
     this.addMessage = addMessage
+    // 使用 ES6 对象简写语法
     this.functionMap = {
-      flyToEntityByNameTool: flyToEntityByNameTool,
-      initEntitiesTool: initEntitiesTool,
-      showConfirmInChat: showConfirmInChat,
+      flyToEntityByNameTool,
+      initEntitiesTool,
+      showConfirmBoxUITool,
       // 可以继续添加其他可调用的函数
     }
   }
@@ -278,7 +241,8 @@ class MessageResponseHandler {
 
   handleStart(data) {
     this.addMessage('assistant', '')
-    console.log('开始处理响应:', data.message)
+    isLoading.value = true
+    console.log(`开始处理响应 - data.type:${data.type}`)
   }
 
   handleAIMessage(data) {
@@ -289,11 +253,12 @@ class MessageResponseHandler {
   }
 
   handleToolMessage(data) {
-    console.log('工具消息:', data.tool_name, data.content)
+    console.log('工具消息:', data.tool_name, data.args)
     // 可以选择是否显示工具消息
     // this.addMessage('system', `工具 ${data.tool_name}: ${data.content}`)
   }
 
+  // 重要
   async handleFunctionCall(data) {
     const { function_name, args, success_msg, is_direct_feedback } = data
     try {
@@ -325,21 +290,19 @@ class MessageResponseHandler {
   }
 
   handleComplete(data) {
-    // const lastMessage = this.getLastAssistantMessage()
-    // if (lastMessage && data.message) {
-    //   lastMessage.text = data.message
-    // }
+    isLoading.value = false
     console.log('响应完成，总长度:', data)
   }
 
   handleError(data) {
+    isLoading.value = false
     const errorMsg = data.error || data.message || '发生未知错误'
     this.addMessage('system', `错误: ${errorMsg}`)
     console.error('收到错误响应:', data.type, errorMsg)
   }
 
   getLastAssistantMessage() {
-    const messages = this.messages.value
+    const messages = this.messages
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === 'assistant') {
         return messages[i]
@@ -381,75 +344,28 @@ class MessageSender {
 
 // 状态管理
 const connected = ref(false)
-const messages = ref([])
+const messages = reactive([])
 const input = ref('')
-const messagesContainer = ref(null)
-const inputRef = ref(null)
+const isLoading = ref(false)
+const messageListRef = ref(null)
 
-function addMessage(role, text, type = 'text', extra = {}) {
-  messages.value.push({ role, text, type, ...extra, timestamp: new Date() })
-  nextTick(() => {
-    const el = messagesContainer.value
-    if (el) el.scrollTop = el.scrollHeight
-  })
-}
-
-// 唤起确认组件的函数
-/**
- * 唤起确认组件，返回 keepGoing 参数（true/false）
- * @param {string} confirm_question - 确认内容
- * @param {object} [options] - 可选，定制按钮行为
- * @param {string} [options.yesMsg] - 确认时发送的内容
- * @param {string} [options.noMsg] - 取消时发送的内容
- */
-/**
- * 在最后一条 assistant 消息下渲染确认弹窗
- * @param {string} question - 确认内容
- * @param {object} [options] - 可选，定制按钮行为
- * @param {string} [options.yesMsg] - 确认时发送的内容
- * @param {string} [options.noMsg] - 取消时发送的内容
- */
-function showConfirmInChat(question, { yesMsg = '人工确定', noMsg = '人工取消' } = {}) {
-  // 找到最后一条 assistant 消息
-  const lastMessage = messageHandler.getLastAssistantMessage()
-  if (!lastMessage) {
-    // 没有 assistant 消息，插入一条
-    addMessage('assistant', question)
-    const msg = messageHandler.getLastAssistantMessage()
-    msg.type = 'confirm'
-    msg.confirmed = false
-    msg.confirmQuestion = question
-    msg.onYes = () => {
-      msg.confirmed = true
-      messageHandler.sendFeedbackMessage(yesMsg, true)
-    }
-    msg.onNo = () => {
-      msg.confirmed = true
-      messageHandler.sendFeedbackMessage(noMsg, false)
-    }
-  } else {
-    // 在 lastMessage 上挂载确认弹窗
-    lastMessage.type = 'confirm'
-    lastMessage.confirmed = false
-    lastMessage.confirmQuestion = question
-    lastMessage.onYes = () => {
-      lastMessage.confirmed = true
-      messageSender.sendFeedbackMessage(yesMsg, true)
-    }
-    lastMessage.onNo = () => {
-      lastMessage.confirmed = true
-      messageSender.sendFeedbackMessage(noMsg, false)
-    }
+// role：'user' | 'assistant' | 'system'
+// text：消息内容
+// 为消息添加 id
+let messageId = 0
+function addMessage(role, text) {
+  const message = {
+    id: ++messageId,
+    role,
+    text,
+    extra: [],
+    timestamp: new Date(),
   }
-}
-
-// 处理按钮点击
-function handleConfirm(msg, isYes) {
-  msg.confirmed = true // 禁用按钮
-  if (isYes) {
-    msg.onYes && msg.onYes()
-  } else {
-    msg.onNo && msg.onNo()
+  // 将消息添加到消息列表
+  messages.push(message)
+  // 更新 agentStore 中的 lastMessage
+  if (role === 'assistant') {
+    agentStore.setLastAssistantMessage(message)
   }
 }
 
@@ -471,6 +387,8 @@ const wsManager = new WebSocketManager(
 // 现在创建实际的消息处理器
 messageHandler = new MessageResponseHandler(messages, wsManager, addMessage)
 const messageSender = new MessageSender(wsManager)
+// 存储 messageSender
+agentStore.setMessageSender(messageSender)
 
 function connectWS() {
   wsManager.connect()
@@ -480,44 +398,24 @@ function disconnectWS() {
   wsManager.disconnect()
 }
 
-function sendMessage() {
-  if (!wsManager.isConnected() || !input.value.trim()) return
+/**
+ * 发送消息函数
+ * @param {string} messageText - 要发送的消息文本
+ */
+function sendMessage(messageText) {
+  if (!wsManager.isConnected() || !messageText.trim()) return
 
-  const msg = input.value.trim()
+  const msg = messageText.trim()
   addMessage('user', msg)
 
   const success = messageSender.sendChatMessage(msg)
 
   if (success) {
+    isLoading.value = true
     input.value = ''
-    adjustTextareaHeight()
   } else {
     addMessage('system', '消息发送失败，请检查连接')
   }
-}
-
-function handleKeyDown(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault()
-    sendMessage()
-  }
-  nextTick(() => adjustTextareaHeight())
-}
-
-function adjustTextareaHeight() {
-  const textarea = inputRef.value
-  if (textarea) {
-    textarea.style.height = 'auto'
-    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px'
-  }
-}
-
-function formatTime(date) {
-  return date.toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
 }
 
 // 拖拽 & 缩放
@@ -533,7 +431,10 @@ const widgetStyle = computed(() => ({
   top: pos.value.y + 'px',
   left: pos.value.x + 'px',
   width: size.value.width + 'px',
-  height: size.value.height + 'px',
+  height: collapsed.value ? '48px' : size.value.height + 'px',
+  minHeight: collapsed.value ? '48px' : undefined,
+  maxHeight: collapsed.value ? '48px' : undefined,
+  overflow: 'hidden',
 }))
 
 function startDrag(e) {
@@ -627,14 +528,14 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* 主体样式 */
 .chat-widget {
   position: fixed;
-  background: #ffffff;
+  background: #fff;
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   z-index: 9999;
   min-width: 280px;
   min-height: 350px;
@@ -644,11 +545,13 @@ onBeforeUnmount(() => {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* 头部样式 */
+
 .chat-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  color: #fff;
   padding: 12px 16px;
-  cursor: grab;
+  cursor: move; /* 浏览器自带的移动图标 */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -657,7 +560,7 @@ onBeforeUnmount(() => {
 }
 
 .chat-header:active {
-  cursor: grabbing;
+  cursor: move;
 }
 
 .header-left {
@@ -683,7 +586,7 @@ onBeforeUnmount(() => {
   height: 8px;
   border-radius: 50%;
   background: #ff4757;
-  transition: background 0.3s ease;
+  transition: background 0.3s;
 }
 
 .connection-status.connected {
@@ -698,14 +601,14 @@ onBeforeUnmount(() => {
 .header-btn {
   background: rgba(255, 255, 255, 0.1);
   border: none;
-  color: white;
+  color: #fff;
   cursor: pointer;
   padding: 6px;
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s ease;
+  transition: background 0.2s;
 }
 
 .header-btn:hover {
@@ -716,6 +619,7 @@ onBeforeUnmount(() => {
   background: rgba(255, 77, 87, 0.8);
 }
 
+/* 聊天主体 */
 .chat-body {
   flex: 1;
   display: flex;
@@ -723,178 +627,7 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
-.messages {
-  flex: 1;
-  padding: 16px;
-  overflow-y: auto;
-  background: #fafbfc;
-  min-height: 0;
-}
-
-.messages::-webkit-scrollbar {
-  width: 6px;
-}
-
-.messages::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.messages::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 3px;
-}
-
-.messages::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.2);
-}
-
-.message {
-  margin-bottom: 12px;
-  display: flex;
-  flex-direction: column;
-  animation: fadeIn 0.3s ease;
-  width: fit-content;
-  max-width: 75%;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.message.user {
-  align-self: flex-end;
-  align-items: flex-end;
-  margin-left: auto;
-}
-
-.message.assistant {
-  align-self: flex-start;
-  align-items: flex-start;
-  margin-right: auto;
-}
-
-.message.system {
-  align-self: center;
-  align-items: center;
-  max-width: 70%;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.message-content {
-  padding: 10px 14px;
-  border-radius: 16px;
-  word-wrap: break-word;
-  white-space: pre-wrap;
-  line-height: 1.4;
-  font-size: 14px;
-  display: inline-block;
-  text-align: left;
-  max-width: 100%;
-}
-
-.message.user .message-content {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-bottom-right-radius: 6px;
-}
-
-.message.assistant .message-content {
-  background: white;
-  color: #2c3e50;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-bottom-left-radius: 6px;
-}
-
-.message.system .message-content {
-  background: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeaa7;
-  text-align: center;
-  font-size: 13px;
-}
-
-.message-time {
-  font-size: 11px;
-  color: #95a5a6;
-  margin-top: 4px;
-  padding: 0 4px;
-}
-
-.input-container {
-  background: white;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-  padding: 12px 16px;
-}
-
-.input-box {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  background: #f8f9fa;
-  border-radius: 24px;
-  padding: 8px 12px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  transition: border-color 0.2s ease;
-}
-
-.input-box:focus-within {
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.message-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  resize: none;
-  outline: none;
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 1.4;
-  max-height: 120px;
-  min-height: 20px;
-  padding: 6px 0;
-  color: #2c3e50;
-}
-
-.message-input::placeholder {
-  color: #95a5a6;
-}
-
-.send-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  color: white;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-}
-
-.send-btn:hover:not(:disabled) {
-  transform: scale(1.05);
-}
-
-.send-btn:disabled {
-  background: #bdc3c7;
-  cursor: not-allowed;
-  transform: none;
-}
-
+/* 缩放手柄 */
 .resize-handle {
   position: absolute;
   background: transparent;
@@ -942,58 +675,5 @@ onBeforeUnmount(() => {
   );
   background-size: 4px 4px;
   opacity: 0.5;
-}
-</style>
-<style scoped>
-.confirm-box {
-  margin-top: 10px;
-  border: 1.5px solid #e0e0e0;
-  border-radius: 10px;
-  background: #f9fafb;
-  padding: 14px 18px 12px 18px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  box-shadow: 0 2px 8px 0 rgba(102, 126, 234, 0.06);
-  max-width: 320px;
-}
-.confirm-question {
-  color: #333;
-  margin-bottom: 12px;
-  font-weight: 500;
-}
-.confirm-actions {
-  display: flex;
-  gap: 10px;
-}
-.confirm-btn {
-  min-width: 20px;
-  padding: 6px 14px;
-  border-radius: 6px;
-  border: none;
-  font-size: 10px;
-  font-weight: 500;
-  cursor: pointer;
-  transition:
-    background 0.2s,
-    color 0.2s;
-}
-.confirm-btn.yes {
-  background: linear-gradient(90deg, #667eea 0%, #d8c3f0 100%);
-  color: #fff;
-  border: none;
-}
-.confirm-btn.yes:hover {
-  background: linear-gradient(90deg, #5a67d8 0%, #6c4997 100%);
-}
-.confirm-btn.no {
-  background: #f3f3f3;
-  color: #666;
-  border: 1px solid #e0e0e0;
-}
-.confirm-btn.no:hover {
-  background: #f8d7da;
-  color: #c0392b;
-  border-color: #f5c6cb;
 }
 </style>

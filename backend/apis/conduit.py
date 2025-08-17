@@ -44,7 +44,7 @@ async def get_conduits():
             parameter_4=xsection.parameter_4,
         )
         conduits.append(conduit_model)
-    return Result.success(
+    return Result.success_result(
         data=conduits, message=f"成功获取所有渠道数据,共({len(conduits)}个)"
     )
 
@@ -82,52 +82,9 @@ async def batch_get_conduits_by_ids(ids: List[str]):
         )
         conduits.append(conduit_model)
         conduits_name.append(conduit.name)
-    return Result.success(
-        data=conduits, message=f"成功获取指定渠道数据:{conduits_name}"
+    return Result.success_result(
+        data=conduits, message=f"成功获取指定渠道数据:`{conduits_name}`"
     )
-
-
-# 通过conduit_id 获取该渠道的信息
-@conduitRouter.get(
-    "/conduit/{conduit_id:path}",
-    response_model=ConduitResponseModel,
-    summary="获取指定渠道的信息",
-    description="通过指定渠道ID,获取该渠道的详细信息",
-)
-@with_exception_handler(default_message="获取失败,文件有误,发生未知错误")
-async def get_conduit(conduit_id: str):
-    """
-    获取指定渠道的信息
-    """
-    INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-    inp_conduits = INP.check_for_section(Conduit)
-    inp_xsections = INP.check_for_section(CrossSection)
-
-    # 检查渠道是否存在
-    if conduit_id not in inp_conduits:
-        raise HTTPException(
-            status_code=404,
-            detail=f"获取失败,渠道 [ {conduit_id} ] 不存在,请检查渠道名称是否正确",
-        )
-
-    conduit = inp_conduits[conduit_id]
-    xsection = inp_xsections.get(conduit_id)
-
-    # 构造响应模型
-    conduit_model = ConduitResponseModel(
-        name=conduit.name,
-        from_node=conduit.from_node,
-        to_node=conduit.to_node,
-        length=conduit.length,
-        roughness=conduit.roughness,
-        transect=xsection.transect if xsection else None,
-        shape=xsection.shape if xsection else None,
-        height=xsection.height if xsection else None,
-        parameter_2=xsection.parameter_2 if xsection else None,
-        parameter_3=xsection.parameter_3 if xsection else None,
-        parameter_4=xsection.parameter_4 if xsection else None,
-    )
-    return conduit_model
 
 
 @conduitRouter.put(
@@ -208,7 +165,7 @@ async def update_conduit(conduit_id: str, conduit_update: ConduitRequestModel):
     )
     inp_xsections[conduit_update.name] = xsection
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-    return Result.success(
+    return Result.success_result(
         message=f"渠道 [ {conduit_update.name} ] 信息更新成功",
         data={
             "id": conduit_update.name,
@@ -296,7 +253,7 @@ async def create_conduit(conduit_data: ConduitRequestModel):
 
     # 写入 SWMM 文件
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-    return Result.success(
+    return Result.success_result(
         message=f"渠道创建成功", data={"conduit_id": conduit_data.name}
     )
 
@@ -334,4 +291,4 @@ async def delete_conduit(conduit_id: str):
     # 写入 SWMM 文件
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
 
-    return Result.success(message=f"渠道 [ {conduit_id} ] 删除成功")
+    return Result.success_result(message=f"渠道 [ {conduit_id} ] 删除成功")

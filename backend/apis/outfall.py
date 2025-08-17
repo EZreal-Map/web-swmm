@@ -52,7 +52,7 @@ async def get_outfalls():
         and (lon := lon_lat[0])
         and (lat := lon_lat[1])
     ]
-    return Result.success(
+    return Result.success_result(
         data=outfalls, message=f"成功获取所有出口数据,共({len(outfalls)}个)"
     )
 
@@ -120,7 +120,7 @@ async def update_outfall(outfall_id: str, outfall_update: OutfallModel):
                 conduit.to_node = outfall_update.name
 
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-    return Result.success(
+    return Result.success_result(
         message=f"出口 [ {outfall_update.name} ] 更新成功",
         data={"id": outfall_update.name, "type": "outfall"},
     )
@@ -166,7 +166,7 @@ async def create_outfall(outfall_data: OutfallModel):
     )
 
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-    return Result.success(
+    return Result.success_result(
         message="出口创建成功", data={"outfall_id": outfall_data.name}
     )
 
@@ -220,4 +220,4 @@ async def delete_outfall(outfall_id: str):
     if related_conduits:
         message += f",同时删除 {len(related_conduits)} 条关联渠道"
 
-    return Result.success(message=message)
+    return Result.success_result(message=message)

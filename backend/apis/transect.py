@@ -25,7 +25,7 @@ async def get_transect_names():
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_transects = INP.check_for_section(Transect)
     transect_names = list(inp_transects.keys())
-    return Result.success(
+    return Result.success_result(
         message=f"成功获取所有断面名称,共({len(transect_names)}个)",
         data=transect_names,
     )
@@ -67,7 +67,7 @@ async def get_transect(transect_id: str):
         bank_station_right=transect.bank_station_right,
         station_elevations=transect.station_elevations,
     )
-    return Result.success(message="成功获取断面信息", data=transect_model)
+    return Result.success_result(message="成功获取断面信息", data=transect_model)
 
 
 @transectsRouter.get(
@@ -138,7 +138,7 @@ async def update_transect(transect_id: str, transect: TransectModel):
 
     # 保存更新后的文件
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-    return Result.success(
+    return Result.success_result(
         message=message,
         data={"id": transect.name, "related_xsections": related_xsections},
     )
@@ -175,7 +175,7 @@ async def create_transect(transect: TransectModel):
 
     # 保存更新后的文件
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-    return Result.success(message="创建成功", data=transect)
+    return Result.success_result(message="创建成功", data=transect)
 
 
 @transectsRouter.delete(
@@ -204,4 +204,4 @@ async def delete_transect(transect_id: str):
         )
     del inp_transects[transect_id]
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-    return Result.success(message="删除成功", data={"id": transect_id})
+    return Result.success_result(message="删除成功", data={"id": transect_id})

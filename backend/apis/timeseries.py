@@ -44,7 +44,7 @@ async def get_timeseries_names(
         if name.startswith(TIMESERIES_PREFIXES_MAP[type])
     ]
 
-    return Result.success(
+    return Result.success_result(
         message=f"成功获取所有时间序列名称,共({len(filtered_names)}个)",
         data=filtered_names,
     )
@@ -108,7 +108,7 @@ async def get_timeseries_by_id(
         name=name,
         data=data,
     )
-    return Result.success(message="成功获取时间序列信息", data=time_series_model)
+    return Result.success_result(message="成功获取时间序列信息", data=time_series_model)
 
 
 # 通过时间序列id更新时间序列信息
@@ -184,7 +184,7 @@ async def update_timeseries_by_id(
         message += f",同时更新了 {len(related_entity_ids)} 条引用"
 
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-    return Result.success(
+    return Result.success_result(
         message=message,
         data={"id": timeseries.name, "related_entity_ids": related_entity_ids},
     )
@@ -239,7 +239,7 @@ async def create_timeseries(
         message = f"时间序列创建成功"
 
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-    return Result.success(message=message, data={"name": timeseries_data.name})
+    return Result.success_result(message=message, data={"name": timeseries_data.name})
 
 
 # 通过 timeseries_id 删除时间序列
@@ -294,4 +294,4 @@ async def delete_timeseries(
         message = f"时间序列删除成功"
     # 保存修改
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-    return Result.success(message=message, data={"id": timeseries_id})
+    return Result.success_result(message=message, data={"id": timeseries_id})

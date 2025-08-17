@@ -7,7 +7,7 @@
         <span></span>
         <span></span>
       </div>
-      <span class="typing-text">AI 正在思考...</span>
+      <span class="typing-text">{{ agentStore.stepMessage }}</span>
     </div>
   </div>
 </template>
@@ -15,6 +15,9 @@
 <script setup>
 import { ref, nextTick, watch } from 'vue'
 import MessageItem from './MessageItem.vue'
+import { useAgentStore } from '@/stores/agent'
+
+const agentStore = useAgentStore()
 
 // 使用更严格的 props 定义 - 单向数据流
 const props = defineProps({
@@ -36,13 +39,20 @@ const props = defineProps({
 const messagesRef = ref(null)
 
 // 滚动到底部
-function scrollToBottom() {
+function scrollToBottom(forceSend = false) {
   if (props.autoScroll && messagesRef.value) {
     nextTick(() => {
-      messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+      const el = messagesRef.value
+      // 距离底部的距离
+      const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+      if (forceSend || distanceToBottom < 500) {
+        el.scrollTop = el.scrollHeight
+      }
     })
   }
 }
+
+defineExpose({ scrollToBottom })
 
 // 监听最后一条消息变化自动滚动
 watch(
@@ -60,11 +70,6 @@ watch(
   },
   { flush: 'post' },
 )
-
-// 暴露滚动方法
-defineExpose({
-  scrollToBottom,
-})
 </script>
 
 <style scoped>

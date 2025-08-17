@@ -6,7 +6,6 @@ from utils.logger import websocket_logger
 from langchain_core.messages import ToolMessage, AIMessage, HumanMessage
 from schemas.agent.chat import (
     ChatRequest,
-    ChatFeedbackRequest,
     ResponseMessageType,
     RequestMessageType,
 )
@@ -160,16 +159,13 @@ class ChatProcessor:
     ) -> None:
         """处理反馈请求(流式处理)"""
         try:
-            feedback_state = ChatFeedbackRequest(
-                success=chat_request.success, feedback_message=chat_request.message
-            ).model_dump()
             websocket_logger.info(
-                f"{client_id} - 收到前端反馈请求,继续执行graph: Command:{feedback_state}"
+                f"{client_id} - 收到前端反馈请求,继续执行graph: Command:{chat_request}"
             )
-            # 发送人类反馈消息,把feedback_state 发送给 interrupt
+            # 发送人类反馈消息,把chat_request 发送给 interrupt
             # 然后interrupt函数按照return的逻辑,被ToolMessage封装
             # 然后继续执行 graph
-            human_command = Command(resume=feedback_state)
+            human_command = Command(resume=chat_request.model_dump())
             await StreamProcessor.send_stream_graph_messages(
                 client_id, graph, human_command, config
             )
@@ -241,22 +237,26 @@ class ChatMessageSendHandler:
 
     @staticmethod
     async def send_ai_message(
-        client_id: str,
-        message: AIMessage,
+        client_id: str, message: AIMessage, forceSend: bool = False
     ) -> None:
         """处理AI普通消息,直接渲染content"""
-        chunk_content = message.content or ""
-        if chunk_content:
-            await ChatMessageSendHandler._send_response(
-                client_id,
-                ResponseMessageType.AI_MESSAGE,
-                content=chunk_content,
-                chunk_length=len(chunk_content),
-            )
-            # 分段发送,打印太多了,注释掉
-            # websocket_logger.debug(
-            #     f"{client_id} -  发送AI消息: {chunk_content} -- {client_id}"
-            # )
+        # forceSend 解决 astream 会自动捕捉 aimessage 的 tool_calls,但是此时的tool_calls 有个bug args为空（content='' 拦截）
+        # 所有增加一个 forcesend 参数，除了astream发送aimessage，当工具节点生成调用的时候，手动发送完整的aimessage
+        content = message.content or ""
+        tool_calls = message.tool_calls
+        if not forceSend and not content:
+            # AI消息内容为空,且不是强制发送，跳过发送
+            return
+        await ChatMessageSendHandler._send_response(
+            client_id,
+            ResponseMessageType.AI_MESSAGE,
+            content=content,
+            tool_calls=tool_calls,
+        )
+        # 分段发送,打印太多了,注释掉
+        # websocket_logger.debug(
+        #     f"{client_id} -  发送AI消息: {content} -- {client_id}"
+        # )
 
     @staticmethod
     async def send_tool_message(client_id: str, message: ToolMessage) -> None:
@@ -313,3 +313,11 @@ class ChatMessageSendHandler:
         websocket_logger.error(
             f"{client_id} - 发送错误消息: {client_id} -- {error_msg}"
         )
+
+    @staticmethod
+    async def send_step(client_id: str, content: str) -> None:
+        """发送步骤信息"""
+        await ChatMessageSendHandler._send_response(
+            client_id, ResponseMessageType.STEP, content=content
+        )
+        websocket_logger.info(f"{client_id} - 发送步骤信息: {content}")

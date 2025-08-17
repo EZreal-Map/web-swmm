@@ -23,6 +23,7 @@ class ResponseMessageType(str, Enum):
     FUNCTION_CALL = "FunctionCall"
     COMPLETE = "complete"
     ERROR = "error"
+    STEP = "step"
 
 
 class ChatRequest(BaseModel):
@@ -71,13 +72,6 @@ class ChatRequest(BaseModel):
 
         # 默认错误信息
         return "请求参数有误"
-
-
-class ChatFeedbackRequest(BaseModel):
-    """反馈请求模型"""
-
-    success: bool = Field(default=True, description="反馈是否成功")
-    feedback_message: str = Field(..., description="用户反馈消息")
 
 
 # TODO:没有用到,可以在graph更加规范的使用

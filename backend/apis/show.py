@@ -74,7 +74,7 @@ async def show_calculate_result():
 
         result_data.append(temp_data)
     data["calculate_result"] = result_data
-    return Result.success(
+    return Result.success_result(
         data=data,
         message="计算结果列表",
     )

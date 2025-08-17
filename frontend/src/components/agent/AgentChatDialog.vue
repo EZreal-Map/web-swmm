@@ -90,6 +90,7 @@ const ResponseMessageType = {
   FUNCTION_CALL: 'FunctionCall',
   COMPLETE: 'complete',
   ERROR: 'error',
+  STEP: 'step',
 }
 
 /**
@@ -230,6 +231,9 @@ class MessageResponseHandler {
       case ResponseMessageType.ERROR:
         this.handleError(data)
         break
+      case ResponseMessageType.STEP:
+        this.handleStep(data)
+        break
       default:
         console.warn('未知消息类型:', data.type, data)
     }
@@ -246,16 +250,55 @@ class MessageResponseHandler {
   }
 
   handleAIMessage(data) {
-    const lastMessage = this.getLastAssistantMessage()
-    if (lastMessage) {
-      lastMessage.text += data.content || ''
+    const lastMessage = agentStore.lastAssistantMessage
+    lastMessage.text += data.content || ''
+    // 如果 aimessage 有 tool_calls
+    if (data.tool_calls && data.tool_calls.length > 0) {
+      // 处理工具调用
+      data.tool_calls.forEach((toolCall) => {
+        // 采用统一风格
+        const toolMessage = `\n- 🛠️工具执行：\`${toolCall.name}\`\n- 参数：\n\`\`\`json\n${JSON.stringify(toolCall.args, null, 2)}\n\`\`\``
+        lastMessage.text += toolMessage
+      })
     }
   }
 
   handleToolMessage(data) {
-    console.log('工具消息:', data.tool_name, data.args)
-    // 可以选择是否显示工具消息
-    // this.addMessage('system', `工具 ${data.tool_name}: ${data.content}`)
+    // data.content 是 JSON 字符串
+    const result = JSON.parse(data.content)
+    console.log('工具消息:', data.tool_name, result)
+
+    const lastMessage = agentStore.lastAssistantMessage
+    // 确保 ToolMessage 的 content里面 都要 message 字段
+    let toolMessage = `\n- 🛠️工具执行：\`${data.name}\`\n- success：${result.success}\n- message：${result.message}`
+
+    // 判断 data 字段 （如果有data字段，并且少于三项的list，就完整显示，否则只显示前3项（缩略显示））
+    if (result.data !== undefined && result.data !== null) {
+      let dataStr = ''
+      let isArray = Array.isArray(result.data)
+      let isObject = typeof result.data === 'object' && !isArray
+      let showData = result.data
+      let omitted = false
+      // 只显示前3个元素/属性
+      if (isArray && result.data.length > 3) {
+        showData = result.data.slice(0, 3)
+        omitted = true
+      } else if (isObject && Object.keys(result.data).length > 3) {
+        const keys = Object.keys(result.data).slice(0, 3)
+        showData = {}
+        keys.forEach((k) => {
+          showData[k] = result.data[k]
+        })
+        omitted = true
+      }
+      dataStr = `\n- data：\n\`\`\`json\n${JSON.stringify(showData, null, 2)}\n\`\`\``
+      if (omitted) {
+        let total = isArray ? result.data.length : Object.keys(result.data).length
+        dataStr += `\n...数据已省略，仅展示前3项，实际共${total}项`
+      }
+      toolMessage += dataStr
+    }
+    lastMessage.text += toolMessage
   }
 
   // 重要
@@ -291,6 +334,7 @@ class MessageResponseHandler {
 
   handleComplete(data) {
     isLoading.value = false
+    agentStore.setStepMessage() // 重新初始化步骤消息
     console.log('响应完成，总长度:', data)
   }
 
@@ -301,14 +345,20 @@ class MessageResponseHandler {
     console.error('收到错误响应:', data.type, errorMsg)
   }
 
-  getLastAssistantMessage() {
-    const messages = this.messages
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === 'assistant') {
-        return messages[i]
-      }
+  handleStep(data) {
+    // 处理步骤消息
+    // 1. 存储步骤消息
+    agentStore.setStepMessage(data.content)
+    // 2.1 删除 data.content 里 ']' 及其之后的内容
+    let content = data.content
+    const idx = content.indexOf(']')
+    if (idx !== -1) {
+      content = content.slice(0, idx + 1)
     }
-    return null
+    // 2.2 作为标题显示到对话框中
+    const lastMessage = agentStore.lastAssistantMessage
+    const stepTitle = `\n\n\n## ${content}\n\n\n`
+    lastMessage.text += stepTitle
   }
 }
 
@@ -404,7 +454,8 @@ function disconnectWS() {
  */
 function sendMessage(messageText) {
   if (!wsManager.isConnected() || !messageText.trim()) return
-
+  // 跳转到最底部
+  messageListRef.value?.scrollToBottom(true)
   const msg = messageText.trim()
   addMessage('user', msg)
 
@@ -421,7 +472,7 @@ function sendMessage(messageText) {
 // 拖拽 & 缩放
 const collapsed = ref(false)
 const pos = ref({ x: 210, y: 10 })
-const size = ref({ width: 350, height: 500 })
+const size = ref({ width: 500, height: 600 })
 let dragging = false
 let dragOffset = { x: 0, y: 0 }
 let resizing = false
@@ -432,8 +483,8 @@ const widgetStyle = computed(() => ({
   left: pos.value.x + 'px',
   width: size.value.width + 'px',
   height: collapsed.value ? '48px' : size.value.height + 'px',
-  minHeight: collapsed.value ? '48px' : undefined,
-  maxHeight: collapsed.value ? '48px' : undefined,
+  minHeight: collapsed.value ? '48px' : '48px',
+  maxHeight: collapsed.value ? '48px' : '100vh',
   overflow: 'hidden',
 }))
 
@@ -479,11 +530,11 @@ function onResize(e) {
   if (!resizing) return
   const newWidth = Math.max(
     280,
-    Math.min(window.innerWidth * 0.9, resizeStart.w + (e.clientX - resizeStart.x)),
+    Math.min(window.innerWidth, resizeStart.w + (e.clientX - resizeStart.x)),
   )
   const newHeight = Math.max(
     350,
-    Math.min(window.innerHeight * 0.8, resizeStart.h + (e.clientY - resizeStart.y)),
+    Math.min(window.innerHeight, resizeStart.h + (e.clientY - resizeStart.y)),
   )
   size.value.width = newWidth
   size.value.height = newHeight
@@ -493,7 +544,7 @@ function onResizeHorizontal(e) {
   if (!resizing) return
   const newWidth = Math.max(
     280,
-    Math.min(window.innerWidth * 0.9, resizeStart.w + (e.clientX - resizeStart.x)),
+    Math.min(window.innerWidth, resizeStart.w + (e.clientX - resizeStart.x)),
   )
   size.value.width = newWidth
 }
@@ -502,7 +553,7 @@ function onResizeVertical(e) {
   if (!resizing) return
   const newHeight = Math.max(
     350,
-    Math.min(window.innerHeight * 0.8, resizeStart.h + (e.clientY - resizeStart.y)),
+    Math.min(window.innerHeight, resizeStart.h + (e.clientY - resizeStart.y)),
   )
   size.value.height = newHeight
 }
@@ -537,10 +588,6 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   z-index: 9999;
-  min-width: 280px;
-  min-height: 350px;
-  max-width: 90vw;
-  max-height: 80vh;
   border: 1px solid rgba(0, 0, 0, 0.06);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }

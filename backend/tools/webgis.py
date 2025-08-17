@@ -89,7 +89,7 @@ def fly_to_entity_by_name_tool(
                 args={"entity_name": entity_name},
                 is_direct_feedback=True,
                 # 预定义成功消息,当前端执行成功以后,再被返回给后端,后端可以放进Command里去,Command里的信息最终会被封装到ToolMessage里
-                success_message=f"前端界面已跳转到实体: {entity_name},并高亮显示实体和实体信息弹窗。具体命令格式为: {{'function_name': 'flyToEntityByNameTool', 'args': {{'entity_name': '{entity_name}'}}}}",
+                success_message=f"前端界面已跳转到实体:{entity_name},并高亮显示实体和实体信息弹窗。",
             )
         )
         # 一定要raise异常,否则会导致节点不会中断

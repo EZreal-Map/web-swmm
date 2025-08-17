@@ -8,7 +8,9 @@ from utils.agent.websocket_manager import ChatMessageSendHandler
 from langgraph.types import interrupt
 from typing_extensions import Annotated
 from langgraph.errors import GraphInterrupt
-
+from schemas.result import Result
+from utils.utils import with_result_exception_handler
+from fastapi import HTTPException
 
 from apis.junction import (
     get_junctions,
@@ -20,6 +22,7 @@ from apis.junction import (
 
 
 @tool
+@with_result_exception_handler
 async def get_junctions_tool() -> str:
     """节点信息批量获取工具,可用作多个节点信息查询。
     一次性获取SWMM模型中所有节点(Junction)的详细信息,包括地理与水力参数。
@@ -34,7 +37,7 @@ async def get_junctions_tool() -> str:
         - 查询多个节点的信息时
 
     **返回值**：
-        Result.success(
+        Result.success_result(
             data=junctions, message=f"成功获取所有节点数据({len(junctions)}个)"
         )
         其中 data(junctions)为 JunctionModel 列表,每个节点结构如下：
@@ -55,15 +58,16 @@ async def get_junctions_tool() -> str:
         ]
     """
     result = await get_junctions()
-    tools_logger.info(
+    tools_logger.debug(
         f"获取所有节点信息: {len(result.data)}个节点,其中类似于: {result.data[0]}"
         if result.data
         else "无节点信息"
     )
-    return result
+    return result.model_dump()
 
 
 @tool
+@with_result_exception_handler
 async def batch_get_junctions_by_ids_tool(ids: List[str]):
     """
     节点信息批量获取工具,通过节点ID列表批量获取节点的详细信息。
@@ -73,14 +77,14 @@ async def batch_get_junctions_by_ids_tool(ids: List[str]):
         - 返回节点的地理与水力参数,便于前端直接消费
 
     **使用场景**：
-        - 批量查询节点信息
-        - 地图渲染或表格展示多个节点数据
+        - 批量查询多个节点信息
+        - 表格展示多个节点数据
 
     **参数**：
-        - ids (List[str]): 节点ID列表,比如["J1", "J2", "J3"]
+        - ids (List[str]): 节点ID列表(**可以一次性查询多个，不必多次调用**),比如 ["J1", "J2", "J3"]
 
     **返回值**：
-        Result.success(
+        Result.success_result(
             data=junctions, message=f"成功获取指定节点数据({len(junctions)}个)"
         )
         其中 data(junctions)为 JunctionModel 列表,每个节点结构如下：
@@ -101,12 +105,13 @@ async def batch_get_junctions_by_ids_tool(ids: List[str]):
         ]
     """
     result = await batch_get_junctions_by_ids(ids)
-    # TODO：修改logger方式,找一个更高效的处理logger方式(模式)
-    tools_logger.info(f"{result.message}" if result.message else "无节点信息")
-    return result
+    if not result.data:
+        return Result.error(message=f"未找到节点 `{ids}` 数据").model_dump()
+    return result.model_dump()
 
 
 @tool
+@with_result_exception_handler
 async def update_junction_tool(
     junction_id: str,
     name: Optional[str] = None,
@@ -165,6 +170,7 @@ async def update_junction_tool(
               "depth_max": 10.0,
           }
     """
+
     # 收集所有非 None 的参数
     updates_args = {
         "name": name,
@@ -181,43 +187,31 @@ async def update_junction_tool(
     updates_args = {k: v for k, v in updates_args.items() if v is not None}
 
     if not updates_args:
-        raise ValueError("更新参数不能为空,请提供至少一个需要更新的字段")
+        return Result.error(
+            message="更新参数不能为空,请提供至少一个需要更新的字段"
+        ).model_dump()
 
     # 获取当前节点信息
     current_data_result = await batch_get_junctions_by_ids([junction_id])
     if not current_data_result or not current_data_result.data:
-        return {"success": False, "message": f"节点 {junction_id} 不存在,无法更新"}
+        return Result.not_found(f"节点 {junction_id} 不存在,无法更新").model_dump()
 
     # 从 Result 里面取出 JunctionModel 再变成字典
-    current_data = current_data_result.data[0].dict()
-
+    current_data = current_data_result.data[0].model_dump()
     # 合并更新参数
     updated_data = {**current_data, **updates_args}
-
     # 构造 JunctionModel 对象
-    junction_update = JunctionModel(
-        name=updated_data["name"],
-        lon=updated_data["lon"],
-        lat=updated_data["lat"],
-        elevation=updated_data["elevation"],
-        depth_init=updated_data["depth_init"],
-        depth_max=updated_data["depth_max"],
-        depth_surcharge=updated_data["depth_surcharge"],
-        area_ponded=updated_data["area_ponded"],
-        has_inflow=updated_data["has_inflow"],
-        timeseries_name=updated_data["timeseries_name"],
-    )
-
+    junction_update = JunctionModel(**updated_data)
     # 调用更新函数
     result = await update_junction(junction_id, junction_update)
-    result_message = {
-        "message": result.get("message", "更新节点失败"),
-        "updated_args": updates_args,
-    }
-    return result_message
+    return Result.success_result(
+        message=result.get("message"),
+        data={"updated_args": updates_args},
+    ).model_dump()
 
 
 @tool
+@with_result_exception_handler
 async def create_junction_tool(
     name: str,
     lon: float,
@@ -235,9 +229,9 @@ async def create_junction_tool(
     用于在 SWMM 水力模型中添加一个新的节点(Junction),并写入相关的地理与水力参数
 
     必须参数:
-        - name: 节点名称 (需要从问题中提取,不能由大模型生成,如果问题中没有,发送回复提醒用户提供)
-        - lon: 节点经度 (需要从问题中提取,不能由大模型生成,如果问题中没有,发送回复提醒用户提供)
-        - lat: 节点纬度 (需要从问题中提取,不能由大模型生成,如果问题中没有,发送回复提醒用户提供)
+        - name: 节点名称 (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,发送回复提醒用户提供**)
+        - lon: 节点经度 (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,发送回复提醒用户提供**)
+        - lat: 节点纬度 (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,发送回复提醒用户提供**)
     可选参数:
         - elevation: 节点高程,单位为米,默认 0.0
         - depth_init: 初始水深,单位为米,默认 0.0
@@ -248,7 +242,7 @@ async def create_junction_tool(
         - timeseries_name: 入流时间序列名称,默认空字符串
 
     返回:
-        Result.success(
+        Result.success_result(
             message=f"节点创建成功",
             data={"junction_id": junction_data.name},
         )
@@ -265,10 +259,8 @@ async def create_junction_tool(
         has_inflow=has_inflow,
         timeseries_name=timeseries_name,
     )
-
     result = await create_junction(junction_data)
-    tools_logger.info(f"创建节点: {result} ")
-    return result
+    return result.model_dump()
 
 
 @tool
@@ -283,7 +275,7 @@ def delete_junction_tool(
 
     Args:
         junction_id: 要删除的节点ID,比如 "J1"
-        confirm_question: 确认删除的提示问题,比如 "您确定要删除 "J1" 节点吗？",一定要带上具体的节点名称(junction_id)
+        confirm_question: 确认删除的提示问题,比如 "您确定要删除 J1 节点吗？",一定要带上具体的节点名称(junction_id)
 
     Returns:
         Dict[str, Any]: 删除结果字典
@@ -301,7 +293,7 @@ def delete_junction_tool(
             # success 为 True,表示用户确认删除
             result = asyncio.run(delete_junction(junction_id))
             tools_logger.info(f"删除节点: {result} ")
-            return result
+            return result.model_dump()
         else:
             # success 为 False,表示用户取消删除
             return frontend_feedback
@@ -316,9 +308,10 @@ def delete_junction_tool(
             )
         )
         raise
+    except HTTPException as e:
+        return Result.error(message=str(e.detail)).model_dump()
     except Exception as e:
-        tools_logger.error(f"删除节点失败: {e}")
-        return {"success": False, "message": str(e)}
+        return Result.error(message=str(e)).model_dump()
 
 
 if __name__ == "__main__":

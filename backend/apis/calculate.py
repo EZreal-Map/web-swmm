@@ -59,7 +59,7 @@ async def get_calculate_options():
         report_step=report_step,
         flow_routing=flow_routing,
     )
-    return Result.success(
+    return Result.success_result(
         message="成功获取计算选项",
         data=calculate_model,
     )
@@ -93,7 +93,7 @@ async def update_calculate_options(calculate_model: CalculateModel):
     )
     # 保存文件
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-    return Result.success(message="成功更新计算选项")
+    return Result.success_result(message="成功更新计算选项")
 
 
 # 传入一个查询实体名称,判断是node/link 还是都不属于,都不属于则返回错误
@@ -115,7 +115,7 @@ async def query_entity_kind_select(name: str):
     )
     if name in columns_for_node:
         data = {"kind": "node", "select": NODE_RESULT_VARIABLE_SELECT}
-        return Result.success(message="查询实体成功", data=data)
+        return Result.success_result(message="查询实体成功", data=data)
     # 获取链接列名
     columns_for_link = (
         df.columns[df.columns.get_level_values(0) == "link"]
@@ -125,7 +125,7 @@ async def query_entity_kind_select(name: str):
     )
     if name in columns_for_link:
         data = {"kind": "link", "select": LINK_RESULT_VARIABLE_SELECT}
-        return Result.success(message="查询实体成功", data=data)
+        return Result.success_result(message="查询实体成功", data=data)
     # 如果都不属于,则返回提示信息
     return Result.error(
         message="查询实体名称不属于节点或链接,请检查输入的名称是否正确",
@@ -185,7 +185,7 @@ async def query_calculate_result(kind: str, name: str, variable: str):
     logger.info(
         f"查询结果: kind={kind}, name={name}, variable={variable}, data={data_list}"
     )
-    return Result.success(
+    return Result.success_result(
         message="结果查询成功",
         data=data_list,
     )
@@ -202,7 +202,7 @@ async def run_calculation():
         # 运行 SWMM 模型
         INP_ABSOLUTE_PATH = Path(SWMM_FILE_INP_PATH).resolve()
         swmm5_run(INP_ABSOLUTE_PATH)
-        return Result.success(message="计算成功")
+        return Result.success_result(message="计算成功")
     except Exception as e:
         error_msg = extract_errors(str(e))
         logger.error(f"SWMM 计算失败: {error_msg}")

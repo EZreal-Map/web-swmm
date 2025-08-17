@@ -7,6 +7,8 @@ export const useAgentStore = defineStore('agent', () => {
   const lastAssistantMessage = ref(null)
   // 消息发送器（单例模式）
   const messageSender = ref(null)
+  // 步骤消息
+  const stepMessage = ref(null)
 
   // 设置 lastAssistantMessage
   function setLastAssistantMessage(message) {
@@ -17,10 +19,20 @@ export const useAgentStore = defineStore('agent', () => {
     messageSender.value = sender
   }
 
+  // 设置 stepMessage
+  function setStepMessage(message) {
+    if (!message) {
+      message = 'AI 正在思考...'
+    }
+    stepMessage.value = message
+  }
+
   return {
     lastAssistantMessage,
     setLastAssistantMessage,
     messageSender,
     setMessageSender,
+    stepMessage,
+    setStepMessage,
   }
 })

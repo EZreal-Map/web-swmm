@@ -1,9 +1,11 @@
 from functools import wraps
 from fastapi import HTTPException
 from schemas.timeseries import TIMESERIES_PREFIXES_MAP
-from utils.logger import api_logger
+from schemas.result import Result
+from utils.logger import api_logger, tools_logger
 
 
+# 定义给API函数的异常处理装饰器
 def with_exception_handler(default_message="操作失败,发生未知错误"):
     def decorator(func):
         @wraps(func)
@@ -20,6 +22,20 @@ def with_exception_handler(default_message="操作失败,发生未知错误"):
         return wrapper
 
     return decorator
+
+
+# 定义给工具函数的异常处理装饰器
+def with_result_exception_handler(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except HTTPException as e:
+            return Result.error(message=str(e.detail)).model_dump()
+        except Exception as e:
+            return Result.error(message=str(e)).model_dump()
+
+    return wrapper
 
 
 def remove_timeseries_prefix(name: str, custom_prefix: str = None) -> str:

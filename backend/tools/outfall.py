@@ -8,7 +8,9 @@ from langgraph.types import interrupt
 from typing_extensions import Annotated
 from langgraph.errors import GraphInterrupt
 from utils.agent.websocket_manager import ChatMessageSendHandler
-
+from schemas.result import Result
+from utils.utils import with_result_exception_handler
+from fastapi import HTTPException
 
 from apis.outfall import (
     get_outfalls,
@@ -19,6 +21,7 @@ from apis.outfall import (
 
 
 @tool
+@with_result_exception_handler
 async def get_outfalls_tool() -> str:
     """出口信息批量获取工具,可用作多个出口信息查询。
     一次性获取SWMM模型中所有出口(Outfall)的详细信息,包括地理与水力参数。
@@ -33,7 +36,7 @@ async def get_outfalls_tool() -> str:
         - 查询多个出口的信息时
 
     **返回值**:
-        Result.success(
+        Result.success_result(
             data=outfalls, message=f"成功获取所有出口数据({len(outfalls)}个)"
         )
         其中 data(outfalls)为 OutfallModel 列表,每个出口结构如下:
@@ -59,10 +62,11 @@ async def get_outfalls_tool() -> str:
         if result.data
         else "无出口信息"
     )
-    return result
+    return result.model_dump()
 
 
 @tool
+@with_result_exception_handler
 async def update_outfall_tool(
     outfall_id: str,
     name: Optional[str] = None,
@@ -137,12 +141,14 @@ async def update_outfall_tool(
     updates = {k: v for k, v in updates.items() if v is not None}
 
     if not updates:
-        raise ValueError("更新参数不能为空,请提供至少一个需要更新的字段")
+        return Result.error(
+            message="更新参数不能为空,请提供至少一个需要更新的字段"
+        ).model_dump()
 
     # 获取当前出口信息(通过调用get_outfalls获取所有出口,然后筛选)
     current_outfalls_result = await get_outfalls()
     if not current_outfalls_result or not current_outfalls_result.data:
-        return {"success": False, "message": "获取出口信息失败"}
+        return Result.error(message="获取出口信息失败").model_dump()
 
     # 查找指定的出口
     current_outfall = None
@@ -152,34 +158,27 @@ async def update_outfall_tool(
             break
 
     if not current_outfall:
-        return {"success": False, "message": f"出口 {outfall_id} 不存在,无法更新"}
+        return Result.not_found(f"出口 {outfall_id} 不存在,无法更新").model_dump()
 
     # 从 OutfallModel 变成字典
-    current_data = current_outfall.dict()
+    current_data = current_outfall.model_dump()
 
     # 合并更新参数
     updated_data = {**current_data, **updates}
 
     # 构造 OutfallModel 对象
-    outfall_update = OutfallModel(
-        name=updated_data["name"],
-        lon=updated_data["lon"],
-        lat=updated_data["lat"],
-        elevation=updated_data["elevation"],
-        kind=updated_data["kind"],
-        data=updated_data["data"],
-    )
+    outfall_update = OutfallModel(**updated_data)
 
     # 调用更新函数
     result = await update_outfall(outfall_id, outfall_update)
-    result_message = {
-        "message": result.get("message", "更新出口失败"),
-        "updated_args": updated_data,
-    }
-    return result_message
+    return Result.success_result(
+        message=result.get("message", "更新出口成功"),
+        data={"updated_args": updates},
+    ).model_dump()
 
 
 @tool
+@with_result_exception_handler
 async def create_outfall_tool(
     name: str,
     lon: float,
@@ -193,16 +192,16 @@ async def create_outfall_tool(
     用于在 SWMM 水力模型中添加一个新的出口(Outfall),并写入相关的地理与水力参数
 
     必须参数:
-        - name: 出口名称 (需要从问题中提取,不能由大模型生成,如果问题中没有,发送回复提醒用户提供)
-        - lon: 出口经度 (需要从问题中提取,不能由大模型生成,如果问题中没有,发送回复提醒用户提供)
-        - lat: 出口纬度 (需要从问题中提取,不能由大模型生成,如果问题中没有,发送回复提醒用户提供)
+        - name: 出口名称 (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,发送回复提醒用户提供**)
+        - lon: 出口经度 (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,发送回复提醒用户提供**)
+        - lat: 出口纬度 (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,发送回复提醒用户提供**)
     可选参数:
         - elevation: 出口高程,单位为米,默认 0.0
         - kind: 出流类型,可选值为 FREE、NORMAL、FIXED,默认 FREE
         - data: 固定水位值,仅当kind为FIXED时有效,默认 None
 
     返回:
-        Result.success(
+        Result.success_result(
             message=f"出口创建成功",
             data={"outfall_id": outfall_data.name},
         )
@@ -217,8 +216,7 @@ async def create_outfall_tool(
     )
 
     result = await create_outfall(outfall_data)
-    tools_logger.info(f"创建出口: {result} ")
-    return result
+    return result.model_dump()
 
 
 @tool
@@ -233,7 +231,7 @@ def delete_outfall_tool(
 
     Args:
         outfall_id: 要删除的出口ID,比如 "O1"
-        confirm_question: 确认删除的提示问题,比如 "您确定要删除 "O1" 出口吗？",一定要带上具体的出口名称(outfall_id)
+        confirm_question: 确认删除的提示问题,比如 "您确定要删除 O1 出口吗？",一定要带上具体的出口名称(outfall_id)
         client_id: 前端会话ID
 
     Returns:
@@ -251,7 +249,7 @@ def delete_outfall_tool(
         if frontend_feedback.get("success", False):
             result = asyncio.run(delete_outfall(outfall_id))
             tools_logger.info(f"删除出口: {result} ")
-            return result
+            return result.model_dump()
         else:
             return frontend_feedback
     except GraphInterrupt:
@@ -265,9 +263,10 @@ def delete_outfall_tool(
             )
         )
         raise
+    except HTTPException as e:
+        return Result.error(message=str(e.detail)).model_dump()
     except Exception as e:
-        tools_logger.error(f"删除出口失败: {e}")
-        return {"success": False, "message": str(e)}
+        return Result.error(message=str(e)).model_dump()
 
 
 if __name__ == "__main__":

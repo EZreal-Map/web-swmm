@@ -70,7 +70,7 @@ async def get_junctions():
             timeseries_name=timeseries_name,
         )
         junctions.append(junction_model)
-    return Result.success(
+    return Result.success_result(
         data=junctions, message=f"成功获取所有节点数据,共({len(junctions)}个)"
     )
 
@@ -132,8 +132,8 @@ async def batch_get_junctions_by_ids(ids: List[str]):
         junctions.append(junction_model)
         junctions_name.append(junction.name)
 
-    return Result.success(
-        data=junctions, message=f"成功获取指定节点数据:{junctions_name}"
+    return Result.success_result(
+        data=junctions, message=f"成功获取 {junctions_name} 节点数据"
     )
 
 
@@ -232,7 +232,7 @@ async def update_junction(junction_id: str, junction_update: JunctionModel):
 
     # 5.保存数据到文件
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
-    return Result.success(
+    return Result.success_result(
         message=f"节点 [ {junction_update.name} ] 信息更新成功",
         data={"id": junction_update.name, "type": "junction"},
     )
@@ -285,8 +285,8 @@ async def create_junction(junction_data: JunctionModel):
     # 3. 写回 SWMM 输入文件
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
 
-    return Result.success(
-        message=f"节点创建成功",
+    return Result.success_result(
+        message=f"节点 [ {junction_data.name} ] 创建成功",
         data={"junction_id": junction_data.name},
     )
 
@@ -344,4 +344,4 @@ async def delete_junction(junction_id: str):
     message = f"节点 [ {junction_id} ] 删除成功"
     if related_conduits:
         message += f",同时删除 {len(related_conduits)} 条关联渠道"
-    return Result.success(message=message)
+    return Result.success_result(message=message)

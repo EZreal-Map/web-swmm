@@ -122,21 +122,16 @@
 }
 
 .markdown-content table {
-  width: 100%;
+  display: block;
+  overflow-x: auto;
+  width: max-content;
   max-width: 100%;
   border-collapse: collapse;
   margin: 12px 0;
   background: #fff;
   border: 1px solid #d1d5db;
   border-radius: 8px;
-  overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.markdown-content table {
-  display: block;
-  overflow-x: auto;
-  white-space: nowrap;
 }
 
 .markdown-content table::-webkit-scrollbar {

@@ -111,16 +111,88 @@ class GraphInstance:
             frontend_llm = llm.bind_tools(tools=frontend_tools)
             chatbot_llm = llm  # 纯聊天用的LLM
 
+            # 0. 问题改写节点:结合记忆补全用户问题
+            async def question_rewrite_node(state: State) -> dict:
+                """
+                问题改写节点：结合最近3次HumanMessage、最近1次AIMessage和当前query，补全用户问题。
+                """
+                await ChatMessageSendHandler.send_step(
+                    state.get("client_id", ""),
+                    f"[问题重写] AI正在为你问题重写...",
+                )
+
+                recent_human_msgs = GraphInstance.get_recent_messages_by_type(
+                    state.get("messages", []), n=4, msg_type=HumanMessage
+                )
+                # 获取当前query
+                user_query = recent_human_msgs[-1].content
+                # 获取最近3次HumanMessage (除去最近一次)
+                recent_human_msgs = recent_human_msgs[:-1]
+                # 获取最近1次AIMessage
+                recent_ai_msg = GraphInstance.get_recent_messages_by_type(
+                    state.get("messages", []), n=1, msg_type=AIMessage
+                )
+
+                # 构建改写prompt
+                rewrite_prompt = f"""
+你是一个严格的文本补全助手，只负责将最新用户输入与上下文结合，补全为**完整、独立、可直接执行**的问题。
+
+你的任务分两种情况：
+
+1. 如果最新用户输入只是对上一步AI追问的补充信息（如仅输入“J1”或“名称为C100 起始点 J1 终点 J3”），请结合最近的AIMessage和更早的用户意图，将补充信息合并还原为原始意图的完整表达。例如，如果用户最初说“我要创建渠道”，AI追问“请提供名称、起点、终点”，用户补充“名称为C100 起始点 J1 终点 J3”，你应输出“我要创建渠道C100，起点为J1，终点为J3”。
+
+2. 如果用户输入本身就是一个完整问题，只做指代补全（如“这个节点”→“J1节点”），否则保持原样输出。
+
+禁止任何扩展、缩减、总结、解释或改写原问题内容。
+
+【举例】
+- 上下文：
+        用户：创建节点J100
+        AI：请提供经度、纬度、高程、初始水深、最大水深
+        用户：经纬度为130 29
+    输出：我要创建节点J100，经度为130，纬度为29
+
+- 上下文：
+        用户：创建渠道
+        AI：请提供名称、起点、终点
+        用户：名称为C100 起始点 J1 终点 J3
+    输出：我要创建渠道C100，起点为J1，终点为J3
+
+- 上下文：
+        用户：查询节点J1
+    输出：查询节点J1
+
+当前最新用户输入：
+{user_query}
+
+最近3次用户消息（HumanMessage）：
+{[msg.content for msg in recent_human_msgs] if recent_human_msgs else '无'}
+
+最近一次AI回复（AIMessage）：
+{recent_ai_msg.content if recent_ai_msg else '无'}
+
+请严格按上述要求输出补全后的问题（如无补全则原样输出）：
+"""
+                # 用 LLM 生成改写后的问题
+                # 这里假设 intent_llm 已经初始化
+                rewrite_messages = [HumanMessage(content=rewrite_prompt)]
+                rewrite_response = await intent_llm.ainvoke(rewrite_messages)
+                new_query = rewrite_response.content.strip()
+                agent_logger.info(
+                    f"{state.get('client_id')} - 问题改写节点LLM响应: {new_query}"
+                )
+
+                # 更新 state 的 query 字段
+                return {"query": new_query}
+
             # 1. 意图识别节点:分析并标记需要的工具类型
             async def intent_classifier_node(state: State) -> dict:
-                """意图识别节点:分析问题并标记需要后端/前端工具"""
-                user_message = GraphInstance.get_recent_messages_by_type(
-                    state.get("messages", []), n=1, msg_type=HumanMessage
+                await ChatMessageSendHandler.send_step(
+                    state.get("client_id", ""), "[意图识别] 正在进行AI意图识别..."
                 )
-                if not user_message:
-                    return {"query": "", "need_backend": False, "need_frontend": False}
+                """意图识别节点:分析问题并标记需要后端/前端工具"""
                 # 提取用户查询
-                user_query = user_message.content
+                user_query = state.get("query")
                 agent_logger.info(
                     f"{state.get('client_id')} - 进入意图识别节点: user_query: {user_query}"
                 )
@@ -128,78 +200,78 @@ class GraphInstance:
                 # 新增:将state上下文也加入prompt
                 # TODO:promt需要放在其他文件,不要硬编码到核心代码里面
                 intent_prompt = f"""
-                                请阅读用户的问题:<<** {user_query} **>>,并根据需求判断需要调用哪些处理工具(可以同时需要多种)。  
+请阅读用户的问题:<<** {user_query} **>>,并根据需求判断需要调用哪些处理工具(可以同时需要多种)。  
 
-                                处理工具说明:  
-                                1. backend_tools  
-                                - 用于 **SWMM 模型数据操作**(例如:节点/管道/子汇水区等数据的查询、创建、更新、删除)。  
-                                - 如果问题涉及数据的增删改查,或者需要从数据库读取模型信息,都应选择该工具。  
+处理工具说明:  
+1. backend_tools  
+- 用于 **SWMM 模型数据操作**(例如:节点/管道/子汇水区等数据的查询、创建、更新、删除)。  
+- 如果问题涉及数据的增删改查,或者需要从数据库读取模型信息,都应选择该工具。  
 
-                                2. frontend_tools  
-                                - 用于 **前端界面交互**(例如:地图跳转、实体高亮、界面刷新等)。  
-                                - 如果问题需要让用户在界面上看到变化(如定位到某个节点、在地图上显示结果等),则需要该工具。  
-                                - 注意:如果只是查询数据并将结果直接返回给用户(不要求地图或界面变化),则**不需要** frontend_tools。
-                                - 但凡涉及到数据的**更新,删除,增加**操作,都需要 frontend_tools,因为前端界面也要响应的变化更新。
+2. frontend_tools  
+- 用于 **前端界面交互**(例如:地图跳转、实体高亮、界面刷新等)。  
+- 如果问题需要让用户在界面上看到变化(如定位到某个节点、在地图上显示结果等),则需要该工具。  
+- 注意:如果只是查询数据并将结果直接返回给用户(不要求地图或界面变化),则**不需要** frontend_tools。
+- 但凡涉及到数据的**更新,删除,增加**操作,都需要 frontend_tools,因为前端界面也要响应的变化更新。
 
-                                3. chatbot  
-                                - 用于 **普通对话、解释说明、总结回答** 等不需要操作数据或界面的场景。  
-                                - 当用户只提问概念性问题、流程指导,或不涉及数据和界面操作时,选该工具。  
+3. chatbot  
+- 用于 **普通对话、解释说明、总结回答** 等不需要操作数据或界面的场景。  
+- 当用户只提问概念性问题、流程指导,或不涉及数据和界面操作时,选该工具。  
 
-                                ---
+---
 
-                                ### 输出要求  
-                                只按以下格式回答(不要多余内容):  
+### 输出要求  
+只按以下格式回答(不要多余内容):  
 
-                                backend_tools: [true/false]  
-                                frontend_tools: [true/false]  
-                                说明: [简短说明需要这些工具的原因]  
+- backend_tools: [true/false]  
+- frontend_tools: [true/false]  
+- 说明: [简短说明需要这些工具的原因]  
 
-                                ---
+---
 
-                                ### 示例  
+### 示例  
 
-                                ##### 1 查询多个问题
-                                用户问题:帮我查询所有节点的信息  
-                                回答:  
-                                backend_tools: true  
-                                frontend_tools: false  
-                                说明: 查询节点信息只需调用 backend_tools 获取数据表,数据太多无法在前端上一一显示,所以不需要 frontend_tools。
+##### 1 查询多个问题
+用户问题:帮我查询所有节点的信息  
+回答:  
+- backend_tools: true  
+- frontend_tools: false  
+- 说明: 查询节点信息只需调用 backend_tools 获取数据表,数据太多无法在前端上一一显示,所以不需要 frontend_tools。
 
-                                ##### 2 查询一个问题
-                                用户问题:帮我查询一个节点的信息,节点ID为J1  
-                                回答:  
-                                backend_tools: true  
-                                frontend_tools: true
-                                说明: 查询节点信息需调用 backend_tools 获取数据信息,因为数据只有1个,所以可以很方便的在前端界面显示,所以需要 frontend_tools。
+##### 2 查询一个问题
+用户问题:帮我查询一个节点的信息,节点ID为J1  
+回答:  
+- backend_tools: true  
+- frontend_tools: true
+- 说明: 查询节点信息需调用 backend_tools 获取数据信息,因为数据只有1个,所以可以很方便的在前端界面显示,所以需要 frontend_tools。
 
-                                #### 3 创建问题
-                                用户问题:帮我创建一个节点,节点信息如下名字为J1,纬度为110,纬度为30  
-                                回答:  
-                                backend_tools: true
-                                frontend_tools: true  
-                                说明: 创建节点需要调用 backend_tools 保存数据,因为数据只有1个,所以可以很方便的在前端界面显示,所以需要 frontend_tools。
+#### 3 创建问题
+用户问题:帮我创建一个节点,节点信息如下名字为J1,纬度为110,纬度为30  
+回答:  
+- backend_tools: true
+- frontend_tools: true  
+- 说明: 创建节点需要调用 backend_tools 保存数据,因为数据只有1个,所以可以很方便的在前端界面显示,所以需要 frontend_tools。
 
-                                #### 4 删除问题
-                                用户问题:帮我删除一个节点,节点ID为J1  
-                                回答:  
-                                backend_tools: true
-                                frontend_tools: true  
-                                说明: 删除节点需调用 backend_tools 删除数据,同时需要 frontend_tools 在界面显示更新后的节点信息。  
+#### 4 删除问题
+用户问题:帮我删除一个节点,节点ID为J1  
+回答:  
+- backend_tools: true
+- frontend_tools: true  
+- 说明: 删除节点需调用 backend_tools 删除数据,同时需要 frontend_tools 在界面显示更新后的节点信息。  
 
-                                ##### 5 更新问题
-                                用户问题:帮我把节点J1的名字设置为J1_new  
-                                回答:  
-                                backend_tools: true
-                                frontend_tools: true  
-                                说明: 更新节点需要调用 backend_tools 保存数据,同时需要 frontend_tools 在界面显示更新后的节点信息。
+##### 5 更新问题
+用户问题:帮我把节点J1的名字设置为J1_new  
+回答:  
+- backend_tools: true
+- frontend_tools: true  
+- 说明: 更新节点需要调用 backend_tools 保存数据,同时需要 frontend_tools 在界面显示更新后的节点信息。
 
-                                ##### 6 前端问题
-                                用户问题:跳转到J1
-                                回答:
-                                backend_tools: true
-                                frontend_tools: true
-                                说明: 跳转到J1不需要查询后端数据,所有不需要backend_tools,前端工具可以直接处理跳转。
-"""
+##### 6 前端问题
+用户问题:跳转到J1
+回答:
+- backend_tools: false
+- frontend_tools: true
+- 说明: 跳转到J1不需要查询后端数据,所有不需要backend_tools,前端工具可以直接处理跳转。
+                """
                 # TODO:这里需要更改,根据之后处理 memory 引入数据库后,更加优雅的处理
                 # 将历史消息与意图prompt结合  (参考下面的frontend_messages节点的分析)
                 intent_messages = [HumanMessage(content=intent_prompt)]
@@ -214,7 +286,6 @@ class GraphInstance:
                 )
 
                 return {
-                    "query": user_query,
                     "need_backend": need_backend,
                     "need_frontend": need_frontend,
                 }
@@ -239,7 +310,9 @@ class GraphInstance:
                         f"{state.get('client_id')} - 用户问题为空,后端工具节点没有收到用户问题"
                     )
                     return {}
-
+                await ChatMessageSendHandler.send_step(
+                    state.get("client_id", ""), "[后端决策] 正在分析后端工具调用..."
+                )
                 # TODO:这里需要更改,根据之后处理 memory 引入数据库后,更加优雅的处理
                 # 将历史消息与意图prompt结合
                 # 构建后端专用的消息,让后端LLM分析问题 (参考下面的frontend_messages节点的分析)
@@ -254,11 +327,15 @@ class GraphInstance:
                 agent_logger.info(
                     f"{state.get('client_id')} - 后端工具节点LLM响应: {backend_response}"
                 )
+                # 屏蔽 astream 自动发送 tool_calls(因为有bug，此时的args为空)，手动发送，因为此时content=''，需要使用强制发送参数
+                await ChatMessageSendHandler.send_ai_message(
+                    state.get("client_id"), backend_response, True
+                )
                 # 返回包含工具调用的AI消息
                 return {"messages": [backend_response]}
 
             # 2.1 路由函数:决定是否执行后端工具
-            def route_backend_tools(
+            async def route_backend_tools(
                 state: State,
             ) -> Literal["backend_tool_execution", "frontend_tools"]:
                 """
@@ -278,6 +355,11 @@ class GraphInstance:
                 if hasattr(ai_message, "tool_calls") and len(ai_message.tool_calls) > 0:
                     agent_logger.debug(
                         f"{state.get('client_id')} - 检测到后端工具调用,执行后端工具"
+                    )
+                    # 发送步骤消息：正在执行后端工具
+                    await ChatMessageSendHandler.send_step(
+                        state.get("client_id", ""),
+                        "[后端执行] AI正在执行后端工具...",
                     )
                     # 2.后端有工具调用
                     # 记录 Send 返回结果
@@ -362,6 +444,10 @@ class GraphInstance:
                     )
                     return {}
 
+                await ChatMessageSendHandler.send_step(
+                    state.get("client_id", ""), "[前端决策] 正在分析前端工具调用..."
+                )
+
                 # TODO:这里需要更改,根据之后处理 memory 引入数据库后,更加优雅的处理
                 # 将历史消息与意图prompt结合 ,不能直接把 human_messages + frontend_messages
                 # 因为会让这个并列,有时候就会回答之前的问题去了,要把放进promt里面,包裹关系
@@ -386,11 +472,15 @@ class GraphInstance:
                 agent_logger.info(
                     f"{state.get('client_id')} - 前端工具LLM响应: {frontend_response}"
                 )
+                # 屏蔽 astream 自动发送 tool_calls(因为有bug，此时的args为空)，手动发送，因为此时content=''，需要使用强制发送参数
+                await ChatMessageSendHandler.send_ai_message(
+                    state.get("client_id"), frontend_response, True
+                )
 
                 return {"messages": [frontend_response]}
 
             # 3.1 路由函数:决定是否执行前端工具
-            def route_frontend_tools(
+            async def route_frontend_tools(
                 state: State,
             ) -> Literal["frontend_tool_execution", "chatbot_response"]:
                 """
@@ -407,6 +497,15 @@ class GraphInstance:
                 if hasattr(ai_message, "tool_calls") and len(ai_message.tool_calls) > 0:
                     agent_logger.debug(
                         f"{state.get('client_id')} - 检测到前端工具调用,执行前端工具"
+                    )
+                    # 发送步骤消息：正在执行前端工具 {工具集合}
+                    tool_calls = ai_message.tool_calls
+                    tool_names = []
+                    for tool_call in tool_calls:
+                        tool_names.append(tool_call.get("name"))
+                    await ChatMessageSendHandler.send_step(
+                        state.get("client_id", ""),
+                        f"[前端执行] AI正在执行前端工具...",
                     )
                     # 2.前端有工具调用
                     # 记录 Send 返回结果
@@ -473,6 +572,10 @@ class GraphInstance:
             # 4. 最终总结节点
             async def chatbot_response(state: State) -> dict:
                 """最终总结节点:基于所有执行结果生成总结回答"""
+                await ChatMessageSendHandler.send_step(
+                    state.get("client_id", ""),
+                    f"[总结回答] AI正在为你整理最终回答...",
+                )
                 agent_logger.info(f"{state.get('client_id')} - 进入总结节点")
                 user_query = state.get("query", "")
                 if not user_query:
@@ -485,15 +588,24 @@ class GraphInstance:
                 recent_dialogue_round = GraphInstance.get_split_dialogue_rounds(
                     state.get("messages", []), 1
                 )
+
+                recent_human_msgs = GraphInstance.get_recent_messages_by_type(
+                    state.get("messages", []), n=4, msg_type=HumanMessage
+                )
+                recent_human_msgs = recent_human_msgs[:-1]  # 去掉最后一条用户消息
                 # 添加总结提示
                 summary_prompt = f"""
                 请基于以上的工具执行结果,为用户问题"{user_query}"生成一个清晰、完整的回答。
+                
                 要求:
-                1. 总结所有工具的执行结果
-                2. 回答用户的原始问题
+                1. 总结工具调用的执行结果和未能完成的任务。
+                2. 回答用户的原始问题，如果需要更多信息才能完成任务，一定在最后提出来，需要哪些数据和信息。
                 3. 如果有数据查询结果,请清晰展示,如果数据过长请进行适当的截断，除非用户要求保留完整和精确的数据。
                 4. 浮点数小数位如果过长，可以适当截取，比如经纬度，适当截取保留5位就差不多了，除非用户要求保留完整和精确的数据。
                 5. 尽量使用markdown格式回答，如果有多组同样格式数据，可以适当使用表格，确保信息清晰可读。
+
+                用户最近3条上下文信息：
+                {recent_human_msgs if recent_human_msgs else '无'}
                 """
                 # TODO: 优化总结上下文管理
                 summary_messages = recent_dialogue_round + [
@@ -509,6 +621,7 @@ class GraphInstance:
                 return {"messages": [response]}
 
             # 构建图结构 - 拆分工具调用和执行
+            graph_builder.add_node("question_rewrite", question_rewrite_node)
             graph_builder.add_node("intent_classifier", intent_classifier_node)
             graph_builder.add_node("backend_tools", backend_tools_node)
             graph_builder.add_node(
@@ -521,7 +634,8 @@ class GraphInstance:
             graph_builder.add_node("chatbot_response", chatbot_response)
 
             # 添加边 - 串行执行,每个工具分为决策和执行两步
-            graph_builder.add_edge(START, "intent_classifier")
+            graph_builder.add_edge(START, "question_rewrite")
+            graph_builder.add_edge("question_rewrite", "intent_classifier")
             graph_builder.add_edge("intent_classifier", "backend_tools")
             graph_builder.add_conditional_edges("backend_tools", route_backend_tools)
             graph_builder.add_edge("backend_tool_execution", "frontend_tools")
@@ -536,7 +650,7 @@ class GraphInstance:
             store = AsyncStoreManager.store
             cls._graph = graph_builder.compile(checkpointer=checkpointer, store=store)
             agent_logger.info(
-                "Graph创建成功 - 拆分架构: 意图识别 -> 后端决策/执行 -> 前端决策/执行 -> 最终总结"
+                "Graph创建成功 - 拆分架构: 问题重写 -> 意图识别 -> 后端决策/执行 -> 前端决策/执行 -> 最终总结"
             )
             return cls._graph
         except Exception as e:

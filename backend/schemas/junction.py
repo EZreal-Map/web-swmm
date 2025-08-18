@@ -24,10 +24,24 @@ class JunctionModel(BaseModel):
             )
         return v
 
-    # 检测数值类型和正数
+    # 检查经纬度范围和其他字段为正
+    @field_validator("lon", mode="before")
+    def check_longitude(cls, value):
+        if not isinstance(value, (int, float)):
+            raise HTTPException(status_code=400, detail="经度必须是数值类型")
+        if not -180 <= value <= 180:
+            raise HTTPException(status_code=400, detail="经度必须在 -180 到 180 之间")
+        return value
+
+    @field_validator("lat", mode="before")
+    def check_latitude(cls, value):
+        if not isinstance(value, (int, float)):
+            raise HTTPException(status_code=400, detail="纬度必须是数值类型")
+        if not -90 <= value <= 90:
+            raise HTTPException(status_code=400, detail="纬度必须在 -90 到 90 之间")
+        return value
+
     @field_validator(
-        "lon",
-        "lat",
         "elevation",
         "depth_max",
         "depth_init",
@@ -37,11 +51,7 @@ class JunctionModel(BaseModel):
     )
     def check_positive(cls, value, info):
         # field_name 的别名
-        if info.field_name == "lon":
-            field_name_alias = "经度"
-        elif info.field_name == "lat":
-            field_name_alias = "纬度"
-        elif info.field_name == "elevation":
+        if info.field_name == "elevation":
             field_name_alias = "高程"
         elif info.field_name == "depth_max":
             field_name_alias = "最大水深"
@@ -54,16 +64,15 @@ class JunctionModel(BaseModel):
         else:
             field_name_alias = info.field_name
 
-        # 这里检测数值类型和正数,主要只是检查 length 和 roughness,并且结构化报错,其实不用检查,也会被 float 检查
         if not isinstance(value, (int, float)):
             raise HTTPException(
                 status_code=400,
-                detail=f"{field_name_alias  } 必须是数值类型",
+                detail=f"{field_name_alias} 必须是数值类型",
             )
         if value < 0:
             raise HTTPException(
                 status_code=400,
-                detail=f"{field_name_alias } 必须是非负数",
+                detail=f"{field_name_alias} 必须是非负数",
             )
         return value
 

@@ -15,6 +15,10 @@ import cesium from 'vite-plugin-cesium'
 export default defineConfig({
   server: {
     port: 5000, // 可自定义端口
+    host: true, // 确保可以通过 IP 或域名访问
+    allowedHosts: [
+      'tangkaiwen.cloud', // 允许的自定义域名
+    ],
   },
   plugins: [
     vue(),

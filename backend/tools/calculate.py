@@ -74,11 +74,11 @@ def query_calculate_result_tool(
         - 需要获取指定对象的历史时序数据
 
     **参数**：
-        - name (str): 对象名称（如节点名、管道名）
-        - variable_label (str): 查询变量名称(中文)
-            - 对于 kind="node"，可选值包括：
+        - name (str): 对象名称（如节点名、管道名） (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,表示信息不全,无法查询,发送回复提醒用户提供**)
+        - variable_label (str): 查询变量名称(中文) (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,表示信息不全,无法查询,发送回复提醒用户提供**)
+            - 对于 节点或者出口，可选值包括：
                 - 深度、水头、容积、侧边进流量、总进流量、积水
-            - 对于 kind="link"，可选值包括：
+            - 对于 渠道，可选值包括：
                 - 流量、深度、流速、容积、能力
 
     **返回值**：
@@ -89,11 +89,11 @@ def query_calculate_result_tool(
         - 若无结果，Result.error(message="查询结果为空...", data=[])
 
     **示例**：
-        输入: kind="node", name="J1", variable="depth"
+        输入: name="J1", variable="depth"
         返回: [[时间1, 1.23], [时间2, 1.45], ...]
-        输入: kind="link", name="C1", variable="flow"
+        输入: name="C1", variable="flow"
         返回: [[时间1, 0.56], [时间2, 0.78], ...]
-        输入: kind="node", name="不存在", variable="depth"
+        输入: name="不存在", variable="depth"
         返回: Result.error(...)
     """
     try:

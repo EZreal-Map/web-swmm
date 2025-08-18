@@ -60,6 +60,44 @@ async def get_subcatchments():
     )
 
 
+# 批量获取指定子汇水区的信息
+@subcatchment.post(
+    "/subcatchments/batch",
+    summary="批量获取指定子汇水区的信息",
+    description="通过子汇水区名称列表批量获取子汇水区的基本信息,包括名称、雨量计、出水口、面积、不透水率、宽度、坡度和边界。",
+)
+@with_exception_handler(default_message="获取失败,文件有误,发生未知错误")
+async def batch_get_subcatchments_by_names(names: list[str]):
+    """通过子汇水区名称列表批量获取子汇水区信息"""
+    INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    inp_subcatchments = INP.check_for_section(SubCatchment)
+    inp_polygons = INP.check_for_section(Polygon)
+
+    data = []
+    found_names = []
+    for name in names:
+        subcatchment = inp_subcatchments.get(name)
+        if not subcatchment:
+            continue
+        temp_dict = {}
+        polygon = inp_polygons.get(name, [])
+        if polygon:
+            polygon = polygon_utm_to_wgs84(polygon.polygon)
+        temp_dict["name"] = name
+        temp_dict["rain_gage"] = subcatchment.rain_gage
+        temp_dict["outlet"] = subcatchment.outlet
+        temp_dict["area"] = subcatchment.area
+        temp_dict["imperviousness"] = subcatchment.imperviousness
+        temp_dict["width"] = subcatchment.width
+        temp_dict["slope"] = subcatchment.slope
+        temp_dict["polygon"] = polygon
+        data.append(temp_dict)
+        found_names.append(name)
+    return Result.success_result(
+        data=data, message=f"成功获取 {found_names} 子汇水区数据"
+    )
+
+
 # 更新子汇水(产流)模型参数
 @subcatchment.put(
     "/subcatchment/{subcatchment_id:path}",
@@ -146,7 +184,7 @@ async def update_subcatchment(
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
 
     return Result.success_result(
-        message="成功更新子汇水(产流)模型参数",
+        message=f"成功更新子汇水区 [{subcatchment_update.name}] 的产流模型参数",
         data={"id": subcatchment_update.name, "type": "subcatchment"},
     )
 
@@ -197,7 +235,10 @@ async def create_subcatchment(polygon_data: PolygonModel):
     # 保存更新后的输入文件
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
 
-    return Result.success_result(message="成功新建子汇水区", data=subcatchmentModel)
+    return Result.success_result(
+        message=f"成功新建子汇水区 [{polygon_data.subcatchment}]",
+        data=subcatchmentModel,
+    )
 
 
 # 删除子汇水区及其相关模型参数
@@ -230,7 +271,9 @@ async def delete_subcatchment(subcatchment_id: str):
     # 保存更新后的输入文件
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
 
-    return Result.success_result(message="成功删除子汇水区")
+    return Result.success_result(
+        message=f"成功删除子汇水区 [{subcatchment_id}] 的相关模型参数"
+    )
 
 
 # 通过子汇水名称获取边界信息
@@ -284,7 +327,7 @@ async def save_polygon(data: PolygonModel):
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
 
     return Result.success_result(
-        message=f"成功编辑并且保存子汇水区的边界数据",
+        message=f"成功编辑并且保存子汇水区 [{data.subcatchment}] 的边界数据",
     )
 
 
@@ -315,7 +358,7 @@ async def get_infiltration(subcatchment_name=Query(..., description="子汇水�
         volume_max=infiltration.volume_max,
     )
     return Result.success_result(
-        message="成功获取子汇水(下渗)模型参数",
+        message=f"成功获取子汇水区 [{subcatchment_name}] 的下渗模型参数",
         data=data,
     )
 
@@ -351,7 +394,9 @@ async def update_infiltration(
     # 保存回文件
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
 
-    return Result.success_result(message="成功修改子汇水(下渗)模型参数")
+    return Result.success_result(
+        message=f"成功修改子汇水区 [{infiltration_update.subcatchment}] 的下渗模型参数"
+    )
 
 
 @subcatchment.get(
@@ -384,7 +429,7 @@ async def get_subarea(subcatchment_name=Query(..., description="子汇水区名�
     )
 
     return Result.success_result(
-        message="成功获取子汇水(汇流)模型参数",
+        message=f"成功获取子汇水区 [{subcatchment_name}] 的汇流模型参数",
         data=data,
     )
 
@@ -422,4 +467,6 @@ async def update_subarea(
     # 保存回文件
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
 
-    return Result.success_result(message="成功修改子汇水(汇流)模型参数")
+    return Result.success_result(
+        message=f"成功修改子汇水区 [{subarea_update.subcatchment}] 的汇流模型参数"
+    )

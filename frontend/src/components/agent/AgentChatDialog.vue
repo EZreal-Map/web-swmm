@@ -52,8 +52,8 @@
 import { ref, reactive, onMounted, onBeforeUnmount, computed } from 'vue'
 import { flyToEntityByNameTool, initEntitiesTool } from '@/tools/webgis'
 import { showConfirmBoxUITool, showEchartsUITool } from '@/tools/webui'
-import MessageList from './MessageList.vue'
-import ChatInput from './ChatInput.vue'
+import MessageList from '@/components/agent/MessageList.vue'
+import ChatInput from '@/components/agent/ChatInput.vue'
 import { useAgentStore } from '@/stores/agent'
 
 const agentStore = useAgentStore()
@@ -270,29 +270,20 @@ class MessageResponseHandler {
     // 确保 ToolMessage 的 content里面 都要 message 字段
     let toolMessage = `\n- 🛠️工具执行：\`${data.name}\`\n- success：${result.success}\n- message：${result.message}`
 
-    // 判断 data 字段 （如果有data字段，并且少于三项的list，就完整显示，否则只显示前3项（缩略显示））
+    // 只对数组类型做省略处理，对对象类型始终完整展示
     if (result.data !== undefined && result.data !== null) {
       let dataStr = ''
       let isArray = Array.isArray(result.data)
-      let isObject = typeof result.data === 'object' && !isArray
       let showData = result.data
       let omitted = false
-      // 只显示前3个元素/属性
+      // 只显示前3个元素（数组时）
       if (isArray && result.data.length > 3) {
         showData = result.data.slice(0, 3)
-        omitted = true
-      } else if (isObject && Object.keys(result.data).length > 3) {
-        const keys = Object.keys(result.data).slice(0, 3)
-        showData = {}
-        keys.forEach((k) => {
-          showData[k] = result.data[k]
-        })
         omitted = true
       }
       dataStr = `\n- data：\n\`\`\`json\n${JSON.stringify(showData, null, 2)}\n\`\`\``
       if (omitted) {
-        let total = isArray ? result.data.length : Object.keys(result.data).length
-        dataStr += `\n...数据已省略，仅展示前3项，实际共${total}项`
+        dataStr += `\n...数据已省略，仅展示前3项，实际共${result.data.length}项`
       }
       toolMessage += dataStr
     }

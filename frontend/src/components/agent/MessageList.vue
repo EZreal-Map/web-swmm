@@ -14,7 +14,7 @@
 
 <script setup>
 import { ref, nextTick, watch } from 'vue'
-import MessageItem from './MessageItem.vue'
+import MessageItem from '@/components/agent/MessageItem.vue'
 import { useAgentStore } from '@/stores/agent'
 
 const agentStore = useAgentStore()
@@ -45,7 +45,7 @@ function scrollToBottom(forceSend = false) {
       const el = messagesRef.value
       // 距离底部的距离
       const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-      if (forceSend || distanceToBottom < 500) {
+      if (forceSend || distanceToBottom < 300) {
         el.scrollTop = el.scrollHeight
       }
     })

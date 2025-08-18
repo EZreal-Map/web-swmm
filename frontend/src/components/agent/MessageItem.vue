@@ -35,7 +35,7 @@
 import { computed } from 'vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
-import ConfirmBoxUI from './ConfirmBoxUI.vue'
+import ConfirmBoxUI from '@/components/agent/ConfirmBoxUI.vue'
 
 // 配置 marked
 marked.setOptions({

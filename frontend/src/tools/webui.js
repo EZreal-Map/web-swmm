@@ -20,12 +20,13 @@ export const showConfirmBoxUITool = async (confirmQuestion) => {
   const lastMessage = agentStore.lastAssistantMessage
   if (!lastMessage) return
 
-  // 2. 先声明 ui 对象，后续回调通过闭包引用 (实测：这里用reactive包裹才能更快被响应式系统追踪)
+  // 2. 先声明 ui 对象
+  // (实测：这里用reactive包裹才能更快被响应式系统追踪)
   const ui = reactive({
     type: 'confirm', // UI 类型
     active: true, // 控制显示/隐藏
     confirmQuestion, // 确认内容
-    onYes: null, // 占位，后面赋值
+    onYes: null, // 占位，后续回调通过闭包引用
     onNo: null,
   })
 
@@ -49,7 +50,7 @@ export const showEchartsUITool = async (name, kind, variable) => {
   const lastMessage = agentStore.lastAssistantMessage
   if (!lastMessage) return
 
-  // 2. 先声明 ui 对象，后续回调通过闭包引用
+  // 2. 声明 ui 对象
   const ui = reactive({
     type: 'echarts', // UI 类型
     active: true, // 控制显示/隐藏
@@ -58,6 +59,6 @@ export const showEchartsUITool = async (name, kind, variable) => {
     variable,
   })
 
-  // 4. 挂载到消息 extra 字段，供渲染和交互
+  // 3. 挂载到消息 extra 字段，供渲染和交互
   lastMessage.extra.push(ui)
 }

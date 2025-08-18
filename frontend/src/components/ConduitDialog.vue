@@ -96,13 +96,12 @@ import { initEntities } from '@/utils/useCesium'
 import * as Cesium from 'cesium'
 import TransectDialog from '@/components/TransectDialog.vue'
 import { POINTPREFIX, POLYLINEPREFIX } from '@/utils/constant'
+import { ref } from 'vue'
 
 const viewerStore = useViewerStore()
 
 const showDialog = defineModel('showDialog')
 const conduitEntity = defineModel('conduitEntity')
-
-import { ref } from 'vue'
 
 const CrossSectionShapeSelect = [
   { value: 'CIRCULAR', label: '圆形断面' },

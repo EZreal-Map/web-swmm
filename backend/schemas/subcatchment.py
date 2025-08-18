@@ -182,3 +182,13 @@ class PolygonModel(BaseModel):
     polygon: list[tuple[float, float]] = Field(
         ..., description="多边形顶点坐标列表,点格式为(x, y),浮点数"
     )
+
+    # TODO:需要增加验证,大于 > 3个点
+    @field_validator("polygon")
+    def validate_polygon(cls, v):
+        if len(v) < 4:
+            raise HTTPException(
+                status_code=400,
+                detail="保存失败,多边形必须至少包含4个点",
+            )
+        return v

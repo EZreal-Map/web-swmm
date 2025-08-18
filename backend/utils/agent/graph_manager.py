@@ -34,6 +34,13 @@ from tools.conduit import (
     delete_conduit_tool,
     batch_get_conduits_by_ids_tool,
 )
+from tools.subcatchment import (
+    get_subcatchments_tool,
+    batch_get_subcatchments_by_names_tool,
+    update_subcatchment_tool,
+    create_subcatchment_tool,
+    delete_subcatchment_tool,
+)
 from tools.calculate import query_calculate_result_tool
 
 static_dir = os.path.join("static", "agent_graph")
@@ -80,12 +87,17 @@ class GraphInstance:
                 create_conduit_tool,
                 delete_conduit_tool,
                 batch_get_conduits_by_ids_tool,
+                get_subcatchments_tool,
+                update_subcatchment_tool,
+                create_subcatchment_tool,
+                batch_get_subcatchments_by_names_tool,
             ]
             # 1.2 Human in the loop后端工具(人类反馈工具)
             HIL_backend_tools = [
                 delete_junction_tool,
                 delete_outfall_tool,
                 delete_conduit_tool,
+                delete_subcatchment_tool,
                 query_calculate_result_tool,
             ]
             HIL_backend_tools_name = [

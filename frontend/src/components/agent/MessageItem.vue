@@ -8,12 +8,19 @@
         <!-- 1.2 额外组件 -->
         <div v-for="(item, index) in message.extra" :key="index">
           <!-- 确认弹窗 -->
-          <!-- 传递回调函数给 ConfirmBox，供按钮点击时调用 -->
-          <ConfirmBox
+          <!-- 传递回调函数给 ConfirmBoxUI，供按钮点击时调用 -->
+          <ConfirmBoxUI
             v-if="item.active && item.type === 'confirm'"
             :question="item.confirmQuestion"
             :on-yes="item.onYes"
             :on-no="item.onNo"
+          />
+          <!-- 图组件 -->
+          <EchartsUI
+            v-else-if="item.type === 'echarts'"
+            :query-entity-name="item.name"
+            :entity-kind="item.kind"
+            :variable-select="item.variable"
           />
         </div>
       </div>
@@ -28,7 +35,7 @@
 import { computed } from 'vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
-import ConfirmBox from './ConfirmBox.vue'
+import ConfirmBoxUI from './ConfirmBoxUI.vue'
 
 // 配置 marked
 marked.setOptions({

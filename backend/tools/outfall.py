@@ -57,7 +57,7 @@ async def get_outfalls_tool() -> str:
         ]
     """
     result = await get_outfalls()
-    tools_logger.info(
+    tools_logger.debug(
         f"获取所有出口信息: {len(result.data)}个出口,其中类似于: {result.data[0]}"
         if result.data
         else "无出口信息"
@@ -237,7 +237,6 @@ def delete_outfall_tool(
     Returns:
         Dict[str, Any]: 删除结果字典
     """
-    frontend_feedback = None
     try:
         # 触发前端弹窗确认
         frontend_feedback = interrupt(

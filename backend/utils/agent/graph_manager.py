@@ -34,6 +34,7 @@ from tools.conduit import (
     delete_conduit_tool,
     batch_get_conduits_by_ids_tool,
 )
+from tools.calculate import query_calculate_result_tool
 
 static_dir = os.path.join("static", "agent_graph")
 
@@ -85,6 +86,7 @@ class GraphInstance:
                 delete_junction_tool,
                 delete_outfall_tool,
                 delete_conduit_tool,
+                query_calculate_result_tool,
             ]
             HIL_backend_tools_name = [
                 tool.name for tool in HIL_backend_tools
@@ -114,7 +116,7 @@ class GraphInstance:
             # 0. 问题改写节点:结合记忆补全用户问题
             async def question_rewrite_node(state: State) -> dict:
                 """
-                问题改写节点：结合最近3次HumanMessage、最近1次AIMessage和当前query，补全用户问题。
+                问题改写节点：结合最近3次HumanMessage、最近1次AIMessage和当前query,补全用户问题。
                 """
                 await ChatMessageSendHandler.send_step(
                     state.get("client_id", ""),
@@ -133,34 +135,37 @@ class GraphInstance:
                     state.get("messages", []), n=1, msg_type=AIMessage
                 )
 
-                # 构建改写prompt
+                # 构建更智能的改写prompt
                 rewrite_prompt = f"""
-你是一个严格的文本补全助手，只负责将最新用户输入与上下文结合，补全为**完整、独立、可直接执行**的问题。
+你是一个智能问题补全助手,目标是将用户的最新输入与历史上下文结合,生成**完整、独立、可直接执行**的问题。
 
-你的任务分两种情况：
-
-1. 如果最新用户输入只是对上一步AI追问的补充信息（如仅输入“J1”或“名称为C100 起始点 J1 终点 J3”），请结合最近的AIMessage和更早的用户意图，将补充信息合并还原为原始意图的完整表达。例如，如果用户最初说“我要创建渠道”，AI追问“请提供名称、起点、终点”，用户补充“名称为C100 起始点 J1 终点 J3”，你应输出“我要创建渠道C100，起点为J1，终点为J3”。
-
-2. 如果用户输入本身就是一个完整问题，只做指代补全（如“这个节点”→“J1节点”），否则保持原样输出。
-
-禁止任何扩展、缩减、总结、解释或改写原问题内容。
+你的任务分两步：
+1. 判断最新用户输入是一个“问题”还是“陈述/补充信息/名词短语”。
+   - 如果是“问题”,请检查并补全所有指代（如“这个节点”、“它”等）,使其成为无歧义的完整问题。
+   - 如果是“陈述/补充信息/名词短语”,请结合最近的AI追问和更早的用户提问,将补充信息合并,还原为原始意图的完整新问题。
+2. 输出时,禁止无端联想,参考上下文提供的信息。
 
 【举例】
 - 上下文：
         用户：创建节点J100
         AI：请提供经度、纬度、高程、初始水深、最大水深
         用户：经纬度为130 29
-    输出：我要创建节点J100，经度为130，纬度为29
+    输出：我要创建节点J100,经度为130,纬度为29
 
 - 上下文：
         用户：创建渠道
         AI：请提供名称、起点、终点
         用户：名称为C100 起始点 J1 终点 J3
-    输出：我要创建渠道C100，起点为J1，终点为J3
+    输出：我要创建渠道C100,起点为J1,终点为J3
 
 - 上下文：
         用户：查询节点J1
     输出：查询节点J1
+
+- 上下文：
+        AI：(历史有“J1节点”)
+        用户：这个节点的流量是多少？
+    输出：J1节点的流量是多少？
 
 当前最新用户输入：
 {user_query}
@@ -327,7 +332,7 @@ class GraphInstance:
                 agent_logger.info(
                     f"{state.get('client_id')} - 后端工具节点LLM响应: {backend_response}"
                 )
-                # 屏蔽 astream 自动发送 tool_calls(因为有bug，此时的args为空)，手动发送，因为此时content=''，需要使用强制发送参数
+                # 屏蔽 astream 自动发送 tool_calls(因为有bug,此时的args为空),手动发送,因为此时content='',需要使用强制发送参数
                 await ChatMessageSendHandler.send_ai_message(
                     state.get("client_id"), backend_response, True
                 )
@@ -472,7 +477,7 @@ class GraphInstance:
                 agent_logger.info(
                     f"{state.get('client_id')} - 前端工具LLM响应: {frontend_response}"
                 )
-                # 屏蔽 astream 自动发送 tool_calls(因为有bug，此时的args为空)，手动发送，因为此时content=''，需要使用强制发送参数
+                # 屏蔽 astream 自动发送 tool_calls(因为有bug,此时的args为空),手动发送,因为此时content='',需要使用强制发送参数
                 await ChatMessageSendHandler.send_ai_message(
                     state.get("client_id"), frontend_response, True
                 )
@@ -599,10 +604,11 @@ class GraphInstance:
                 
                 要求:
                 1. 总结工具调用的执行结果和未能完成的任务。
-                2. 回答用户的原始问题，如果需要更多信息才能完成任务，一定在最后提出来，需要哪些数据和信息。
-                3. 如果有数据查询结果,请清晰展示,如果数据过长请进行适当的截断，除非用户要求保留完整和精确的数据。
-                4. 浮点数小数位如果过长，可以适当截取，比如经纬度，适当截取保留5位就差不多了，除非用户要求保留完整和精确的数据。
-                5. 尽量使用markdown格式回答，如果有多组同样格式数据，可以适当使用表格，确保信息清晰可读。
+                2. 回答用户的原始问题,如果需要更多信息才能完成任务,一定在最后提出来,需要哪些数据和信息。
+                3. 如果有数据查询结果,请清晰展示,如果数据过长请进行适当的截断,除非用户要求保留完整和精确的数据。
+                4. 浮点数小数位如果过长,可以适当截取,比如经纬度,适当截取保留5位就差不多了,除非用户要求保留完整和精确的数据。
+                6. 如果执行结果中(success_message)有表明以用前端组件展示数据,请相信这个结果,不用再用文字输出该已展示的数据了。
+                5. 尽量使用markdown格式回答,如果有多组同样格式数据,可以适当使用表格,确保信息清晰可读。
 
                 用户最近3条上下文信息：
                 {recent_human_msgs if recent_human_msgs else '无'}

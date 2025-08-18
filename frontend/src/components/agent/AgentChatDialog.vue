@@ -51,7 +51,7 @@
 <script setup>
 import { ref, reactive, onMounted, onBeforeUnmount, computed } from 'vue'
 import { flyToEntityByNameTool, initEntitiesTool } from '@/tools/webgis'
-import { showConfirmBoxUITool } from '@/tools/webui'
+import { showConfirmBoxUITool, showEchartsUITool } from '@/tools/webui'
 import MessageList from './MessageList.vue'
 import ChatInput from './ChatInput.vue'
 import { useAgentStore } from '@/stores/agent'
@@ -194,11 +194,11 @@ class MessageResponseHandler {
     this.messages = messages
     this.wsManager = wsManager
     this.addMessage = addMessage
-    // 使用 ES6 对象简写语法
     this.functionMap = {
       flyToEntityByNameTool,
       initEntitiesTool,
       showConfirmBoxUITool,
+      showEchartsUITool,
       // 可以继续添加其他可调用的函数
     }
   }
@@ -207,8 +207,6 @@ class MessageResponseHandler {
    * 主要的响应处理入口
    */
   handle(data) {
-    console.log('收到响应:', data.type, data)
-
     switch (data.type) {
       case ResponseMessageType.PONG:
         this.handlePong()
@@ -587,7 +585,7 @@ onBeforeUnmount(() => {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
   display: flex;
   flex-direction: column;
-  z-index: 9999;
+  z-index: 99;
   border: 1px solid rgba(0, 0, 0, 0.06);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
@@ -604,6 +602,7 @@ onBeforeUnmount(() => {
   align-items: center;
   user-select: none;
   border-radius: 12px 12px 0 0;
+  z-index: 9999; /* 确保头部在最上层 */
 }
 
 .chat-header:active {
@@ -686,6 +685,7 @@ onBeforeUnmount(() => {
   right: 0;
   bottom: 0;
   cursor: se-resize;
+  z-index: 9999;
 }
 
 .resize-handle.bottom {
@@ -694,6 +694,7 @@ onBeforeUnmount(() => {
   left: 0;
   bottom: 0;
   cursor: s-resize;
+  z-index: 9999;
 }
 
 .resize-handle.right {

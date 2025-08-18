@@ -264,7 +264,6 @@ def delete_conduit_tool(
     Returns:
         Dict[str, Any]: 删除结果字典
     """
-    frontend_feedback = None
     try:
         # 触发前端弹窗确认
         frontend_feedback = interrupt(

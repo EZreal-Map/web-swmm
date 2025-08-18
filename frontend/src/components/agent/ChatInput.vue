@@ -94,6 +94,7 @@ nextTick(() => {
   border-top: 1px solid rgba(0, 0, 0, 0.06);
   padding: 12px;
   background: #fff;
+  z-index: 9999; /* 确保input在最上层 */
 }
 
 .input-actions {

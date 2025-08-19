@@ -1,4 +1,4 @@
-# Web-SWMM 项目
+# [🌏 Web-SWMM 项目](https://www.bilibili.com/video/BV1p7eFz6EBj/)
 
 ## 1、项目介绍
 
@@ -38,7 +38,7 @@ Web-SWMM 项目旨在将 SWMM（Storm Water Management Model）的一部分功�
 5. **时间序列管理**：
 
    - 增删改查时间序列。
-   - 支持**流量（INFLOW）**和**雨量（RAINGAGE）**两种时间序列模式。
+   - 支持流量（INFLOW）和雨量（RAINGAGE）两种时间序列模式。
    - 获取时间序列的名称列表和详细信息。
    - 时间序列数据的导入和导出（JSONB 格式存储）。
 
@@ -59,7 +59,9 @@ Web-SWMM 项目旨在将 SWMM（Storm Water Management Model）的一部分功�
 ```bash
 web-swmm/
 ├── backend/                        # 后端代码
-│   ├── apis/                       
+│   ├── apis/
+│   │   ├── agent/                  # 智能体相关接口
+│   │   │   └── chat.py             # 智能体对话接口
 │   │   ├── calculate.py            # 计算模块
 │   │   ├── conduit.py              # 渠道管理模块
 │   │   ├── junction.py             # 节点管理模块
@@ -67,7 +69,14 @@ web-swmm/
 │   │   ├── subcatchment.py         # 子汇水区管理模块
 │   │   ├── timeseries.py           # 时间序列管理模块
 │   │   └── transect.py             # 断面管理模块
-│   ├── schemas/                    
+│   ├── schemas/
+│   ├── tools/                      # 后端工具函数
+│   │   ├── calculate.py            # 计算相关工具
+│   │   ├── conduit.py              # 渠道相关工具
+│   │   ├── junction.py             # 节点相关工具
+│   │   ├── outfall.py              # 出口相关工具
+│   │   ├── subcatchment.py         # 子汇水区相关工具
+│   │   └── webgis.py               # GIS 相关工具
 │   │   ├── calculate.py            # 计算模块数据模型
 │   │   ├── conduit.py              # 渠道数据模型
 │   │   ├── junction.py             # 节点数据模型
@@ -77,23 +86,30 @@ web-swmm/
 │   │   ├── timeseries.py           # 时间序列数据模型
 │   │   └── transect.py             # 断面数据模型
 │   ├── swmm/                       # SWMM 计算文件存储目录
-│   │   ├── swmm_test.ini           # 测试配置文件
-│   │   └── swmm_test.inp           # 测试输入文件
+│   │   ├── swmm.inp                # 测试输入文件(已.gitignore)
+│   │   └── swmm.inp.example        # 测试输入文件(示例)
 │   ├── utils/                      # 工具模块
 │   │   ├── coordinate_converter.py # 坐标系转换工具
 │   │   ├── logger.py			   # logger 配置
 │   │   ├── swmm_constant.py        # SWMM 常量配置
 │   │   └── utils.py                # 通用工具函数
-│   ├── .env                        # .env 环境变量（已隐藏）
+│   │   ├── websocket_manager.py    # websocket 管理工具
+│   │   └── agent/                  # 智能体底层工具
+│   │       ├── async_store_manager.py   # 异步存储管理
+│   │       ├── graph_manager.py         # 智能体图管理
+│   │       ├── llm_manager.py           # 大模型管理
+│   │       ├── serial_tool_node.py      # 串行工具节点
+│   │       └──  websocket_manager.py     # 智能体 websocket 管理
+│   ├── .env                        # .env 环境变量(已.gitignore)
 │   ├── .env.example                # .env 环境变量示例
 │   ├── app.py                      # 应用入口
 │   ├── config.py                   # 配置文件
 │   ├── poetry.lock
 │   └── pyproject.toml
 ├── frontend/                       # 前端代码
-│   ├── public/                     
+│   ├── public/
 │   │   └── favicon.ico
-│   ├── src/                        
+│   ├── src/
 │   │   ├── apis/                   # 前端 axios 请求模块
 │   │   │   ├── calculate.js        # 计算模块API
 │   │   │   ├── conduit.js          # 渠道API
@@ -101,30 +117,42 @@ web-swmm/
 │   │   │   ├── outfall.js          # 出口API
 │   │   │   ├── subcatchment.js     # 子汇水区API
 │   │   │   ├── timeseries.js       # 时间序列API
-│   │   │   └── transect.js         # 断面API                
-│   │   ├── components/             
-│   │   │   ├── CalculateDialog.vue # SWMM计算模块弹窗
-│   │   │   ├── CesiumContainer.vue # Cesium三维地图组件
-│   │   │   ├── ConduitDialog.vue   # 渠道弹窗
-│   │   │   ├── JunctionDialog.vue  # 节点弹窗
-│   │   │   ├── LeftMenu.vue        # 左侧菜单组件
-│   │   │   ├── OutfallDialog.vue   # 出口弹窗
-│   │   │   ├── SubcatchmentDialog.vue # 子汇水区弹窗
-│   │   │   ├── TimeSeriesDialog.vue # 时间序列弹窗
-│   │   │   └── TransectDialog.vue  # 断面弹窗
+│   │   │   └── transect.js         # 断面API
+│   │   ├── components/
+│   │   │   ├── agent/                  # 智能体相关组件
+│   │   │   │   ├── AgentChatDialog.vue # 智能体对话主窗口
+│   │   │   │   ├── ChatInput.vue       # 智能体输入框
+│   │   │   │   ├── ConfirmBoxUI.vue    # 智能体确认弹窗
+│   │   │   │   ├── EchartsUI.vue       # 智能体图表组件
+│   │   │   │   ├── MessageItem.vue     # 智能体消息项
+│   │   │   │   └── MessageList.vue     # 智能体消息列表
+│   │   │   ├── CalculateDialog.vue     # SWMM计算模块弹窗
+│   │   │   ├── CesiumContainer.vue     # Cesium三维地图组件
+│   │   │   ├── ConduitDialog.vue       # 渠道弹窗
+│   │   │   ├── JunctionDialog.vue      # 节点弹窗
+│   │   │   ├── LeftMenu.vue            # 左侧菜单组件
+│   │   │   ├── OutfallDialog.vue       # 出口弹窗
+│   │   │   ├── SubcatchmentDialog.vue  # 子汇水区弹窗
+│   │   │   ├── TimeSeriesDialog.vue    # 时间序列弹窗
+│   │   │   └── TransectDialog.vue      # 断面弹窗
 │   │   ├── router/                 # 路由配置
 │   │   │   └── index.js
 │   │   ├── stores/                 # 状态管理
 │   │   │   └── viewer.js
 │   │   ├── utils/                  # 工具模块
+│   │   │   ├── constant.js         # 常量定义
 │   │   │   ├── convert.js          # 数据转换工具
 │   │   │   ├── entity.js           # 实体操作工具
 │   │   │   ├── request.js          # HTTP请求工具
-│   │   │   └── useCesium.js        # Cesium相关工具
-│   │   ├── views/                  
-│   │   │   └── HomeView.vue        
-│   │   ├── App.vue               
-│   │   └── main.js                 
+│   │   │   ├── useCesium.js        # Cesium相关工具
+│   │   │   └── wsURL.js            # websocket 地址工具
+│   │   ├── tools/                  # 前端工具函数
+│   │   │   ├── webgis.js           # GIS 相关工具
+│   │   │   └── webui.js            # UI 相关工具
+│   │   ├── views/
+│   │   │   └── HomeView.vue
+│   │   ├── App.vue
+│   │   └── main.js
 │   ├── .editorconfig
 │   ├── .prettierrc.json
 │   ├── eslint.config.js
@@ -143,6 +171,7 @@ web-swmm/
 │       ├── swmm_test.ini
 │       └── swmm_test.inp
 ├── docker-compose.yml
+├── pg-docker-compose.yml           # 独立PostgreSQL服务的Compose文件
 ├── Dockerfile
 └── README.md
 ```
@@ -155,19 +184,29 @@ web-swmm/
 
 1. 参考`.env.example`，复制生成一个`.env`环境变量文件
 
-2. 确保已安装 Python 3.11 和 `Poetry`。
+2. 参考`/backend/swmm/swmm.inp.example`,复制生成一个测试`swmm.inp`文件
 
-3. 安装依赖：
+3. 使用 docker 配置`PostgreSQL`数据库
+
+   ```bash
+   docker-compose -f pg-docker-compose.yml -p pg up
+   ```
+
+4. 确保已安装 Python 3.11 和 `Poetry`。
+
+5. 安装依赖：
+
    ```bash
    poetry install
    ```
 
-4. 激活虚拟环境：
+6. 激活虚拟环境：
+
    ```bash
    poetry shell
    ```
 
-4. 启动 FastAPI 服务：
+7. 启动 FastAPI 服务：
    ```bash
    python app.py
    ```
@@ -192,15 +231,21 @@ web-swmm/
 
 #### 步骤
 
-1. **确保已安装 Docker 和 Docker Compose。**
+1. **修改 backend `.env`**
 
-2. **构建后端镜像：**
-
-   ```bash
-   docker build -t web-swmm .
+   ```json
+   # 数据库配置（指向docker容器的postgres)
+   DB_HOST=postgres
+   DB_PORT=5432
+   # 日志配置
+   LOG_LEVEL=INFO
    ```
 
-   > 这里 `.` 是 Dockerfile 所在目录，`web-swmm` 是你给镜像取的名字。
+2. **修改 frontend `./frontend/utils/request.js`**
+
+   ```js
+   const baseURL = "/api"; // 反向代理（部署时使用）
+   ```
 
 3. **使用 Docker Compose 启动所有服务：**
 
@@ -210,7 +255,7 @@ web-swmm/
 
 4. **配置 docker 挂载文件**
 
-   ```
+   ```json
    docker-volumes/
    ├── nginx/						 # 挂载 nginx 配置目录
    │   ├── html/                      # 前端静态文件目录
@@ -218,8 +263,7 @@ web-swmm/
    │   │   └── ...
    │   ├── nginx.conf                 # Nginx 配置文件
    ├── swmm/                          # 挂载 SWMM 文件目录
-   │   ├── swmm_test.ini              # 挂载 SWMM 输入文件
-   │   └── swmm_test.inp              # 挂载 SWMM 输入文件
+   │   └── swmm.inp                   # 挂载 SWMM 输入文件
    ```
 
    > nginx.conf
@@ -233,6 +277,7 @@ web-swmm/
    http {
      include       mime.types;
      default_type  application/octet-stream;
+     client_max_body_size 100M;  # 允许最多 100MB 的文件上传
      sendfile        on;
      keepalive_timeout  65;
      server {
@@ -251,6 +296,10 @@ web-swmm/
          # 配置后端接口反向代理
          location /api/ {
              proxy_pass http://fastapi:8080/;
+             proxy_http_version 1.1;
+             proxy_set_header Upgrade $http_upgrade;
+             proxy_set_header Connection "upgrade";
+             proxy_set_header Host $host;
          }
      }
    }

@@ -3,7 +3,7 @@ FROM python:3.11-slim
 ENV POETRY_VERSION=1.8.2
 
 RUN apt-get update && \
-    apt-get install -y curl && \
+    apt-get install -y curl libpq-dev gcc && \
     curl -sSL https://install.python-poetry.org | python3 - && \
     ln -s /root/.local/bin/poetry /usr/local/bin/poetry
 

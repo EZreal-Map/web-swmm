@@ -36,7 +36,6 @@
       <ChatInput
         v-model="input"
         :disabled="!connected"
-        :placeholder="'请输入您的问题...'"
         @send="sendMessage"
       />
     </div>
@@ -55,6 +54,7 @@ import { showConfirmBoxUITool, showEchartsUITool } from '@/tools/webui'
 import MessageList from '@/components/agent/MessageList.vue'
 import ChatInput from '@/components/agent/ChatInput.vue'
 import { useAgentStore } from '@/stores/agent'
+import { getChatWSURL } from '@/utils/wsURL'
 
 const agentStore = useAgentStore()
 
@@ -65,7 +65,7 @@ const showDialog = defineModel('showDialog', { type: Boolean, default: false })
 const conversationId = `conv-123${Math.random().toString(36).substring(2, 15)}`
 const userId = 'user-123'
 const clientId = `${userId}@@${conversationId}`
-const serverUrl = `ws://localhost:8080/agent/ws/${clientId}`
+const serverUrl = getChatWSURL(clientId)
 
 function closeDialog() {
   showDialog.value = false

@@ -1,8 +1,6 @@
-SWMM_FILE_INP_PATH = "./swmm/Minjiang_with_conduit.inp"
-SWMM_FILE_OUT_PATH = "./swmm/Minjiang_with_conduit.out"
+SWMM_FILE_INP_PATH = "./swmm/swmm.inp"
+SWMM_FILE_OUT_PATH = "./swmm/swmm.out"
 
-# SWMM_FILE_INP_PATH = "./swmm/swmm_test.inp"
-# SWMM_FILE_OUT_PATH = "./swmm/swmm_test.out"
 
 ENCODING = "GB2312"
 

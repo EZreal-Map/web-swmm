@@ -27,6 +27,23 @@ services:
       - web-swmm_network # 连接到自定义网络
     restart: always # 容器退出后总是重启
 
+  postgres:
+    image: postgres:15 # 指定具体版本
+    container_name: web-swmm-postgres_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      TZ: Asia/Shanghai # 设置时区
+    ports:
+      - "9034:5432"
+    volumes:
+      - ./backend/static/pgdata_volume:/var/lib/postgresql/data # 本地挂载
+    networks:
+      - web-swmm_network
+    restart: unless-stopped
+    command: ["postgres", "-c", "max_connections=200"] # 自定义配置
+
 networks:
   web-swmm_network:
     driver: bridge # 使用 bridge 网络驱动

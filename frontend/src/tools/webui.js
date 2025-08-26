@@ -13,7 +13,7 @@ import { reactive } from 'vue'
  * - confirm UI 对象包含 onYes/onNo 回调，回调内可直接修改 UI 状态（如 active=false），并发送反馈消息。
  * - 通过闭包保证 onYes/onNo 始终引用正确的 ui 对象。
  */
-export const showConfirmBoxUITool = async (confirmQuestion) => {
+export const showConfirmBoxUITool = async ({ confirm_question: confirmQuestion }) => {
   const options = { yesMsg: '人工确定删除', noMsg: '人工取消删除' }
   const agentStore = useAgentStore()
   // 1. 获取最后一条 assistant 消息
@@ -44,7 +44,7 @@ export const showConfirmBoxUITool = async (confirmQuestion) => {
   lastMessage.extra.push(ui)
 }
 
-export const showEchartsUITool = async (name, kind, variable) => {
+export const showEchartsUITool = async ({ name, kind, variable }) => {
   const agentStore = useAgentStore()
   // 1. 获取最后一条 assistant 消息
   const lastMessage = agentStore.lastAssistantMessage
@@ -60,5 +60,37 @@ export const showEchartsUITool = async (name, kind, variable) => {
   })
 
   // 3. 挂载到消息 extra 字段，供渲染和交互
+  lastMessage.extra.push(ui)
+}
+
+/**
+ * 在聊天中插入一个信息补充输入框UI
+ * @param {string} inputTitle - 输入提示标题
+ */
+export const showHumanInfoUITool = async ({ input_title: inputTitle }) => {
+  const agentStore = useAgentStore()
+  const lastMessage = agentStore.lastAssistantMessage
+  if (!lastMessage) return
+
+  // 响应式UI对象
+  const ui = reactive({
+    type: 'human-info', // UI 类型
+    active: true,
+    inputTitle,
+    inputValue: '', // 用户输入内容
+    onOk: null,
+    onCancel: null,
+  })
+
+  // 回调
+  ui.onOk = () => {
+    ui.active = false
+    agentStore.messageSender.sendFeedbackMessage(ui.inputValue || '人工未填写', true)
+  }
+  ui.onCancel = () => {
+    ui.active = false
+    agentStore.messageSender.sendFeedbackMessage('人工取消填写', false)
+  }
+
   lastMessage.extra.push(ui)
 }

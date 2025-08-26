@@ -11,6 +11,8 @@ from langgraph.errors import GraphInterrupt
 from schemas.result import Result
 from utils.utils import with_result_exception_handler
 from fastapi import HTTPException
+from pydantic import Field
+from pydantic.fields import FieldInfo
 
 from apis.junction import (
     get_junctions,
@@ -68,7 +70,9 @@ async def get_junctions_tool() -> str:
 
 @tool
 @with_result_exception_handler
-async def batch_get_junctions_by_ids_tool(ids: List[str]):
+async def batch_get_junctions_by_ids_tool(
+    ids: List[str] = Field(description="节点ID列表，如 ['J1', 'J2', 'J3']"),
+):
     """
     节点信息批量获取工具,通过节点ID列表批量获取节点的详细信息。
 
@@ -113,17 +117,31 @@ async def batch_get_junctions_by_ids_tool(ids: List[str]):
 @tool
 @with_result_exception_handler
 async def update_junction_tool(
-    junction_id: str,
-    name: Optional[str] = None,
-    lon: Optional[float] = None,
-    lat: Optional[float] = None,
-    elevation: Optional[float] = None,
-    depth_init: Optional[float] = None,
-    depth_max: Optional[float] = None,
-    depth_surcharge: Optional[float] = None,
-    area_ponded: Optional[float] = None,
-    has_inflow: Optional[bool] = None,
-    timeseries_name: Optional[str] = None,
+    junction_id: str = Field(description="要更新的节点ID，如 'J1'"),
+    name: Optional[str] = Field(default=None, description="节点名称，不更新时传 None"),
+    lon: Optional[float] = Field(default=None, description="节点经度，不更新时传 None"),
+    lat: Optional[float] = Field(default=None, description="节点纬度，不更新时传 None"),
+    elevation: Optional[float] = Field(
+        default=None, description="节点高程(米)，不更新时传 None"
+    ),
+    depth_init: Optional[float] = Field(
+        default=None, description="初始水深(米)，不更新时传 None"
+    ),
+    depth_max: Optional[float] = Field(
+        default=None, description="最大水深(米)，不更新时传 None"
+    ),
+    depth_surcharge: Optional[float] = Field(
+        default=None, description="超载水深(米)，不更新时传 None"
+    ),
+    area_ponded: Optional[float] = Field(
+        default=None, description="积水面积(平方米)，不更新时传 None"
+    ),
+    has_inflow: Optional[bool] = Field(
+        default=None, description="是否有入流，不更新时传 None"
+    ),
+    timeseries_name: Optional[str] = Field(
+        default=None, description="入流时间序列名称，不更新时传 None"
+    ),
 ) -> Dict[str, Any]:
     """
     节点信息更新(更改)工具,通过节点ID更新指定节点的部分或全部信息。
@@ -184,7 +202,15 @@ async def update_junction_tool(
         "has_inflow": has_inflow,
         "timeseries_name": timeseries_name,
     }
-    updates_args = {k: v for k, v in updates_args.items() if v is not None}
+    # updates = {k: v for k, v in updates.items() if v is not None}
+    updates_args = {
+        k: (v.default if isinstance(v, FieldInfo) else v)
+        for k, v in updates_args.items()
+        if (
+            (not isinstance(v, FieldInfo) and v is not None)
+            or (isinstance(v, FieldInfo) and v.default is not None)
+        )
+    }
 
     if not updates_args:
         return Result.error(
@@ -213,16 +239,36 @@ async def update_junction_tool(
 @tool
 @with_result_exception_handler
 async def create_junction_tool(
-    name: str,
-    lon: float,
-    lat: float,
-    elevation: float = 0.0,
-    depth_init: float = 0.0,
-    depth_max: float = 9999.0,
-    depth_surcharge: float = 9999.0,
-    area_ponded: float = 0.0,
-    has_inflow: bool = False,
-    timeseries_name: str = "",
+    name: str = Field(
+        description="节点名称，必填，(需要从问题中提取,**不能由大模型生成默认值**,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)"
+    ),
+    lon: float = Field(
+        description="节点经度，必填，(需要从问题中提取,**不能由大模型生成默认值**,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)"
+    ),
+    lat: float = Field(
+        description="节点纬度，必填，(需要从问题中提取,**不能由大模型生成默认值**,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)"
+    ),
+    elevation: float = Field(
+        default=0.0, description="节点高程(米)，默认0.0，可选参数"
+    ),
+    depth_init: float = Field(
+        default=0.0, description="初始水深(米)，默认0.0，可选参数"
+    ),
+    depth_max: float = Field(
+        default=9999.0, description="最大水深(米)，默认9999.0，可选参数"
+    ),
+    depth_surcharge: float = Field(
+        default=9999.0, description="超载水深(米)，默认9999.0，可选参数"
+    ),
+    area_ponded: float = Field(
+        default=0.0, description="积水面积(平方米)，默认0.0，可选参数"
+    ),
+    has_inflow: bool = Field(
+        default=False, description="是否有入流，默认False，可选参数"
+    ),
+    timeseries_name: str = Field(
+        default="", description="入流时间序列名称，默认空字符串，可选参数"
+    ),
 ) -> Dict[str, Any]:
     """
     创建一个新的节点(Junction)。
@@ -232,7 +278,7 @@ async def create_junction_tool(
         - name: 节点名称 (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)
         - lon: 节点经度 (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)
         - lat: 节点纬度 (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)
-    可选参数:
+    可选参数（可选参数不必须传入）:
         - elevation: 节点高程,单位为米,默认 0.0
         - depth_init: 初始水深,单位为米,默认 0.0
         - depth_max: 最大水深,单位为米,默认 9999.0
@@ -265,9 +311,11 @@ async def create_junction_tool(
 
 @tool
 def delete_junction_tool(
-    junction_id: str,
-    confirm_question: str,
-    client_id: Annotated[str, InjectedState("client_id")],
+    junction_id: str = Field(description="要删除的节点ID，如 'J1'"),
+    confirm_question: str = Field(description="确认删除的提示问题，需带节点名称"),
+    client_id: Annotated[str, InjectedState("client_id")] = Field(
+        description="前端客户端ID，自动注入"
+    ),
 ) -> Dict[str, Any]:
     """删除指定节点.
 
@@ -282,6 +330,8 @@ def delete_junction_tool(
     """
     try:
         # 触发前端弹窗确认
+        # e.args[0][0]
+        # Interrupt(value={'function_name': 'showConfirmBoxUITool', 'args': {'confirm_question': '您确定要删除 J1 节点吗？'}}, id='2d237aeb7e9652840fd25df47e867def')
         frontend_feedback = interrupt(
             {
                 "function_name": "showConfirmBoxUITool",

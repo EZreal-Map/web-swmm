@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from pydantic import BaseModel, field_validator, model_validator
+from pydantic.fields import FieldInfo
 from typing import Literal, Union
 import numpy as np
 
@@ -47,6 +48,14 @@ class ConduitRequestModel(BaseModel):
     parameter_2: float = 20  # 断面低宽
     parameter_3: float = 0.5  # 断面左侧边坡
     parameter_4: float = 0.5  # 断面右侧边坡
+
+    @model_validator(mode="before")
+    def handle_fieldinfo_all(cls, values):
+        # 把所有 FieldInfo 替换为 default
+        for k, v in values.items():
+            if isinstance(v, FieldInfo):
+                values[k] = v.default
+        return values
 
     # 接收数据时:将 None 转换为 np.nan 或空字符串转换为 None
     @field_validator("transect", mode="before")

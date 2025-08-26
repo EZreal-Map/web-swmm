@@ -1,30 +1,39 @@
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, field_validator, model_validator, Field
+from pydantic.fields import FieldInfo
 from fastapi import HTTPException
 
 
 class JunctionModel(BaseModel):
     type: str = "junction"
-    name: str
-    lon: float
-    lat: float
-    elevation: float = 0.0
-    depth_init: float = 0.0
-    depth_max: float = 9999.0
-    depth_surcharge: float = 9999.0
-    area_ponded: float = 0.0
-    has_inflow: bool = False  # 是否有入流
-    timeseries_name: str = ""  # 入流时间序列名称
+    name: str = Field(description="节点名称")
+    lon: float = Field(description="经度")
+    lat: float = Field(description="纬度")
+    elevation: float = Field(default=0.0, description="高程")
+    depth_init: float = Field(default=0.0, description="初始水深")
+    depth_max: float = Field(default=9999.0, description="最大水深")
+    depth_surcharge: float = Field(default=9999.0, description="超额水深")
+    area_ponded: float = Field(default=0.0, description="积水面积")
+    has_inflow: bool = Field(default=False, description="是否有入流")
+    timeseries_name: str = Field(default="", description="入流时间序列")
+
+
+    @model_validator(mode="before")
+    def handle_fieldinfo_all(cls, values):
+        # 把所有 FieldInfo 替换为 default
+        for k, v in values.items():
+            if isinstance(v, FieldInfo):
+                values[k] = v.default
+        return values
 
     @field_validator("name", mode="before")
     def name_must_not_be_empty(cls, v):
-        if not v.strip():
+        if not isinstance(v, str) or not v.strip():
             raise HTTPException(
                 status_code=400,
                 detail="节点名称不能为空",
             )
         return v
 
-    # 检查经纬度范围和其他字段为正
     @field_validator("lon", mode="before")
     def check_longitude(cls, value):
         if not isinstance(value, (int, float)):
@@ -50,19 +59,14 @@ class JunctionModel(BaseModel):
         mode="before",
     )
     def check_positive(cls, value, info):
-        # field_name 的别名
-        if info.field_name == "elevation":
-            field_name_alias = "高程"
-        elif info.field_name == "depth_max":
-            field_name_alias = "最大水深"
-        elif info.field_name == "depth_init":
-            field_name_alias = "初始水深"
-        elif info.field_name == "depth_surcharge":
-            field_name_alias = "超额水深"
-        elif info.field_name == "area_ponded":
-            field_name_alias = "积水面积"
-        else:
-            field_name_alias = info.field_name
+        alias_map = {
+            "elevation": "高程",
+            "depth_max": "最大水深",
+            "depth_init": "初始水深",
+            "depth_surcharge": "超额水深",
+            "area_ponded": "积水面积",
+        }
+        field_name_alias = alias_map.get(info.field_name, info.field_name)
 
         if not isinstance(value, (int, float)):
             raise HTTPException(
@@ -78,7 +82,6 @@ class JunctionModel(BaseModel):
 
     @model_validator(mode="before")
     def check_timeseries_name(cls, values):
-        # 如果 has_inflow 为 True,timeseries_name 不能为空
         if values.get("has_inflow") and not values.get("timeseries_name"):
             raise HTTPException(
                 status_code=400,

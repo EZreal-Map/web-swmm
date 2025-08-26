@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Literal
 from fastapi import HTTPException
+from pydantic.fields import FieldInfo
 
 
 class SubCatchmentModel(BaseModel):
@@ -16,6 +17,14 @@ class SubCatchmentModel(BaseModel):
     imperviousness: float = Field(25.0, description="子汇水区的不透水率百分比")
     width: float = Field(500.0, description="子汇水区的特征宽度(单位:英尺或米)")
     slope: float = Field(0.5, description="子汇水区坡度(百分比)")
+
+    @model_validator(mode="before")
+    def handle_fieldinfo_all(cls, values):
+        # 把所有 FieldInfo 替换为 default
+        for k, v in values.items():
+            if isinstance(v, FieldInfo):
+                values[k] = v.default
+        return values
 
     @field_validator("rain_gage", "outlet", mode="before")
     def validate_non_empty(cls, v, info):
@@ -82,6 +91,14 @@ class SubAreaModel(BaseModel):
         100.0, description="从一种子区径流流向另一种子区的百分比 (演算百分比)"
     )
 
+    @model_validator(mode="before")
+    def handle_fieldinfo_all(cls, values):
+        # 把所有 FieldInfo 替换为 default
+        for k, v in values.items():
+            if isinstance(v, FieldInfo):
+                values[k] = v.default
+        return values
+
     @field_validator("pct_zero", "pct_routed", mode="before")
     def validate_percentage(cls, v):
         if not (0 <= v <= 100):
@@ -136,6 +153,14 @@ class InfiltrationModel(BaseModel):
     decay: float = Field(4.0, description="霍顿曲线衰减常数(1/hr)")
     time_dry: float = Field(7.0, description="土壤完全饱和后干燥时间(天)")
     volume_max: float = Field(0.0, description="最大入渗体积(单位mm,若无则为0)")
+
+    @model_validator(mode="before")
+    def handle_fieldinfo_all(cls, values):
+        # 把所有 FieldInfo 替换为 default
+        for k, v in values.items():
+            if isinstance(v, FieldInfo):
+                values[k] = v.default
+        return values
 
     @field_validator(
         "rate_max", "rate_min", "decay", "time_dry", "volume_max", mode="before"

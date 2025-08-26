@@ -2,16 +2,16 @@ import { findEntityByName, flyToEntity } from '@/utils/entity.js'
 import { initEntities } from '@/utils/useCesium.js'
 import { useViewerStore } from '@/stores/viewer'
 
-export const flyToEntityByNameTool = async (name) => {
+export const flyToEntityByNameTool = async ({ entity_name: entityName }) => {
   const viewerStore = useViewerStore()
-  const { entity, cartesian, typeMessageName } = findEntityByName(viewerStore.viewer, name)
+  const { entity, cartesian, typeMessageName } = findEntityByName(viewerStore.viewer, entityName)
 
   if (entity && cartesian) {
     flyToEntity(viewerStore, entity, cartesian)
-    console.log('已找到实体：', name, '类型：', typeMessageName)
-    ElMessage.success('已找到' + typeMessageName + '：' + name)
+    console.log('已找到实体：', entityName, '类型：', typeMessageName)
+    ElMessage.success('已找到' + typeMessageName + '：' + entityName)
   } else {
-    throw new Error('未找到实体：' + name)
+    throw new Error('未找到实体：' + entityName)
   }
 }
 

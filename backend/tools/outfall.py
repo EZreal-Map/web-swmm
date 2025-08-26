@@ -1,5 +1,6 @@
 from langchain_core.tools import tool
 from typing import Dict, Any, Optional
+from pydantic import Field
 from schemas.outfall import OutfallModel
 import asyncio
 from utils.logger import tools_logger
@@ -11,6 +12,7 @@ from utils.agent.websocket_manager import ChatMessageSendHandler
 from schemas.result import Result
 from utils.utils import with_result_exception_handler
 from fastapi import HTTPException
+from pydantic.fields import FieldInfo
 
 from apis.outfall import (
     get_outfalls,
@@ -68,13 +70,19 @@ async def get_outfalls_tool() -> str:
 @tool
 @with_result_exception_handler
 async def update_outfall_tool(
-    outfall_id: str,
-    name: Optional[str] = None,
-    lon: Optional[float] = None,
-    lat: Optional[float] = None,
-    elevation: Optional[float] = None,
-    kind: Optional[str] = None,
-    data: Optional[float] = None,
+    outfall_id: str = Field(description="要更新的出口ID，如 'O1'"),
+    name: Optional[str] = Field(default=None, description="出口名称，不更新时传 None"),
+    lon: Optional[float] = Field(default=None, description="出口经度，不更新时传 None"),
+    lat: Optional[float] = Field(default=None, description="出口纬度，不更新时传 None"),
+    elevation: Optional[float] = Field(
+        default=None, description="出口高程(米)，不更新时传 None"
+    ),
+    kind: Optional[str] = Field(
+        default=None, description="出流类型(FREE、NORMAL、FIXED)，不更新时传 None"
+    ),
+    data: Optional[float] = Field(
+        default=None, description="固定水位值，仅当kind为FIXED时有效，不更新时传 None"
+    ),
 ) -> Dict[str, Any]:
     """
     出口信息更新(更改)工具,通过出口ID更新指定出口的部分或全部信息。
@@ -130,7 +138,7 @@ async def update_outfall_tool(
         - 当kind为FIXED时,data字段为必填项；当kind为FREE或NORMAL时,data字段会被忽略
     """
     # 收集所有非 None 的参数
-    updates = {
+    updates_args = {
         "name": name,
         "lon": lon,
         "lat": lat,
@@ -138,9 +146,17 @@ async def update_outfall_tool(
         "kind": kind,
         "data": data,
     }
-    updates = {k: v for k, v in updates.items() if v is not None}
+    # updates = {k: v for k, v in updates.items() if v is not None}
+    updates_args = {
+        k: (v.default if isinstance(v, FieldInfo) else v)
+        for k, v in updates_args.items()
+        if (
+            (not isinstance(v, FieldInfo) and v is not None)
+            or (isinstance(v, FieldInfo) and v.default is not None)
+        )
+    }
 
-    if not updates:
+    if not updates_args:
         return Result.error(
             message="更新参数不能为空,请提供至少一个需要更新的字段"
         ).model_dump()
@@ -164,7 +180,7 @@ async def update_outfall_tool(
     current_data = current_outfall.model_dump()
 
     # 合并更新参数
-    updated_data = {**current_data, **updates}
+    updated_data = {**current_data, **updates_args}
 
     # 构造 OutfallModel 对象
     outfall_update = OutfallModel(**updated_data)
@@ -173,19 +189,32 @@ async def update_outfall_tool(
     result = await update_outfall(outfall_id, outfall_update)
     return Result.success_result(
         message=result.get("message", "更新出口成功"),
-        data={"updated_args": updates},
+        data={"updated_args": updates_args},
     ).model_dump()
 
 
 @tool
 @with_result_exception_handler
 async def create_outfall_tool(
-    name: str,
-    lon: float,
-    lat: float,
-    elevation: float = 0.0,
-    kind: str = "FREE",
-    data: Optional[float] = None,
+    name: str = Field(
+        description="出口名称，必填，(需要从问题中提取,**不能由大模型生成默认值**,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)"
+    ),
+    lon: float = Field(
+        description="出口经度，必填，(需要从问题中提取,**不能由大模型生成默认值**,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)"
+    ),
+    lat: float = Field(
+        description="出口纬度，必填，(需要从问题中提取,**不能由大模型生成默认值**,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)"
+    ),
+    elevation: float = Field(
+        default=0.0, description="出口高程(米)，默认0.0，可选参数"
+    ),
+    kind: str = Field(
+        default="FREE", description="出流类型，FREE/NORMAL/FIXED，默认FREE，可选参数"
+    ),
+    data: Optional[float] = Field(
+        default=None,
+        description="固定水位值，仅当kind为FIXED时有效，默认None，可选参数",
+    ),
 ) -> Dict[str, Any]:
     """
     创建一个新的出口(Outfall)。
@@ -195,7 +224,7 @@ async def create_outfall_tool(
         - name: 出口名称 (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)
         - lon: 出口经度 (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)
         - lat: 出口纬度 (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)
-    可选参数:
+    可选参数（可选参数不必须传入）:
         - elevation: 出口高程,单位为米,默认 0.0
         - kind: 出流类型,可选值为 FREE、NORMAL、FIXED,默认 FREE
         - data: 固定水位值,仅当kind为FIXED时有效,默认 None
@@ -221,9 +250,11 @@ async def create_outfall_tool(
 
 @tool
 def delete_outfall_tool(
-    outfall_id: str,
-    confirm_question: str,
-    client_id: Annotated[str, InjectedState("client_id")],
+    outfall_id: str = Field(description="要删除的出口ID，如 'O1'"),
+    confirm_question: str = Field(description="确认删除的提示问题，需带出口名称"),
+    client_id: Annotated[str, InjectedState("client_id")] = Field(
+        description="前端客户端ID，自动注入"
+    ),
 ) -> Dict[str, Any]:
     """删除指定出口.
 

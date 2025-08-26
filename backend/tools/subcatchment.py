@@ -1,5 +1,6 @@
 from langchain_core.tools import tool
 from typing import List, Dict, Any, Optional
+from pydantic import Field
 from schemas.subcatchment import SubCatchmentModel, PolygonModel
 import asyncio
 from utils.logger import tools_logger
@@ -11,6 +12,7 @@ from langgraph.errors import GraphInterrupt
 from fastapi import HTTPException
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from utils.utils import with_result_exception_handler
+from pydantic.fields import FieldInfo
 
 from apis.subcatchment import (
     get_subcatchments,
@@ -60,7 +62,9 @@ async def get_subcatchments_tool() -> str:
 
 @tool
 @with_result_exception_handler
-async def batch_get_subcatchments_by_names_tool(names: List[str]):
+async def batch_get_subcatchments_by_names_tool(
+    names: List[str] = Field(description="子汇水区名称列表，如 ['S1', 'S2']"),
+):
     """
     子汇水区信息批量获取工具,通过名称列表批量获取子汇水区的详细信息。
 
@@ -81,14 +85,22 @@ async def batch_get_subcatchments_by_names_tool(names: List[str]):
 @tool
 @with_result_exception_handler
 async def update_subcatchment_tool(
-    subcatchment_id: str,
-    name: Optional[str] = None,
-    rain_gage: Optional[str] = None,
-    outlet: Optional[str] = None,
-    area: Optional[float] = None,
-    imperviousness: Optional[float] = None,
-    width: Optional[float] = None,
-    slope: Optional[float] = None,
+    subcatchment_id: str = Field(description="要更新的子汇水区ID，如 'S1'"),
+    name: Optional[str] = Field(
+        default=None, description="子汇水区名称，不更新时传 None"
+    ),
+    rain_gage: Optional[str] = Field(
+        default=None, description="雨量计，不更新时传 None"
+    ),
+    outlet: Optional[str] = Field(default=None, description="出水口，不更新时传 None"),
+    area: Optional[float] = Field(default=None, description="面积，不更新时传 None"),
+    imperviousness: Optional[float] = Field(
+        default=None, description="不透水率，不更新时传 None"
+    ),
+    width: Optional[float] = Field(
+        default=None, description="特征宽度，不更新时传 None"
+    ),
+    slope: Optional[float] = Field(default=None, description="坡度，不更新时传 None"),
 ) -> Dict[str, Any]:
     """
     子汇水区信息更新工具,通过ID更新指定子汇水区的部分或全部信息。
@@ -118,7 +130,15 @@ async def update_subcatchment_tool(
         "width": width,
         "slope": slope,
     }
-    updates_args = {k: v for k, v in updates_args.items() if v is not None}
+    # updates = {k: v for k, v in updates.items() if v is not None}
+    updates_args = {
+        k: (v.default if isinstance(v, FieldInfo) else v)
+        for k, v in updates_args.items()
+        if (
+            (not isinstance(v, FieldInfo) and v is not None)
+            or (isinstance(v, FieldInfo) and v.default is not None)
+        )
+    }
     if not updates_args:
         return Result.error(
             message="更新参数不能为空,请提供至少一个需要更新的字段"
@@ -143,8 +163,12 @@ async def update_subcatchment_tool(
 @tool
 @with_result_exception_handler
 async def create_subcatchment_tool(
-    subcatchment: str,
-    polygon: list,
+    subcatchment: str = Field(
+        description="子汇水区名称，必填，，(需要从问题中提取,**不能由大模型生成默认值**,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)"
+    ),
+    polygon: list = Field(
+        description="边界坐标，必填，格式为[(x1, y1), (x2, y2), ...]，，(需要从问题中提取,**不能由大模型生成默认值**,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)"
+    ),
 ) -> Dict[str, Any]:
     """
     创建一个新的子汇水区。
@@ -167,9 +191,11 @@ async def create_subcatchment_tool(
 
 @tool
 def delete_subcatchment_tool(
-    subcatchment_id: str,
-    confirm_question: str,
-    client_id: Annotated[str, InjectedState("client_id")],
+    subcatchment_id: str = Field(description="要删除的子汇水区ID，如 'S1'"),
+    confirm_question: str = Field(description="确认删除的提示问题，需带子汇水区名称"),
+    client_id: Annotated[str, InjectedState("client_id")] = Field(
+        description="前端客户端ID，自动注入"
+    ),
 ) -> Dict[str, Any]:
     """
     删除指定子汇水区。

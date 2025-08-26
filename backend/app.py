@@ -24,13 +24,13 @@ from apis.show import showRouter
 async def lifespan(app: FastAPI):
     app_logger.info("正在启动后端API服务...")
     # 初始化异步全局StoreManager(异步)
-    await AsyncStoreManager.init()
+    await AsyncStoreManager.init()  # (不要Agent功能，想要不报错，可以注释掉)
     # 初始Graph实例
-    GraphInstance.init()
+    GraphInstance.init()  # (不要Agent功能，想要不报错，可以注释掉)
     yield
     app_logger.info("正在关闭后端API服务...")
     # 关闭异步全局StoreManager
-    await AsyncStoreManager.close()
+    await AsyncStoreManager.close()  # (不要Agent功能，想要不报错，可以注释掉)
 
 
 application = FastAPI(

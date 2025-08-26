@@ -1,19 +1,23 @@
-from pydantic import BaseModel, root_validator, field_validator
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 from fastapi import HTTPException
 from enum import Enum
 from utils.swmm_constant import RAINGAGE_DEFAULT_INTERVAL
+from pydantic import model_validator
 
 
 class TimeSeriesModel(BaseModel):
     name: str
     data: list[tuple[datetime, float]]
 
-    # 定义根验证器,确保data字段为空时设置为默认值
-    @root_validator(pre=True)
+    # Pydantic v2: 定义模型验证器，确保data字段为空时设置为默认值
+
+    @model_validator(mode="before")
     def set_default_data(cls, values):
         data = values.get("data")
         if not data:  # 如果data为空,包括None、""、[]等
+            from datetime import datetime
+
             default_time = datetime.now()
             values["data"] = [(default_time, 10.0)]  # 设置默认数据
         return values

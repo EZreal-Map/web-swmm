@@ -223,7 +223,7 @@ web-swmm/
    pnpm dev
    ```
 
-前端默认运行在 `http://localhost:5173`，后端运行在 `http://localhost:8080`。
+前端默认运行在 `http://localhost:5000`，后端运行在 `http://localhost:8080`。
 
 ---
 
@@ -233,7 +233,7 @@ web-swmm/
 
 1. **修改 backend `.env`**
 
-   ```json
+   ```bash
    # 数据库配置（指向docker容器的postgres)
    DB_HOST=postgres
    DB_PORT=5432
@@ -255,7 +255,7 @@ web-swmm/
 
 4. **配置 docker 挂载文件**
 
-   ```json
+   ```bash
    docker-volumes/
    ├── nginx/						 # 挂载 nginx 配置目录
    │   ├── html/                      # 前端静态文件目录

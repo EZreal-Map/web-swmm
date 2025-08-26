@@ -4,7 +4,7 @@ from typing import Optional, Annotated, Literal, Type, Union
 from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.prebuilt import ToolNode
 from utils.logger import agent_logger
 from utils.agent.llm_manager import create_openai_llm
@@ -12,8 +12,10 @@ from utils.agent.serial_tool_node import SerialToolNode
 from utils.agent.async_store_manager import AsyncStoreManager
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from langgraph.types import Send
+from pydantic import Field
 
 from tools.webgis import fly_to_entity_by_name_tool, init_entities_tool
+from tools.webui import human_info_completion_tool
 from tools.junction import (
     get_junctions_tool,
     batch_get_junctions_by_ids_tool,
@@ -48,11 +50,26 @@ static_dir = os.path.join("static", "agent_graph")
 
 # 定义聊天机器人的状态
 class State(TypedDict):
-    messages: Annotated[list, add_messages]
+    messages: Annotated[
+        list, add_messages
+    ]  # 消息记录（HumanMessage, AIMessage，ToolMessage）
     client_id: Optional[str]  # 客户端连接ID
     query: Optional[str]  # 当前要解决的问题
     need_backend: Optional[bool]  # 是否需要执行后端工具
     need_frontend: Optional[bool]  # 是否需要执行前端工具
+    retry_count: Optional[int]  # 工具重试次数
+    next_step: Optional[str]  # 下一步执行节点名称
+
+
+class CheckOutput(TypedDict):
+    query: str = Field(
+        description="只在检测到最近调用了 human_info_completion_tool 工具时，将补充的信息与原始问题合并为一个新的完整问题，其它情况下保持原问题不变。"
+    )
+    next_step: Literal["backend_tools", "frontend_tools", "summary_response"] = Field(
+        description="下一步流程跳转指令节点名"
+    )
+    reason: str = Field(description="简要说明选择该步骤的原因")
+    retry_count: int = Field(description="工具重试次数")
 
 
 class GraphInstance:
@@ -99,6 +116,7 @@ class GraphInstance:
                 delete_conduit_tool,
                 delete_subcatchment_tool,
                 query_calculate_result_tool,
+                human_info_completion_tool,
             ]
             HIL_backend_tools_name = [
                 tool.name for tool in HIL_backend_tools
@@ -120,10 +138,11 @@ class GraphInstance:
             frontend_tools = normal_frontend_tools + HIL_frontend_tools
 
             # 创建LLM实例
-            intent_llm = llm  # TODO:有可能加上 with_structured_output,但是就会失去流式输出,但是结果更加优雅,现在用 in 判断也没有出过问题
+            intent_llm = llm
             backend_llm = llm.bind_tools(tools=backend_tools)
+            check_llm = llm.with_structured_output(CheckOutput)
             frontend_llm = llm.bind_tools(tools=frontend_tools)
-            chatbot_llm = llm  # 纯聊天用的LLM
+            summary_llm = llm  # 纯聊天用的LLM
 
             # 0. 问题改写节点:结合记忆补全用户问题
             async def question_rewrite_node(state: State) -> dict:
@@ -155,8 +174,19 @@ class GraphInstance:
 1. 判断最新用户输入是一个“问题”还是“陈述/补充信息/名词短语”。
    - 如果是“问题”,请检查并补全所有指代（如“这个节点”、“它”等）,使其成为无歧义的完整问题。
    - 如果是“陈述/补充信息/名词短语”,请结合最近的AI追问和更早的用户提问,将补充信息合并,还原为原始意图的完整新问题。
-2. 输出时,禁止无端联想,参考上下文提供的信息。
+2. 输出时,禁止无端联想,参考上下文提供的信息,不要修改问题本身的意义。
 
+
+当前最新用户输入：
+{user_query}
+
+最近3次用户消息（HumanMessage）：
+{[msg.content for msg in recent_human_msgs] if recent_human_msgs else '无'}
+
+最近一次AI回复（AIMessage）：
+{recent_ai_msg.content if recent_ai_msg else '无'}
+
+请严格按上述要求输出补全后的问题（如无补全则原样输出）：
 【举例】
 - 上下文：
         用户：创建节点J100
@@ -178,17 +208,6 @@ class GraphInstance:
         AI：(历史有“J1节点”)
         用户：这个节点的流量是多少？
     输出：J1节点的流量是多少？
-
-当前最新用户输入：
-{user_query}
-
-最近3次用户消息（HumanMessage）：
-{[msg.content for msg in recent_human_msgs] if recent_human_msgs else '无'}
-
-最近一次AI回复（AIMessage）：
-{recent_ai_msg.content if recent_ai_msg else '无'}
-
-请严格按上述要求输出补全后的问题（如无补全则原样输出）：
 """
                 # 用 LLM 生成改写后的问题
                 # 这里假设 intent_llm 已经初始化
@@ -200,7 +219,7 @@ class GraphInstance:
                 )
 
                 # 更新 state 的 query 字段
-                return {"query": new_query}
+                return {"query": new_query, "retry_count": 0}
 
             # 1. 意图识别节点:分析并标记需要的工具类型
             async def intent_classifier_node(state: State) -> dict:
@@ -229,11 +248,6 @@ class GraphInstance:
 - 如果问题需要让用户在界面上看到变化(如定位到某个节点、在地图上显示结果等),则需要该工具。  
 - 注意:如果只是查询数据并将结果直接返回给用户(不要求地图或界面变化),则**不需要** frontend_tools。
 - 但凡涉及到数据的**更新,删除,增加**操作,都需要 frontend_tools,因为前端界面也要响应的变化更新。
-
-3. chatbot  
-- 用于 **普通对话、解释说明、总结回答** 等不需要操作数据或界面的场景。  
-- 当用户只提问概念性问题、流程指导,或不涉及数据和界面操作时,选该工具。  
-
 ---
 
 ### 输出要求  
@@ -330,17 +344,29 @@ class GraphInstance:
                 await ChatMessageSendHandler.send_step(
                     state.get("client_id", ""), "[后端决策] 正在分析后端工具调用..."
                 )
+                # 获取最后一轮消息
+                recent_dialogue_round = GraphInstance.get_split_dialogue_rounds(
+                    state.get("messages", []), 1
+                )
                 # TODO:这里需要更改,根据之后处理 memory 引入数据库后,更加优雅的处理
                 # 将历史消息与意图prompt结合
                 # 构建后端专用的消息,让后端LLM分析问题 (参考下面的frontend_messages节点的分析)
-                backend_messages = [
-                    HumanMessage(
-                        content=f"""请根据以下问题一次性调用合适的后端工具调用:{user_query}"""
-                    )
-                ]
+                retry_count = state.get("retry_count", 3)
+                backend_prompt = f"""你是一个SWMM智能助手，请根据用户问题和最近一次工具执行结果，智能决定如何调用后端工具。
+
+                - 用户问题: {user_query}
+                - 最近一轮对话和工具执行结果: {recent_dialogue_round}
+                - 当前重试次数: {retry_count}
+
+                【要求】
+                1. 如果信息不足，调用human_info_completion_tool工具，要求用户补全缺失参数。
+                2. 如果信息充足，直接生成合适的工具调用。
+                3. 如果你发现和上一次错误完全一样，尝试使用不同的参数或方法，或者调用human_info_completion_tool工具。
+                4. 输出内容要简洁明了，避免重复无效尝试，主要是通过调用工具来解决问题，除非没有合适的工具可以调用的时候，回复说明。
+                """
 
                 # 后端LLM生成工具调用
-                backend_response = await backend_llm.ainvoke(backend_messages)
+                backend_response = await backend_llm.ainvoke(backend_prompt)
                 agent_logger.info(
                     f"{state.get('client_id')} - 后端工具节点LLM响应: {backend_response}"
                 )
@@ -349,12 +375,12 @@ class GraphInstance:
                     state.get("client_id"), backend_response, True
                 )
                 # 返回包含工具调用的AI消息
-                return {"messages": [backend_response]}
+                return {"messages": [backend_response], "retry_count": retry_count}
 
             # 2.1 路由函数:决定是否执行后端工具
             async def route_backend_tools(
                 state: State,
-            ) -> Literal["backend_tool_execution", "frontend_tools"]:
+            ) -> Literal["backend_tool_execution", "check_node"]:
                 """
                 决定是否执行后端工具
                 如果最后一条消息有tool_calls,则执行工具；否则跳过
@@ -367,7 +393,8 @@ class GraphInstance:
                     agent_logger.warning(
                         f"{state.get('client_id')} - state格式为空或者不正确,没有找到消息用于工具路由: state={state}"
                     )
-                    return Send("frontend_tools", state)
+                    # 后端LLM没有生成工具调用,跳转到检查节点
+                    return Send("check_node", state)
 
                 if hasattr(ai_message, "tool_calls") and len(ai_message.tool_calls) > 0:
                     agent_logger.debug(
@@ -392,6 +419,7 @@ class GraphInstance:
                                 {
                                     "messages": [split_messages[0]],
                                     "client_id": state["client_id"],
+                                    "query": state["query"],
                                     "human_in_the_loop": False,
                                 },
                             )
@@ -404,6 +432,7 @@ class GraphInstance:
                                 {
                                     "messages": [split_messages[1]],
                                     "client_id": state["client_id"],
+                                    "query": state["query"],
                                     "human_in_the_loop": True,
                                 },
                             )
@@ -411,8 +440,8 @@ class GraphInstance:
                     # 返回调用下一个节点执行工具
                     return send_list
                 else:
-                    # 后端LLM没有生成工具调用,跳转到前端工具节点
-                    return Send("frontend_tools", state)
+                    # 后端LLM没有生成工具调用,跳转到检查节点
+                    return Send("check_node", state)
 
             # 2.2 后端工具执行节点
             # Send 到这个节点,分为并行(toolnode)(自动执行)和 (serialtoolnode)(人类参与)
@@ -438,6 +467,93 @@ class GraphInstance:
                         f"{send_state.get('client_id')} - 后端工具(自动执行)执行结果: {result}"
                     )
                     return result
+
+            # 2.3 后端工具检查节点
+            async def check_node(
+                state: State,
+            ) -> dict:
+                """后端工具检查节点:检查后端工具执行状态"""
+                await ChatMessageSendHandler.send_step(
+                    state.get("client_id", ""),
+                    f"[工具检查] AI正在检查后端工具执行状态...",
+                )
+                agent_logger.debug(
+                    f"{state.get('client_id')} - 后端工具检查节点: messages: {state.get('messages', [])}"
+                )
+
+                user_query = state.get("query", "")
+                # 获取最后一轮消息
+                recent_dialogue_round = GraphInstance.get_split_dialogue_rounds(
+                    state.get("messages", []), 1
+                )
+                dialogue_tool_message = GraphInstance.get_recent_messages_by_type(
+                    recent_dialogue_round, 10, ToolMessage
+                )
+                # 构造 prompt
+                check_prompt = f"""
+你是智能流程控制助手。你的任务是根据对话轮次、当前问题、原始意图（是否需要后端/前端工具）、工具执行结果以及 retry 次数，决定下一步流程。
+
+State 信息如下：
+- original_query: "{user_query}"
+- need_backend: {state.get("need_backend")}
+- need_frontend: {state.get("need_frontend")}
+- dialogue_tool_message: {dialogue_tool_message}
+- retry_count: {state.get("retry_count", 3)}
+
+规则：
+步骤一. 判断是否存在 human_info_completion_tool 的调用：
+  - 如果有，并且提供了有效的补充信息，则合并补充信息与 original_query 得到新的 query；
+    同时返回 next_step=backend_tools（因为需要带上新 query 重新执行）（retry_count<=3）。
+  - 如果没有 human_info_completion_tool 调用，query 保持不变，进入步骤二。
+
+步骤二. 阅读 dialogue_tool_message，判断后端工具执行是否成功：
+  - 如果执行成功：
+      * 如果 need_frontend=True，则 next_step=frontend_tools。
+      * 如果 need_frontend=False，则 next_step=summary_response。
+  - 如果执行失败：
+      * 无论 need_frontend 值是多少，next_step=summary_response。
+
+⚠️ 额外要求：
+- 合并 query 的条件：只有在最近调用了 `human_info_completion_tool` 并返回了有效补充信息时，才将补充信息与原始问题合并为新的完整问题；其它情况下保持原始问题不变。
+- query 合并举例：
+    举例（信息补充）：
+        原始问题：我要创建渠道C123。
+        补充信息：起始点J12，终止点J15。
+        合并结果：我要创建渠道C123，起始点J12，终止点J15。
+请严格输出以下字段：
+- query: （若有补充信息则合并，否则保持原问题不变）
+- next_step: backend_tools / frontend_tools / summary_response
+- reason: 简短说明你的判断逻辑（举例：存在有效的 human_info_completion_tool 调用，合并补充信息与原始问题，需重新执行后端工具。）
+- retry_count: {state.get("retry_count", 0)}
+"""
+                # 用结构化输出 LLM 获取判断结果
+                check_result = await check_llm.ainvoke(
+                    [HumanMessage(content=check_prompt)]
+                )
+                agent_logger.info(f"后端工具检查节点LLM响应: {check_result}")
+
+                next_step = check_result.get("next_step")
+                if next_step == "backend_tools":
+                    state["retry_count"] = state.get("retry_count", 0) + 1
+                return {
+                    "query": check_result.get("query", user_query),
+                    "next_step": next_step,
+                    "retry_count": state.get("retry_count", 0),
+                }
+
+            # 2.4 后端检查点路由
+            async def check_route(
+                state: State,
+            ) -> Literal["backend_tools", "frontend_tools", "summary_response"]:
+                next_step = state.get("next_step", "summary_response")
+                if next_step not in [
+                    "backend_tools",
+                    "frontend_tools",
+                    "summary_response",
+                ]:
+                    return "summary_response"
+                else:
+                    return next_step
 
             # 3. 前端工具节点:根据标记决定是否生成工具调用
             async def frontend_tools_node(state: State) -> dict:
@@ -499,9 +615,9 @@ class GraphInstance:
             # 3.1 路由函数:决定是否执行前端工具
             async def route_frontend_tools(
                 state: State,
-            ) -> Literal["frontend_tool_execution", "chatbot_response"]:
+            ) -> Literal["frontend_tool_execution", "summary_response"]:
                 """
-                根据最后上一个节点的消息决定是否执行工具:执行工具或跳转到下一个节点(chatbot_response)
+                根据最后上一个节点的消息决定是否执行工具:执行工具或跳转到下一个节点(summary_response)
                 """
                 if isinstance(state, list):
                     ai_message = state[-1]
@@ -509,7 +625,7 @@ class GraphInstance:
                     ai_message = messages[-1]
                 else:
                     agent_logger.warning("没有找到消息用于工具路由")
-                    return Send("chatbot_response", state)
+                    return Send("summary_response", state)
 
                 if hasattr(ai_message, "tool_calls") and len(ai_message.tool_calls) > 0:
                     agent_logger.debug(
@@ -538,6 +654,7 @@ class GraphInstance:
                                 {
                                     "messages": [split_messages[0]],
                                     "client_id": state["client_id"],
+                                    "query": state["query"],
                                     "human_in_the_loop": False,
                                 },
                             )
@@ -550,6 +667,7 @@ class GraphInstance:
                                 {
                                     "messages": [split_messages[1]],
                                     "client_id": state["client_id"],
+                                    "query": state["query"],
                                     "human_in_the_loop": True,
                                 },
                             )
@@ -558,7 +676,7 @@ class GraphInstance:
                     return send_list
                 else:
                     # 前端LLM没有生成工具调用,跳转到总结节点
-                    return Send("chatbot_response", state)
+                    return Send("summary_response", state)
 
             # 3.2 前端工具执行节点
             # Send 到这个节点,分为并行(toolnode)(自动执行)和 (serialtoolnode)(人类参与)
@@ -587,7 +705,7 @@ class GraphInstance:
                     return result
 
             # 4. 最终总结节点
-            async def chatbot_response(state: State) -> dict:
+            async def summary_response(state: State) -> dict:
                 """最终总结节点:基于所有执行结果生成总结回答"""
                 await ChatMessageSendHandler.send_step(
                     state.get("client_id", ""),
@@ -595,11 +713,6 @@ class GraphInstance:
                 )
                 agent_logger.info(f"{state.get('client_id')} - 进入总结节点")
                 user_query = state.get("query", "")
-                if not user_query:
-                    agent_logger.warning(
-                        f"{state.get('client_id')} - 总结节点没有收到用户问题"
-                    )
-                    return {"messages": []}
 
                 # 基于最近一轮消息生成总结 (包含用户问题和所有工具执行结果)
                 recent_dialogue_round = GraphInstance.get_split_dialogue_rounds(
@@ -631,7 +744,7 @@ class GraphInstance:
                 ]
 
                 # 使用纯聊天LLM生成总结
-                response = await chatbot_llm.ainvoke(summary_messages)
+                response = await summary_llm.ainvoke(summary_messages)
                 agent_logger.info(
                     f"{state.get('client_id')} - 总结节点LLM响应: {response}"
                 )
@@ -645,23 +758,23 @@ class GraphInstance:
             graph_builder.add_node(
                 "backend_tool_execution", backend_tool_execution_node
             )
+            graph_builder.add_node("check_node", check_node)
             graph_builder.add_node("frontend_tools", frontend_tools_node)
             graph_builder.add_node(
                 "frontend_tool_execution", frontend_tool_execution_node
             )
-            graph_builder.add_node("chatbot_response", chatbot_response)
+            graph_builder.add_node("summary_response", summary_response)
 
             # 添加边 - 串行执行,每个工具分为决策和执行两步
             graph_builder.add_edge(START, "question_rewrite")
             graph_builder.add_edge("question_rewrite", "intent_classifier")
             graph_builder.add_edge("intent_classifier", "backend_tools")
             graph_builder.add_conditional_edges("backend_tools", route_backend_tools)
-            graph_builder.add_edge("backend_tool_execution", "frontend_tools")
-            graph_builder.add_conditional_edges(
-                "frontend_tools", route_frontend_tools, ["frontend_tool_execution"]
-            )
-            graph_builder.add_edge("frontend_tool_execution", "chatbot_response")
-            graph_builder.add_edge("chatbot_response", END)
+            graph_builder.add_edge("backend_tool_execution", "check_node")
+            graph_builder.add_conditional_edges("check_node", check_route)
+            graph_builder.add_conditional_edges("frontend_tools", route_frontend_tools)
+            graph_builder.add_edge("frontend_tool_execution", "summary_response")
+            graph_builder.add_edge("summary_response", END)
 
             # === 持久化存储 ===
             checkpointer = AsyncStoreManager.checkpointer
@@ -707,7 +820,11 @@ class GraphInstance:
 
     @staticmethod
     def get_recent_messages_by_type(
-        messages, n=1, msg_type: Union[Type[HumanMessage], Type[AIMessage]] = AIMessage
+        messages,
+        n=1,
+        msg_type: Union[
+            Type[HumanMessage], Type[AIMessage], Type[ToolMessage]
+        ] = AIMessage,
     ):
         """
         获取 messages 最近 n 条 HumanMessage 或 AIMessage,按原始顺序返回。
@@ -737,7 +854,7 @@ class GraphInstance:
         """
         将消息列表按 HumanMessage 分为多轮,每轮以 HumanMessage 开头。
         如果 n 不传递,返回全部轮次；
-        如果 n=1,返回最近 1 轮(最新的在最后)；
+        如果 n=1,返回最近 1 轮；
         如果 n>1,返回最近 n 轮,顺序与原始消息一致。
         返回:List[List[Message]]
         """

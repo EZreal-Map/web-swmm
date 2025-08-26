@@ -1,5 +1,6 @@
 from langchain_core.tools import tool
 from typing import List, Dict, Any, Optional
+from pydantic import Field
 from schemas.conduit import ConduitRequestModel
 import asyncio
 from utils.logger import tools_logger
@@ -11,6 +12,7 @@ from utils.agent.websocket_manager import ChatMessageSendHandler
 from schemas.result import Result
 from utils.utils import with_result_exception_handler
 from fastapi import HTTPException
+from pydantic.fields import FieldInfo
 
 from apis.conduit import (
     get_conduits,
@@ -69,7 +71,9 @@ async def get_conduits_tool() -> str:
 
 @tool
 @with_result_exception_handler
-async def batch_get_conduits_by_ids_tool(ids: List[str]):
+async def batch_get_conduits_by_ids_tool(
+    ids: List[str] = Field(description="渠道ID列表，如 ['C1', 'C2', 'C3']"),
+):
     """
     渠道信息批量获取工具,通过渠道ID列表批量获取渠道的详细信息。
 
@@ -115,18 +119,36 @@ async def batch_get_conduits_by_ids_tool(ids: List[str]):
 @tool
 @with_result_exception_handler
 async def update_conduit_tool(
-    conduit_id: str,
-    name: Optional[str] = None,
-    from_node: Optional[str] = None,
-    to_node: Optional[str] = None,
-    length: Optional[float] = None,
-    roughness: Optional[float] = None,
-    transect: Optional[str] = None,
-    shape: Optional[str] = None,
-    height: Optional[float] = None,
-    parameter_2: Optional[float] = None,
-    parameter_3: Optional[float] = None,
-    parameter_4: Optional[float] = None,
+    conduit_id: str = Field(description="要更新的渠道ID，如 'C1'"),
+    name: Optional[str] = Field(default=None, description="渠道名称，不更新时传 None"),
+    from_node: Optional[str] = Field(
+        default=None, description="起点节点，不更新时传 None"
+    ),
+    to_node: Optional[str] = Field(
+        default=None, description="终点节点，不更新时传 None"
+    ),
+    length: Optional[float] = Field(
+        default=None, description="渠道长度，不更新时传 None"
+    ),
+    roughness: Optional[float] = Field(
+        default=None, description="渠道糙率，不更新时传 None"
+    ),
+    transect: Optional[str] = Field(
+        default=None, description="断面引用，不更新时传 None"
+    ),
+    shape: Optional[str] = Field(default=None, description="断面形状，不更新时传 None"),
+    height: Optional[float] = Field(
+        default=None, description="断面高度，不更新时传 None"
+    ),
+    parameter_2: Optional[float] = Field(
+        default=None, description="断面底宽，不更新时传 None"
+    ),
+    parameter_3: Optional[float] = Field(
+        default=None, description="左侧边坡，不更新时传 None"
+    ),
+    parameter_4: Optional[float] = Field(
+        default=None, description="右侧边坡，不更新时传 None"
+    ),
 ) -> Dict[str, Any]:
     """
     渠道信息更新工具,通过渠道ID更新指定渠道的部分或全部信息。
@@ -158,7 +180,7 @@ async def update_conduit_tool(
         - 只需更新部分字段时,仅传递需要变更的参数。
     """
     # 合并参数
-    updates = {
+    updates_args = {
         "name": name,
         "from_node": from_node,
         "to_node": to_node,
@@ -171,7 +193,14 @@ async def update_conduit_tool(
         "parameter_3": parameter_3,
         "parameter_4": parameter_4,
     }
-    updates_args = {k: v for k, v in updates.items() if v is not None}
+    updates_args = {
+        k: (v.default if isinstance(v, FieldInfo) else v)
+        for k, v in updates_args.items()
+        if (
+            (not isinstance(v, FieldInfo) and v is not None)
+            or (isinstance(v, FieldInfo) and v.default is not None)
+        )
+    }
     if not updates_args:
         return Result.error(
             message="更新参数不能为空,请提供至少一个需要更新的字段"
@@ -196,17 +225,27 @@ async def update_conduit_tool(
 @tool
 @with_result_exception_handler
 async def create_conduit_tool(
-    name: str,
-    from_node: str,
-    to_node: str,
-    length: float = 100,
-    roughness: float = 0.01,
-    transect: Optional[str] = None,
-    shape: str = "TRAPEZOIDAL",
-    height: float = 10,
-    parameter_2: float = 20,
-    parameter_3: float = 0.5,
-    parameter_4: float = 0.5,
+    name: str = Field(
+        description="渠道名称，必填，(需要从问题中提取,**不能由大模型生成默认值**,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)"
+    ),
+    from_node: str = Field(
+        description="起点节点，必填，(需要从问题中提取,**不能由大模型生成默认值**,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)"
+    ),
+    to_node: str = Field(
+        description="终点节点，必填，(需要从问题中提取,**不能由大模型生成默认值**,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)"
+    ),
+    length: float = Field(default=100, description="渠道长度，默认100，可选参数"),
+    roughness: float = Field(default=0.01, description="渠道糙率，默认0.01，可选参数"),
+    transect: Optional[str] = Field(
+        default=None, description="断面引用，仅IRREGULAR时有意义，可选参数"
+    ),
+    shape: str = Field(
+        default="TRAPEZOIDAL", description="断面形状，默认TRAPEZOIDAL，可选参数"
+    ),
+    height: float = Field(default=10, description="断面高度，默认10，可选参数"),
+    parameter_2: float = Field(default=20, description="断面底宽，默认20，可选参数"),
+    parameter_3: float = Field(default=0.5, description="左侧边坡，默认0.5，可选参数"),
+    parameter_4: float = Field(default=0.5, description="右侧边坡，默认0.5，可选参数"),
 ) -> Dict[str, Any]:
     """
     创建一个新的渠道(Conduit)。
@@ -216,7 +255,7 @@ async def create_conduit_tool(
         - name: 渠道名称 (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)
         - from_node: 起点节点 (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)
         - to_node: 终点节点 (需要从问题中提取,不能由大模型生成默认值,**如果问题中没有,表示信息不全,无法创建,发送回复提醒用户提供**)
-    可选参数:
+    可选参数（可选参数不必须传入）:
         - length: 渠道长度,默认100
         - roughness: 渠道糙率,默认0.01
         - transect: 断面引用,仅IRREGULAR时有意义
@@ -251,9 +290,11 @@ async def create_conduit_tool(
 
 @tool
 def delete_conduit_tool(
-    conduit_id: str,
-    confirm_question: str,
-    client_id: Annotated[str, InjectedState("client_id")],
+    conduit_id: str = Field(description="要删除的渠道ID，如 'C1'"),
+    confirm_question: str = Field(description="确认删除的提示问题，需带渠道名称"),
+    client_id: Annotated[str, InjectedState("client_id")] = Field(
+        description="前端客户端ID，自动注入"
+    ),
 ) -> Dict[str, Any]:
     """删除指定渠道.
     通过渠道ID删除渠道,并清理关联的断面数据。

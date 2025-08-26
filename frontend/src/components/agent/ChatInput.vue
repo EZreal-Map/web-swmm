@@ -73,7 +73,7 @@ function adjustHeight() {
 // 监听输入@，唤起工具下拉
 function onInput() {
   adjustHeight()
-  const val = inputText.value
+  const val = inputText.value.trimEnd() // 去除末尾空格和换行
   showToolDropdown.value = val.endsWith('@')
 }
 

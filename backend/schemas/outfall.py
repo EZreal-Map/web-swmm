@@ -1,4 +1,5 @@
 from pydantic import BaseModel, model_validator, field_validator
+from pydantic.fields import FieldInfo
 from typing import Literal, Union
 from fastapi import HTTPException
 import numpy as np
@@ -14,6 +15,14 @@ class OutfallModel(BaseModel):
     # 仅在 kind 为 FIXED 时有效,才有一个水位值,否则都是np.nan
     data: Union[float, None] = None  # 水位值,默认是 None
     # route_to # 简化处理,默认出口不再继续指向下一个节点,出口为整个计算的终点
+
+    @model_validator(mode="before")
+    def handle_fieldinfo_all(cls, values):
+        # 把所有 FieldInfo 替换为 default
+        for k, v in values.items():
+            if isinstance(v, FieldInfo):
+                values[k] = v.default
+        return values
 
     @model_validator(mode="before")
     def check_data_required_for_FIXED(cls, values):

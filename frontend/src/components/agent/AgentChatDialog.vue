@@ -33,11 +33,7 @@
       <!-- 消息列表组件 -->
       <MessageList :messages="messages" :is-loading="isLoading" ref="messageListRef" />
       <!-- 输入框组件 -->
-      <ChatInput
-        v-model="input"
-        :disabled="!connected"
-        @send="sendMessage"
-      />
+      <ChatInput v-model="input" :disabled="!connected" @send="sendMessage" />
     </div>
 
     <!-- Resize handles -->
@@ -50,7 +46,7 @@
 <script setup>
 import { ref, reactive, onMounted, onBeforeUnmount, computed } from 'vue'
 import { flyToEntityByNameTool, initEntitiesTool } from '@/tools/webgis'
-import { showConfirmBoxUITool, showEchartsUITool } from '@/tools/webui'
+import { showConfirmBoxUITool, showEchartsUITool, showHumanInfoUITool } from '@/tools/webui'
 import MessageList from '@/components/agent/MessageList.vue'
 import ChatInput from '@/components/agent/ChatInput.vue'
 import { useAgentStore } from '@/stores/agent'
@@ -199,6 +195,7 @@ class MessageResponseHandler {
       initEntitiesTool,
       showConfirmBoxUITool,
       showEchartsUITool,
+      showHumanInfoUITool,
       // 可以继续添加其他可调用的函数
     }
   }
@@ -292,20 +289,19 @@ class MessageResponseHandler {
 
   // 重要
   async handleFunctionCall(data) {
-    const { function_name, args, success_msg, is_direct_feedback } = data
+    const { function_name, args, success_message, is_direct_feedback } = data
     try {
       const fn = this.functionMap[function_name]
 
       if (typeof fn === 'function') {
         // 1. 执行函数调用
-        // 将 args 对象的值作为参数数组传递
-        const functionArgs = args ? Object.values(args) : []
-        await fn(...functionArgs)
+        // 将 args 对象的值作为Object直接传递给fn，需要前后端字段大小写完全保存一直，顺序没有关系
+        await fn(args)
         // 2. 如果是直接反馈函数，就是可以直接运行得到反馈（回调），不要人工回调
         if (is_direct_feedback) {
-          // 2.2 如果 后端工具没有定义 success_msg，就使用默认 success_msg
+          // 2.2 如果 后端工具没有定义 success_message，就使用默认 success_message
           const successMsg =
-            success_msg || `已成功执行：${function_name}，参数：${JSON.stringify(args)}`
+            success_message || `已成功执行：${function_name}，参数：${JSON.stringify(args)}`
           messageSender.sendFeedbackMessage(successMsg)
           console.log('函数调用成功:', function_name, args)
         }

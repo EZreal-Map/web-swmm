@@ -22,6 +22,14 @@
             :entity-kind="item.kind"
             :variable-select="item.variable"
           />
+          <!-- 人工信息补充输入框 -->
+          <HumanInfoUI
+            v-else-if="item.active && item.type === 'human-info'"
+            :input-title="item.inputTitle"
+            :on-ok="item.onOk"
+            :on-cancel="item.onCancel"
+            v-model:inputValue="item.inputValue"
+          />
         </div>
       </div>
       <!-- 2. 其他消息类型显示原始文本 -->
@@ -36,6 +44,8 @@ import { computed } from 'vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import ConfirmBoxUI from '@/components/agent/ConfirmBoxUI.vue'
+import EchartsUI from '@/components/agent/EchartsUI.vue'
+import HumanInfoUI from '@/components/agent/HumanInfoUI.vue'
 
 // 配置 marked
 marked.setOptions({

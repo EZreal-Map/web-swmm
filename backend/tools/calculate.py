@@ -1,4 +1,5 @@
 from langchain_core.tools import tool
+from pydantic import Field
 from apis.calculate import query_entity_kind_select, query_calculate_result
 from utils.utils import with_result_exception_handler
 import asyncio
@@ -54,9 +55,11 @@ from typing_extensions import Annotated
 
 @tool
 def query_calculate_result_tool(
-    name: str,
-    variable_label: str,
-    client_id: Annotated[str, InjectedState("client_id")],
+    name: str = Field(description="对象名称（如节点名、管道名），必填"),
+    variable_label: str = Field(description="查询变量名称(中文)，必填"),
+    client_id: Annotated[str, InjectedState("client_id")] = Field(
+        description="前端客户端ID，自动注入"
+    ),
 ):
     """
     计算结果查询工具。
@@ -119,7 +122,6 @@ def query_calculate_result_tool(
                     "name": name,
                     "kind": kind,
                     "variable": variable,
-                    "success_message": success_message,
                 },
             }
         )
@@ -135,9 +137,9 @@ def query_calculate_result_tool(
                     "name": name,
                     "kind": kind,
                     "variable": variable,
-                    "success_message": success_message,
                 },
                 is_direct_feedback=True,
+                success_message=success_message,
             )
         )
         raise

@@ -229,7 +229,7 @@ async def create_conduit(conduit_data: ConduitRequestModel):
                 detail=f"创建失败,启点和终点已存在渠道,请检查节点名称是否正确",
             )
 
-    # 创建新渠道对象
+    # 1. 创建新渠道对象
     new_conduit = Conduit(
         name=conduit_data.name,
         from_node=conduit_data.from_node,
@@ -239,7 +239,7 @@ async def create_conduit(conduit_data: ConduitRequestModel):
     )
     inp_conduits[conduit_data.name] = new_conduit
 
-    # 创建新的断面信息
+    # 2. 创建新的断面信息
     new_xsection = CrossSection(
         link=conduit_data.name,
         transect=conduit_data.transect,

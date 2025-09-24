@@ -81,9 +81,6 @@ def delete_raingage(INP, timeseries_name: str):
     return True
 
 
-from swmm_api.input_file.sections.others import RainGage, Symbol
-
-
 def update_raingage(
     INP,
     timeseries_name: str,

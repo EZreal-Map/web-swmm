@@ -50,7 +50,7 @@ const getColorByValue = (value, min, max) => {
   normalizedValue = Math.min(Math.max(normalizedValue, 0.0), 1.0)
 
   // const colorStart = Cesium.Color.LIGHTBLUE
-  const colorStart = new Cesium.Color(0.2, 0.6, 0.8, 1.0) // 更深的浅蓝
+  const colorStart = new Cesium.Color(0.2, 0.6, 0.8, 1.0) // 浅蓝
   const colorEnd = Cesium.Color.BLUE
 
   // 创建一个空的 Cesium.Color 对象作为 result

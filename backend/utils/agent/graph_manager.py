@@ -858,8 +858,6 @@ State 信息如下：
         如果 n>1,返回最近 n 轮,顺序与原始消息一致。
         返回:List[List[Message]]
         """
-        from langchain.schema import HumanMessage
-
         rounds = []
         current_round = []
 

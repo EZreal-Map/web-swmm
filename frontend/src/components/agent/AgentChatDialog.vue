@@ -144,7 +144,11 @@ class WebSocketManager {
 
   send(data) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data))
+      const payload = {
+        ...data,
+        timestamp: Date.now(), // 添加当前时间戳
+      }
+      this.ws.send(JSON.stringify(payload))
       return true
     } else {
       console.warn('WebSocket 未连接，消息发送失败')

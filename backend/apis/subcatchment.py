@@ -26,11 +26,11 @@ from utils.utils import with_exception_handler
 subcatchment = APIRouter()
 
 
-# 获取子汇水(产流)模型参数 和 子汇水边界
+# 获取子汇水区(产流)模型参数 和 子汇水区边界
 @subcatchment.get(
     "/subcatchments",
-    summary="获取子汇水(产流)模型参数",
-    description="获取子汇水的产流模型参数,包括名称、雨量计、出水口、面积、不透水率、宽度和坡度,还有子汇水边界",
+    summary="获取子汇水区(产流)模型参数",
+    description="获取子汇水区的产流模型参数,包括名称、雨量计、出水口、面积、不透水率、宽度和坡度,还有子汇水区边界",
 )
 @with_exception_handler(default_message="获取失败,文件有误,发生未知错误")
 async def get_subcatchments():
@@ -40,7 +40,7 @@ async def get_subcatchments():
     data = []
     for subcatchment in inp_subcatchments.values():
         temp_dict = {}
-        # 获取子汇水边界
+        # 获取子汇水区边界
         name = subcatchment.name
         polygon = inp_polygons.get(name, [])
         if polygon:
@@ -55,7 +55,7 @@ async def get_subcatchments():
         temp_dict["polygon"] = polygon
         data.append(temp_dict)
     return Result.success_result(
-        message=f"成功获取子汇水(产流)模型参数和边界数据,共({len(data)}个)",
+        message=f"成功获取子汇水区(产流)模型参数和边界数据,共({len(data)}个)",
         data=data,
     )
 
@@ -98,11 +98,11 @@ async def batch_get_subcatchments_by_names(names: list[str]):
     )
 
 
-# 更新子汇水(产流)模型参数
+# 更新子汇水区(产流)模型参数
 @subcatchment.put(
     "/subcatchment/{subcatchment_id:path}",
-    summary="更新子汇水(产流)模型参数",
-    description="通过指定子汇水ID,更新子汇水的产流模型参数",
+    summary="更新子汇水区(产流)模型参数",
+    description="通过指定子汇水区ID,更新子汇水区的产流模型参数",
 )
 @with_exception_handler(default_message="更新失败,文件有误,发生未知错误")
 async def update_subcatchment(
@@ -114,21 +114,21 @@ async def update_subcatchment(
     inp_outfalls = INP.check_for_section(Outfall)
     inp_raingages = INP.check_for_section(RainGage)
 
-    # 1.检查子汇水是否存在,如果不存在,则抛出异常
+    # 1.检查子汇水区是否存在,如果不存在,则抛出异常
     if subcatchment_id not in inp_subcatchments:
         raise HTTPException(
             status_code=404,
-            detail=f"保存失败,需要修改的子汇水名称 [ {subcatchment_id} ] 不存在,请检查子汇水名称是否正确",
+            detail=f"保存失败,需要修改的子汇水区名称 [ {subcatchment_id} ] 不存在,请检查子汇水区名称是否正确",
         )
 
-    # 2.检查新名称是否已存在,如果新名称与现有子汇水名称冲突,则抛出异常
+    # 2.检查新名称是否已存在,如果新名称与现有子汇水区名称冲突,则抛出异常
     if (
         subcatchment_update.name in inp_subcatchments
         and subcatchment_update.name != subcatchment_id
     ):
         raise HTTPException(
             status_code=400,
-            detail=f"保存失败,子汇水名称 [ {subcatchment_update.name} ] 已存在,请使用其他名称",
+            detail=f"保存失败,子汇水区名称 [ {subcatchment_update.name} ] 已存在,请使用其他名称",
         )
 
     # 3. 检查出水口的名称是否在节点或出口存在
@@ -150,7 +150,7 @@ async def update_subcatchment(
                 status_code=404,
                 detail=f"保存失败,雨量计名称 [ {subcatchment_update.rain_gage} ] 不存在,请检查雨量计名称是否正确",
             )
-    # 5.更新子汇水参数
+    # 5.更新子汇水区参数
     del inp_subcatchments[subcatchment_id]
     inp_subcatchments[subcatchment_update.name] = SubCatchment(
         name=subcatchment_update.name,
@@ -162,7 +162,7 @@ async def update_subcatchment(
         slope=subcatchment_update.slope,
     )
 
-    # 6.如果子汇水名称发生变化,同时更新 汇流、下渗、多边形的名字
+    # 6.如果子汇水区名称发生变化,同时更新 汇流、下渗、多边形的名字
     if subcatchment_update.name != subcatchment_id:
         # 6.1 更新汇流的名字
         inp_subareas = INP.check_for_section(SubArea)
@@ -203,11 +203,11 @@ async def create_subcatchment(polygon_data: PolygonModel):
     inp_infiltrations = INP.check_for_section(Infiltration)
     inp_polygons = INP.check_for_section(Polygon)
 
-    # 检查子汇水名称是否已存在
+    # 检查子汇水区名称是否已存在
     if polygon_data.subcatchment in inp_subcatchments:
         raise HTTPException(
             status_code=400,
-            detail=f"新建失败,子汇水名称 [ {polygon_data.subcatchment} ] 已存在,请使用其他名称",
+            detail=f"新建失败,子汇水区名称 [ {polygon_data.subcatchment} ] 已存在,请使用其他名称",
         )
 
     # 1.创建新的子汇水区
@@ -226,7 +226,7 @@ async def create_subcatchment(polygon_data: PolygonModel):
         **model.model_dump()
     )
 
-    # 4.创建默认的子汇水边界
+    # 4.创建默认的子汇水区边界
     polygon_utm = polygon_wgs84_to_utm(polygon_data.polygon)
     inp_polygons[polygon_data.subcatchment] = Polygon(
         subcatchment=polygon_data.subcatchment, polygon=polygon_utm
@@ -245,7 +245,7 @@ async def create_subcatchment(polygon_data: PolygonModel):
 @subcatchment.delete(
     "/subcatchment/{subcatchment_id:path}",
     summary="删除子汇水区",
-    description="通过指定子汇水ID,删除子汇水区及其相关模型参数",
+    description="通过指定子汇水区ID,删除子汇水区及其相关模型参数",
 )
 @with_exception_handler(default_message="删除失败,文件有误,发生未知错误")
 async def delete_subcatchment(subcatchment_id: str):
@@ -255,11 +255,11 @@ async def delete_subcatchment(subcatchment_id: str):
     inp_infiltrations = INP.check_for_section(Infiltration)
     inp_polygons = INP.check_for_section(Polygon)
 
-    # 检查子汇水是否存在
+    # 检查子汇水区是否存在
     if subcatchment_id not in inp_subcatchments:
         raise HTTPException(
             status_code=404,
-            detail=f"删除失败,子汇水名称 [ {subcatchment_id} ] 不存在",
+            detail=f"删除失败,子汇水区名称 [ {subcatchment_id} ] 不存在",
         )
 
     # 删除子汇水区及其相关模型参数
@@ -276,35 +276,35 @@ async def delete_subcatchment(subcatchment_id: str):
     )
 
 
-# 通过子汇水名称获取边界信息
+# 通过子汇水区名称获取边界信息
 @subcatchment.get(
     "/subcatchment/polygon",
-    summary="获取子汇水边界",
-    description="获取子汇水的边界数据",
+    summary="获取子汇水区边界",
+    description="获取子汇水区的边界数据",
 )
 @with_exception_handler(default_message="获取失败,文件有误,发生未知错误")
-async def get_polygon(name: str = Query(..., description="子汇水名称")):
+async def get_polygon(name: str = Query(..., description="子汇水区名称")):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_polygons = INP.check_for_section(Polygon)
 
     if name not in inp_polygons:
         raise HTTPException(
             status_code=404,
-            detail=f"子汇水 {name} 的边界数据未找到",
+            detail=f"子汇水区 {name} 的边界数据未找到",
         )
 
     polygon = inp_polygons[name].polygon
     polygon = polygon_utm_to_wgs84(polygon)
     return Result.success_result(
-        message=f"成功获取子汇水 {name} 的边界数据",
+        message=f"成功获取子汇水区 {name} 的边界数据",
         data=polygon,
     )
 
 
 @subcatchment.post(
     "/subcatchment/polygon",
-    summary="保存子汇水边界",
-    description="保存子汇水的边界数据",
+    summary="保存子汇水区边界",
+    description="保存子汇水区的边界数据",
 )
 @with_exception_handler(default_message="保存失败,文件有误,发生未知错误")
 async def save_polygon(data: PolygonModel):
@@ -314,7 +314,7 @@ async def save_polygon(data: PolygonModel):
     if data.subcatchment not in inp_polygons:
         raise HTTPException(
             status_code=404,
-            detail=f"子汇水 {data.subcatchment} 不存在,无法保存边界",
+            detail=f"子汇水区 {data.subcatchment} 不存在,无法保存边界",
         )
 
     # WGS84转UTM投影

@@ -14,7 +14,6 @@
 import { ref, onMounted } from 'vue'
 import * as Cesium from 'cesium'
 import { getCalculateShowAxios } from '@/apis/show'
-import dataShowJson from '@/assets/data_show.json'
 
 // 当前时间步标签
 const selectedTime = ref('')
@@ -91,14 +90,37 @@ onMounted(async () => {
   viewer.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK)
   viewer.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK)
 
+  // 获取配置
+  let config
+  try {
+    const configResponse = await fetch('/config.json')
+    config = await configResponse.json()
+  } catch (error) {
+    console.warn('无法读取配置文件，使用默认配置:', error)
+    config = { frontendStaticData: false } // 默认配置是使用接口数据
+  }
+
   // 获取数据
   let response
-  try {
+  if (config.frontendStaticData) {
+    console.log('前端使用静态数据')
+    try {
+      const dataResponse = await fetch('/data_show.json')
+      response = await dataResponse.json()
+    } catch (error) {
+      console.error('无法读取静态数据文件:', error)
+      // 降级到接口调用
+      response = await getCalculateShowAxios()
+    }
+  } else {
+    console.log('前端使用接口数据')
     response = await getCalculateShowAxios()
-    console.log('API调用成功，使用接口数据')
-  } catch {
-    console.log('API调用失败，使用静态数据')
-    response = dataShowJson
+  }
+
+  if (response.code !== 200) {
+    console.error('获取数据失败:', response.message)
+    ElMessage.error(response.message)
+    return
   }
 
   timeList.value = response.data.time

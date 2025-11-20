@@ -1,0 +1,4 @@
+{
+  "frontendStaticData": false,
+  "description": "是否使用前端静态数据，true 则使用本地 data_show.json，false 则调用接口获取数据"
+}

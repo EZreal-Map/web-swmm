@@ -14,6 +14,7 @@
 import { ref, onMounted } from 'vue'
 import * as Cesium from 'cesium'
 import { getCalculateShowAxios } from '@/apis/show'
+import dataShowJson from '@/assets/data_show.json'
 
 // 当前时间步标签
 const selectedTime = ref('')
@@ -78,7 +79,7 @@ onMounted(async () => {
 
   // 开始时设置相机位置
   viewer.camera.setView({
-    destination: Cesium.Cartesian3.fromDegrees(103.77346807693011, 29.5048309132203, 200000),
+    destination: Cesium.Cartesian3.fromDegrees(103.77346807693011, 29.5048308032203, 105000),
     orientation: {
       heading: Cesium.Math.toRadians(0),
       pitch: Cesium.Math.toRadians(-90),
@@ -90,12 +91,14 @@ onMounted(async () => {
   viewer.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK)
   viewer.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK)
 
-  const response = await getCalculateShowAxios()
-
-  if (response.code !== 200) {
-    console.error('获取数据失败:', response.message)
-    ElMessage.error(response.message)
-    return
+  // 获取数据
+  let response
+  try {
+    response = await getCalculateShowAxios()
+    console.log('API调用成功，使用接口数据')
+  } catch {
+    console.log('API调用失败，使用静态数据')
+    response = dataShowJson
   }
 
   timeList.value = response.data.time
@@ -204,6 +207,143 @@ onMounted(async () => {
     currentIndex.value = (currentIndex.value + 1) % totalSteps
     updateEntityColors()
   }, 1000)
+
+  // 添加电站标注，增加字段并动态展示
+  const powerStations = [
+    {
+      name: '老木孔电站',
+      lon: 103.788835708,
+      lat: 29.4431399,
+      status: '在建',
+      offsetX: -60,
+      offsetY: 24,
+    },
+    {
+      name: '东风岩电站',
+      lon: 103.841124273,
+      lat: 29.336827355,
+      status: '在建',
+      offsetX: -55,
+      offsetY: 55,
+    },
+
+    {
+      name: '犍为电站',
+      lon: 103.920833,
+      lat: 29.2375,
+      upstreamWaterLevel: 334,
+      downstreamWaterLevel: 333.5,
+      inflow: 100,
+      outflow: 100,
+      generation: '未知',
+      status: '已建',
+      offsetX: 70,
+      offsetY: -10,
+    },
+    {
+      name: '龙溪口电站',
+      lon: 104.086893503,
+      lat: 29.077468981,
+      upstreamWaterLevel: 313.5,
+      downstreamWaterLevel: 313.0,
+      inflow: 100,
+      outflow: 100,
+      generation: '未知',
+      status: '已建',
+      offsetX: 0,
+      offsetY: -10,
+    },
+  ]
+
+  // 根据状态展示广告牌数据
+  powerStations.forEach((station) => {
+    const labelText =
+      station.status === '已建'
+        ? `\u0001${station.name}\u0001\n——————————\n` +
+          `上游水位: ${station.upstreamWaterLevel} m\n` +
+          `下游水位: ${station.downstreamWaterLevel} m\n` +
+          `来水量: ${station.inflow} m³/s\n` +
+          `下泄流量: ${station.outflow} m³/s\n` +
+          `日发电量: ${station.generation}`
+        : `\u0001${station.name}\u0001\n(建设中)`
+
+    viewer.entities.add({
+      id: `station-${station.name}`,
+      name: station.name,
+      position: Cesium.Cartesian3.fromDegrees(station.lon, station.lat),
+      point: {
+        pixelSize: 10,
+        color: station.status === '已建' ? Cesium.Color.RED : Cesium.Color.ORANGE,
+        outlineColor: Cesium.Color.WHITE,
+        outlineWidth: 2,
+      },
+      label: {
+        text: labelText,
+        font: 'bold 15px "Segoe UI", Arial',
+        fillColor: Cesium.Color.fromCssColorString('#E8F4FF'),
+        outlineColor: Cesium.Color.fromCssColorString('#0A64C5'),
+        outlineWidth: 2,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset: new Cesium.Cartesian2(station.offsetX, station.offsetY),
+        showBackground: true,
+        backgroundColor: Cesium.Color.fromCssColorString('#121826').withAlpha(0.85),
+        backgroundPadding: new Cesium.Cartesian2(12, 10),
+      },
+    })
+  })
+
+  // 添加上游入流电站标注
+  const upstreamStations = [
+    {
+      name: '汉阳',
+      lon: 103.75260999905346,
+      lat: 29.758328831183537,
+      offsetX: 0,
+      offsetY: -8,
+    },
+    {
+      name: '毛滩',
+      lon: 103.58091640055807,
+      lat: 29.693188696151108,
+      offsetX: 0,
+      offsetY: -8,
+    },
+    {
+      name: '安谷',
+      lon: 103.6328708030447,
+      lat: 29.501668246990054,
+      offsetX: -32,
+      offsetY: 16,
+    },
+  ]
+
+  upstreamStations.forEach((station) => {
+    viewer.entities.add({
+      id: `station-${station.name}`,
+      name: station.name,
+      position: Cesium.Cartesian3.fromDegrees(station.lon, station.lat),
+      point: {
+        pixelSize: 11,
+        color: Cesium.Color.fromCssColorString('#0A64C5'),
+        outlineColor: Cesium.Color.WHITE,
+        outlineWidth: 2,
+      },
+      label: {
+        text: station.name,
+        font: 'bold 15px "Segoe UI", Arial',
+        fillColor: Cesium.Color.fromCssColorString('#E8F4FF'),
+        outlineColor: Cesium.Color.fromCssColorString('#0A64C5'),
+        outlineWidth: 2,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset: new Cesium.Cartesian2(station.offsetX, station.offsetY),
+        showBackground: true,
+        backgroundColor: Cesium.Color.fromCssColorString('#121826').withAlpha(0.85),
+        backgroundPadding: new Cesium.Cartesian2(10, 8),
+      },
+    })
+  })
 })
 </script>
 

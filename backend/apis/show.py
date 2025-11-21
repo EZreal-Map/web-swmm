@@ -8,6 +8,8 @@ from swmm_api.input_file.sections.node_component import Coordinate
 from swmm_api.input_file.sections import Outfall
 from utils.coordinate_converter import utm_to_wgs84
 from utils.utils import with_exception_handler
+import pandas as pd
+from pathlib import Path
 
 showRouter = APIRouter()
 
@@ -78,6 +80,57 @@ async def show_calculate_result():
         data=data,
         message="计算结果列表",
     )
+
+
+@showRouter.get("/show/powerstation/data", summary="获取电站水情信息")
+@with_exception_handler(default_message="获取电站数据失败")
+async def get_powerstation_data():
+    """
+    读取水情信息.xls文件，从第10行开始读取200行数据
+    返回格式：
+    {
+        "time": [...],
+        "upstreamWaterLevel": [...],
+        "downstreamWaterLevel": [...],
+        "inflow": [...],
+        "outflow": [...]
+    }
+    """
+    # 文件路径
+    file_path = Path("static/show_data/水情信息.xls")
+
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"文件不存在: {file_path}")
+
+    try:
+        # 读取Excel文件，从第9行开始（header=9表示第10行为表头）
+        # 跳过前9行，读取200行数据
+        df = pd.read_excel(
+            file_path,
+            skiprows=9,  # 跳过前9行，从第10行开始读取
+            nrows=200,  # 只读取200行
+            header=None,  # 不使用表头
+        )
+
+        # 提取需要的列（索引从0开始）
+        # 第1列（索引0）：时间
+        # 第2列（索引1）：上游水位
+        # 第3列（索引2）：入库流量
+        # 第4列（索引4）：发电流量
+        # 第7列（索引6）：下游水位
+
+        data = {
+            "time": df.iloc[:, 0].astype(str).tolist(),
+            "upstreamWaterLevel": df.iloc[:, 1].fillna(0).tolist(),
+            "inflow": df.iloc[:, 2].fillna(0).tolist(),
+            "outflow": df.iloc[:, 4].fillna(0).tolist(),
+            "downstreamWaterLevel": df.iloc[:, 6].fillna(0).tolist(),
+        }
+
+        return Result.success_result(data=data, message="获取电站水情信息成功")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"读取文件失败: {str(e)}")
 
 
 def get_from_node_info(

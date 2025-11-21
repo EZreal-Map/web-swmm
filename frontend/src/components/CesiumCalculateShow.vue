@@ -13,7 +13,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import * as Cesium from 'cesium'
-import { getCalculateShowAxios } from '@/apis/show'
+import { getCalculateShowAxios, getPowerStationData } from '@/apis/show'
 
 // 当前时间步标签
 const selectedTime = ref('')
@@ -102,19 +102,26 @@ onMounted(async () => {
 
   // 获取数据
   let response
+  let stationResponse
   if (config.frontendStaticData) {
     console.log('前端使用静态数据')
     try {
+      // 渠道静态数据
       const dataResponse = await fetch('/data_show.json')
       response = await dataResponse.json()
+      // 犍为电站静态数据
+      const stationDataResponse = await fetch('/data_powerstation.json')
+      stationResponse = await stationDataResponse.json()
     } catch (error) {
       console.error('无法读取静态数据文件:', error)
       // 降级到接口调用
       response = await getCalculateShowAxios()
+      stationResponse = await getPowerStationData()
     }
   } else {
     console.log('前端使用接口数据')
     response = await getCalculateShowAxios()
+    stationResponse = await getPowerStationData()
   }
 
   if (response.code !== 200) {
@@ -253,10 +260,10 @@ onMounted(async () => {
       name: '犍为电站',
       lon: 103.920833,
       lat: 29.2375,
-      upstreamWaterLevel: 334,
-      downstreamWaterLevel: 333.5,
-      inflow: 100,
-      outflow: 100,
+      upstreamWaterLevel: 334.73,
+      downstreamWaterLevel: 317.05,
+      inflow: 1190,
+      outflow: 746,
       generation: '未知',
       status: '已建',
       offsetX: 70,
@@ -279,15 +286,46 @@ onMounted(async () => {
 
   // 根据状态展示广告牌数据
   powerStations.forEach((station) => {
-    const labelText =
-      station.status === '已建'
-        ? `\u0001${station.name}\u0001\n——————————\n` +
+    // 判断是否是犍为电站，使用动态数据
+    const isJianwei = station.name === '犍为电站'
+
+    let labelText
+    if (station.status === '已建') {
+      if (isJianwei && stationResponse?.data) {
+        // 犍为电站使用动态数据
+        labelText = new Cesium.CallbackProperty(() => {
+          const idx = currentIndex.value
+          const upstreamWaterLevel = stationResponse.data.upstreamWaterLevel?.[idx] ?? 0
+          const downstreamWaterLevel = stationResponse.data.downstreamWaterLevel?.[idx] ?? 0
+          const inflow = stationResponse.data.inflow?.[idx] ?? 0
+          const outflow = stationResponse.data.outflow?.[idx] ?? 0
+
+          // 计算负荷 P = η × ρ × g × Q × H
+          const waterHead = upstreamWaterLevel - downstreamWaterLevel
+          const power = ((0.8 * 1000 * 9.81 * outflow * waterHead) / 1000000).toFixed(1) // MW
+
+          return (
+            `\u0001${station.name}\u0001\n——————————\n` +
+            `上游水位: ${upstreamWaterLevel.toFixed(2)} m\n` +
+            `下游水位: ${downstreamWaterLevel.toFixed(2)} m\n` +
+            `入库流量: ${inflow.toFixed(1)} m³/s\n` +
+            `发电流量: ${outflow.toFixed(1)} m³/s\n` +
+            `负荷: ${power} MW`
+          )
+        }, false)
+      } else {
+        // 其他已建电站使用静态数据
+        labelText =
+          `\u0001${station.name}\u0001\n——————————\n` +
           `上游水位: ${station.upstreamWaterLevel} m\n` +
           `下游水位: ${station.downstreamWaterLevel} m\n` +
-          `来水量: ${station.inflow} m³/s\n` +
-          `下泄流量: ${station.outflow} m³/s\n` +
-          `日发电量: ${station.generation}`
-        : `\u0001${station.name}\u0001\n(建设中)`
+          `入库流量: ${station.inflow} m³/s\n` +
+          `发电流量: ${station.outflow} m³/s\n` +
+          `负荷: ${station.generation}`
+      }
+    } else {
+      labelText = `\u0001${station.name}\u0001\n(建设中)`
+    }
 
     viewer.entities.add({
       id: `station-${station.name}`,

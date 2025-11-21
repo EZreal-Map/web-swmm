@@ -250,7 +250,11 @@ web-swmm/
 3. **使用 Docker Compose 启动所有服务：**
 
    ```bash
-      docker-compose up -d
+   # 通过Dockerfile构建后端镜像
+   docker build -t web-swmm .
+
+   # docker-compose.yml构建整个应用容器
+   docker-compose up -d
    ```
 
 4. **配置 docker 挂载文件**

@@ -273,11 +273,11 @@ onMounted(async () => {
       name: '龙溪口电站',
       lon: 104.086893503,
       lat: 29.077468981,
-      upstreamWaterLevel: 313.5,
-      downstreamWaterLevel: 313.0,
-      inflow: 100,
-      outflow: 100,
-      generation: '未知',
+      upstreamWaterLevel: '-',
+      downstreamWaterLevel: '-',
+      inflow: '-',
+      outflow: '-',
+      generation: '-',
       status: '已建',
       offsetX: 0,
       offsetY: -10,
@@ -321,7 +321,7 @@ onMounted(async () => {
           `下游水位: ${station.downstreamWaterLevel} m\n` +
           `入库流量: ${station.inflow} m³/s\n` +
           `发电流量: ${station.outflow} m³/s\n` +
-          `负荷: ${station.generation}`
+          `负荷: ${station.generation} MW`
       }
     } else {
       labelText = `\u0001${station.name}\u0001\n(建设中)`

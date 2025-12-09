@@ -33,12 +33,12 @@ export const initCesium = async (containerId) => {
   const viewerStore = useViewerStore() // 获取 Pinia store 实例
   viewerStore.viewer = viewer // 将 viewer 实例存储到 Pinia 中
 
-  // 初始化地形数据（这里链接的是自己上传的乐山的地形数据  Cesium Ion 编号）
-  viewer.scene.setTerrain(new Cesium.Terrain(Cesium.CesiumTerrainProvider.fromIonAssetId(3263550)))
+  // 初始化地形数据 （Cesium World Terrain）
+  viewer.scene.setTerrain(new Cesium.Terrain(Cesium.CesiumTerrainProvider.fromIonAssetId(1)))
 
   // 开始时设置相机位置
   viewer.camera.setView({
-    destination: Cesium.Cartesian3.fromDegrees(103.77346807693011, 29.5048309132203, 200000),
+    destination: Cesium.Cartesian3.fromDegrees(106.6359999, 27.29613, 50000),
     orientation: {
       heading: Cesium.Math.toRadians(0),
       pitch: Cesium.Math.toRadians(-90),

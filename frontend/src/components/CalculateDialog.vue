@@ -35,6 +35,19 @@
                     </el-form-item>
                   </el-col>
                   <el-col :span="8">
+                    <el-form-item label="开始报告时间">
+                      <el-date-picker
+                        v-model="calculateOpertions.start_report_datetime"
+                        type="datetime"
+                        placeholder="请选择开始报告时间"
+                        :format="DATETIME_FORMAT"
+                        :clearable="false"
+                        style="width: 100%"
+                        @change="updateCalculateOptions"
+                      />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="8">
                     <el-form-item label="结束计算时间">
                       <el-date-picker
                         v-model="calculateOpertions.end_datetime"
@@ -47,6 +60,9 @@
                       />
                     </el-form-item>
                   </el-col>
+                </el-row>
+                <el-row :gutter="10">
+                  <!-- 设置行间距 -->
                   <el-col :span="8">
                     <el-form-item label="计算间隔时间">
                       <el-time-picker
@@ -58,9 +74,6 @@
                       />
                     </el-form-item>
                   </el-col>
-                </el-row>
-                <el-row :gutter="10">
-                  <!-- 设置行间距 -->
                   <el-col :span="8">
                     <el-form-item label="演算模型">
                       <el-select
@@ -79,7 +92,7 @@
                     </el-form-item>
                   </el-col>
                   <!-- 按钮靠右 -->
-                  <el-col :span="16" class="button-right">
+                  <el-col :span="8" class="button-right">
                     <el-button type="primary" @click="startCalculateFunction">开始计算</el-button>
                   </el-col>
                 </el-row>
@@ -180,6 +193,7 @@ const initCalculateOpertions = () => {
     res.data.report_step = new Date(`1970-01-01T${res.data.report_step}+08:00`)
     // 这里需要将时间格式转换为 Date 对象
     res.data.start_datetime = new Date(res.data.start_datetime)
+    res.data.start_report_datetime = new Date(res.data.start_report_datetime)
     res.data.end_datetime = new Date(res.data.end_datetime)
     // 赋值给计算选项（前端）
     calculateOpertions.value = res.data

@@ -39,7 +39,6 @@ def human_info_completion_tool(
                 function_name="showHumanInfoUITool",
                 args={"input_title": input_title},
                 is_direct_feedback=False,
-                success_message="前端已刷新所有实体,展示为最新状态。",
             )
         )
         raise

@@ -15,6 +15,7 @@ export const updateCalculateOptionsAxios = (data) => {
   // 把payload里面的start_datetime和end_datetime格式化时区
   payload.start_datetime = formatDateToISO(payload.start_datetime)
   payload.end_datetime = formatDateToISO(payload.end_datetime)
+  payload.start_report_datetime = formatDateToISO(payload.start_report_datetime)
   return request.put('/swmm/calculate/options', payload)
 }
 

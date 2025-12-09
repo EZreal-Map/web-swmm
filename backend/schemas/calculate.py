@@ -11,3 +11,4 @@ class CalculateModel(BaseModel):
     end_datetime: datetime  # 结束时间
     report_step: time  # 时间步长 (格式:hr:min:sec)默认是 00:15:00
     flow_routing: Literal["STEADY", "KINWAVE", "DYNWAVE"] = "KINWAVE"  # 流量计算方法
+    start_report_datetime: datetime  # 报告开始时间

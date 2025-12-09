@@ -48,9 +48,12 @@ async def get_calculate_options():
     start_time = inp_options.get("START_TIME")
     end_date = inp_options.get("END_DATE")
     end_time = inp_options.get("END_TIME")
+    report_start_date = inp_options.get("REPORT_START_DATE")
+    report_start_time = inp_options.get("REPORT_START_TIME")
     # 拼接为 datetime
     start_datetime = datetime.combine(start_date, start_time)
     end_datetime = datetime.combine(end_date, end_time)
+    start_report_datetime = datetime.combine(report_start_date, report_start_time)
 
     calculate_model = CalculateModel(
         flow_units=flow_units,
@@ -58,6 +61,7 @@ async def get_calculate_options():
         end_datetime=end_datetime,
         report_step=report_step,
         flow_routing=flow_routing,
+        start_report_datetime=start_report_datetime,
     )
     return Result.success_result(
         message="成功获取计算选项",
@@ -86,9 +90,8 @@ async def update_calculate_options(calculate_model: CalculateModel):
             "START_TIME": calculate_model.start_datetime.time(),
             "END_DATE": calculate_model.end_datetime.date(),
             "END_TIME": calculate_model.end_datetime.time(),
-            # 把 开始报告时间 默认处理为 开始计算时间
-            "REPORT_START_DATE": calculate_model.start_datetime.date(),
-            "REPORT_START_TIME": calculate_model.start_datetime.time(),
+            "REPORT_START_DATE": calculate_model.start_report_datetime.date(),
+            "REPORT_START_TIME": calculate_model.start_report_datetime.time(),
         }
     )
     # 保存文件

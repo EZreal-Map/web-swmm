@@ -256,7 +256,7 @@ class MessageResponseHandler {
       // 处理工具调用
       data.tool_calls.forEach((toolCall) => {
         // 采用统一风格
-        const toolMessage = `\n- 🛠️工具执行：\`${toolCall.name}\`\n- 参数：\n\`\`\`json\n${JSON.stringify(toolCall.args, null, 2)}\n\`\`\``
+        const toolMessage = `\n- 🛠️工具调用：\`${toolCall.name}\`\n- 参数：\n\`\`\`json\n${JSON.stringify(toolCall.args, null, 2)}\n\`\`\``
         lastMessage.text += toolMessage
       })
     }

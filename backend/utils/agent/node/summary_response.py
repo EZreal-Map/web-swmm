@@ -44,7 +44,6 @@ async def summary_response_node(state: State) -> dict:
     用户最近3条上下文信息：
     {recent_human_msgs if recent_human_msgs else '无'}
     """
-    # TODO: 优化总结上下文管理
     summary_messages = recent_dialogue_round + [HumanMessage(content=summary_prompt)]
 
     # 使用纯聊天LLM生成总结

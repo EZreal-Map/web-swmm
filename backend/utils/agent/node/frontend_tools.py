@@ -46,15 +46,6 @@ async def frontend_tools_node(state: State) -> dict:
         state.get("client_id", ""), "[前端决策] 正在分析前端工具调用..."
     )
 
-    # TODO:这里需要更改,根据之后处理 memory 引入数据库后,更加优雅的处理
-    # 将历史消息与意图prompt结合 ,不能直接把 human_messages + frontend_messages
-    # 因为会让这个并列,有时候就会回答之前的问题去了,要把放进promt里面,包裹关系
-    # 还有一种办法,在graph最开始,有一个拼接上下文的llm,丰富问题上下文(这个更好)
-
-    # human_messages = GraphInstance.get_recent_messages_by_type(
-    #     state, n=3, msg_type=HumanMessage
-    # )
-
     # 构建前端专用的消息,让前端LLM分析问题
     frontend_messages = [
         HumanMessage(

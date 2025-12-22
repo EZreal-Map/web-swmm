@@ -72,14 +72,3 @@ class ChatRequest(BaseModel):
 
         # 默认错误信息
         return "请求参数有误"
-
-
-# TODO:没有用到,可以在graph更加规范的使用
-# class ChatResponse(BaseModel):
-#     """聊天响应模型"""
-
-#     id: str = Field(default_factory=lambda: f"chat-{uuid.uuid4().hex}")
-#     message: str = Field(..., description="回复内容")
-#     conversation_id: str = Field(..., description="对话ID")
-#     user_id: str = Field(..., description="用户ID")
-#     is_complete: bool = Field(default=False, description="响应是否完整")

@@ -20,7 +20,6 @@ async def intent_classifier_node(state: State) -> dict:
     )
     # 使用提示词进行意图识别(可能包含多种需求)
     # 新增:将state上下文也加入prompt
-    # TODO:promt需要放在其他文件,不要硬编码到核心代码里面
     intent_prompt = f"""
 请阅读用户的问题:<<** {user_query} **>>,并根据需求判断需要调用哪些处理工具(可以同时需要多种)。  
 
@@ -89,8 +88,7 @@ async def intent_classifier_node(state: State) -> dict:
 - frontend_tools: true
 - 说明: 跳转到J1不需要查询后端数据,所有不需要backend_tools,前端工具可以直接处理跳转。
 """
-    # TODO:这里需要更改,根据之后处理 memory 引入数据库后,更加优雅的处理
-    # 将历史消息与意图prompt结合  (参考下面的frontend_messages节点的分析)
+    # 将历史消息与意图prompt结合
     intent_messages = [HumanMessage(content=intent_prompt)]
     # 获取意图识别结果
     intent_response = await intent_llm.ainvoke(intent_messages)

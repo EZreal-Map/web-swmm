@@ -208,7 +208,6 @@ class PolygonModel(BaseModel):
         ..., description="多边形顶点坐标列表,点格式为(x, y),浮点数"
     )
 
-    # TODO:需要增加验证,大于 > 3个点
     @field_validator("polygon")
     def validate_polygon(cls, v):
         if len(v) < 4:

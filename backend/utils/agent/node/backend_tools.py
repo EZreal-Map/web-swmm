@@ -97,9 +97,8 @@ async def backend_tools_node(state: State) -> dict:
     )
     # 获取最后一轮消息
     recent_dialogue_round = get_split_dialogue_rounds(state.get("messages", []), 1)
-    # TODO:这里需要更改,根据之后处理 memory 引入数据库后,更加优雅的处理
     # 将历史消息与意图prompt结合
-    # 构建后端专用的消息,让后端LLM分析问题 (参考下面的frontend_messages节点的分析)
+    # 构建后端专用的消息,让后端LLM分析问题
     retry_count = state.get("retry_count", 3)
     backend_prompt = f"""你是一个SWMM智能助手，请根据用户问题和最近一次工具执行结果，智能决定如何调用后端工具。
 

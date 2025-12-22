@@ -41,7 +41,7 @@ async def backend_tools_route(
         split_messages = split_ai_message_by_tool_names(
             ai_message, HIL_backend_tools_name
         )
-        # 2.1 分割后第一个消息为普通工具调用消息
+        # 2.1 分割后第一个消息集合为普通工具调用消息集合
         if split_messages[0]:
             send_list.append(
                 Send(
@@ -54,7 +54,7 @@ async def backend_tools_route(
                     },
                 )
             )
-        # 2.2 分割后第二个消息为人类参与的工具调用消息
+        # 2.2 分割后第二个消息集合为人类参与的工具调用消息集合
         if split_messages[1]:
             send_list.append(
                 Send(
@@ -70,5 +70,5 @@ async def backend_tools_route(
         # 返回调用下一个节点执行工具
         return send_list
     else:
-        # 后端LLM没有生成工具调用,跳转到检查节点
-        return Send("check_node", state)
+        # 后端LLM没有生成工具调用,跳转到前端工具节点
+        return Send("frontend_tools", state)

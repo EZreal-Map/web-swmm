@@ -11,12 +11,12 @@ from pydantic import Field
 
 class CheckOutput(TypedDict):
     query: str = Field(
-        description="只在检测到最近调用了 human_info_completion_tool 工具时，将补充的信息与原始问题合并为一个新的完整问题，其它情况下保持原问题不变。"
+        description="若有补充信息则返回合并后的结果，或问题可以进一步完善，否则保持 original_query 不变。"
     )
     next_step: Literal["backend_tools", "frontend_tools", "summary_response"] = Field(
         description="下一步流程跳转指令节点名"
     )
-    reason: str = Field(description="简要说明选择该步骤的原因")
+    reason: str = Field(description="简明解释为何更新 query 以及为何选择该 next_step")
     retry_count: int = Field(description="工具重试次数")
 
 
@@ -69,7 +69,7 @@ async def backend_tool_check_node(
 - query: 若有补充信息则返回合并后的结果，或问题可以进一步完善，否则保持 original_query 不变。
 - next_step: backend_tools / frontend_tools / summary_response
 - reason: 简明解释为何更新 query 以及为何选择该 next_step
-- retry_count: {state.get("retry_count", 0)}
+- retry_count: 工具重试次数，即 state 中的 retry_count 值
 """
     # 用结构化输出 LLM 获取判断结果
     check_result = await backend_tool_check_llm.ainvoke(

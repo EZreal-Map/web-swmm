@@ -85,7 +85,8 @@ export const showHumanInfoUITool = async ({ input_title: inputTitle }) => {
   // 回调
   ui.onOk = () => {
     ui.active = false
-    agentStore.messageSender.sendFeedbackMessage(ui.inputValue || '人工未填写', true)
+    const trimmedValue = (ui.inputValue || '').trim()
+    agentStore.messageSender.sendFeedbackMessage(trimmedValue || '人工未填写', true)
   }
   ui.onCancel = () => {
     ui.active = false

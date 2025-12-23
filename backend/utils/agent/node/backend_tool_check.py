@@ -57,6 +57,7 @@ async def backend_tool_check_node(
 3. 若存在无效补充，如“人工取消填写”或补充信息为空，则停止尝试重新执行后端工具，即使retry_count未达上限。
 4. 若未检测到该工具或补充信息无效，则保持 original_query 不变。
 5. 或执行错误，可以上下文信息进行修正，完善 query，只是合理完善问题，不要无端改变。
+6. 如果 retry_count 已达上限 >= 5，停止尝试重新执行后端工具，检查每次运行的错误原因，合理完善 query，避免无限循环。
 
 【任务二：决定 next_step】
 1. 继续阅读 recent_dialogue_round，结合 need_backend / need_frontend / retry_count，判断下一步：

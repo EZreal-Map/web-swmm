@@ -1,4 +1,4 @@
-from schemas.agent.state import ToolModeSate
+from schemas.agent.state import ToolModeState
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from utils.agent.message_manager import get_split_dialogue_rounds
 from utils.logger import agent_logger
@@ -72,7 +72,7 @@ backend_tools = normal_backend_tools + HIL_backend_tools
 
 
 # 2. 后端工具节点:根据标记决定是否执行
-async def backend_tools_node(state: ToolModeSate) -> dict:
+async def backend_tools_node(state: ToolModeState) -> dict:
     """后端工具节点:根据need_backend标记决定是否执行"""
     backend_llm = LLMRegistry.get("backend_llm")
     if not backend_llm:

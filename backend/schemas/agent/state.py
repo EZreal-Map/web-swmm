@@ -3,8 +3,8 @@ from typing_extensions import TypedDict
 from langgraph.graph.message import add_messages
 
 
-# 定义聊天机器人的状态
-class ToolModeSate(TypedDict):
+# 定义工具模式状态
+class ToolModeState(TypedDict):
     messages: Annotated[
         list, add_messages
     ]  # 消息记录（HumanMessage, AIMessage，ToolMessage）

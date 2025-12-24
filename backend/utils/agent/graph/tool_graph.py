@@ -1,7 +1,7 @@
 from langgraph.graph import StateGraph, START, END
 from utils.logger import agent_logger
 from utils.agent.async_store_manager import AsyncStoreManager
-from schemas.agent.state import ToolModeSate
+from schemas.agent.state import ToolModeState
 
 
 def build_tool_graph() -> StateGraph:
@@ -48,7 +48,7 @@ def build_tool_graph() -> StateGraph:
     from utils.agent.node.tool.summary_response import summary_response_node
 
     # 构建graph
-    graph_builder = StateGraph(ToolModeSate)
+    graph_builder = StateGraph(ToolModeState)
     # 构建图结构 - 拆分工具调用和执行
     graph_builder.add_node("question_rewrite", question_rewrite_node)
     graph_builder.add_node("intent_classifier", intent_classifier_node)

@@ -1,4 +1,4 @@
-from schemas.agent.state import ToolModeSate
+from schemas.agent.state import ToolModeState
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from langchain_core.messages import HumanMessage
 from utils.logger import agent_logger
@@ -20,7 +20,7 @@ frontend_tools = normal_frontend_tools + HIL_frontend_tools
 
 
 # 3. 前端工具节点:根据标记决定是否生成工具调用
-async def frontend_tools_node(state: ToolModeSate) -> dict:
+async def frontend_tools_node(state: ToolModeState) -> dict:
     """前端工具节点:根据need_frontend标记决定是否生成工具调用"""
     frontend_llm = LLMRegistry.get("frontend_llm")
     if not frontend_llm:

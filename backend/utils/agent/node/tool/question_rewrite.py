@@ -1,4 +1,4 @@
-from schemas.agent.state import ToolModeSate
+from schemas.agent.state import ToolModeState
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from langchain_core.messages import AIMessage, HumanMessage
 from utils.agent.message_manager import get_recent_messages_by_type
@@ -7,7 +7,7 @@ from utils.agent.llm_manager import LLMRegistry
 
 
 # 0. 问题改写节点:结合记忆补全用户问题
-async def question_rewrite_node(state: ToolModeSate) -> dict:
+async def question_rewrite_node(state: ToolModeState) -> dict:
     """
     问题改写节点：结合最近3次HumanMessage、最近1次AIMessage和当前query,补全用户问题。
     """

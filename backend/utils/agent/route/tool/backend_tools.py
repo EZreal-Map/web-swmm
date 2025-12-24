@@ -1,4 +1,4 @@
-from schemas.agent.state import ToolModeSate
+from schemas.agent.state import ToolModeState
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from utils.agent.message_manager import split_ai_message_by_tool_names
 from utils.logger import agent_logger
@@ -9,7 +9,7 @@ from utils.agent.node.tool.backend_tools import HIL_backend_tools_name
 
 # 2.1 路由函数:决定是否执行后端工具
 async def backend_tools_route(
-    state: ToolModeSate,
+    state: ToolModeState,
 ) -> Literal["backend_tool_execution", "check_node"]:
     """
     决定是否执行后端工具

@@ -1,4 +1,4 @@
-from schemas.agent.state import ToolModeSate
+from schemas.agent.state import ToolModeState
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from langchain_core.messages import HumanMessage
 from utils.agent.message_manager import get_split_dialogue_rounds
@@ -22,7 +22,7 @@ class CheckOutput(TypedDict):
 
 # 2.3 后端工具检查节点
 async def backend_tool_check_node(
-    state: ToolModeSate,
+    state: ToolModeState,
 ) -> dict:
     """后端工具检查节点:检查后端工具执行状态"""
     backend_tool_check_llm = LLMRegistry.get("backend_tool_check_llm")

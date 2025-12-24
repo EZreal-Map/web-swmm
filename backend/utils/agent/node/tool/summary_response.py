@@ -1,4 +1,4 @@
-from schemas.agent.state import ToolModeSate
+from schemas.agent.state import ToolModeState
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from langchain_core.messages import HumanMessage
 from utils.logger import agent_logger
@@ -10,7 +10,7 @@ from utils.agent.llm_manager import LLMRegistry
 
 
 # 4. 最终总结节点
-async def summary_response_node(state: ToolModeSate) -> dict:
+async def summary_response_node(state: ToolModeState) -> dict:
     """最终总结节点:基于所有执行结果生成总结回答"""
     summary_llm = LLMRegistry.get("llm")
 

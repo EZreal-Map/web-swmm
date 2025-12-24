@@ -1,4 +1,4 @@
-from schemas.agent.state import ToolModeSate
+from schemas.agent.state import ToolModeState
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from langchain_core.messages import HumanMessage
 from utils.logger import agent_logger
@@ -6,7 +6,7 @@ from utils.agent.llm_manager import LLMRegistry
 
 
 # 1. 意图识别节点:分析并标记需要的工具类型
-async def intent_classifier_node(state: ToolModeSate) -> dict:
+async def intent_classifier_node(state: ToolModeState) -> dict:
     """意图识别节点：分析问题并标记需要后端/前端工具"""
     intent_llm = LLMRegistry.get("llm")
 

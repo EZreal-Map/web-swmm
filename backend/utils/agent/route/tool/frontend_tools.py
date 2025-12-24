@@ -1,4 +1,4 @@
-from schemas.agent.state import ToolModeSate
+from schemas.agent.state import ToolModeState
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from utils.agent.message_manager import split_ai_message_by_tool_names
 from utils.logger import agent_logger
@@ -9,7 +9,7 @@ from utils.agent.node.tool.frontend_tools import HIL_frontend_tools_name
 
 # 3.1 路由函数:决定是否执行前端工具
 async def frontend_tools_route(
-    state: ToolModeSate,
+    state: ToolModeState,
 ) -> Literal["frontend_tool_execution", "summary_response"]:
     """
     根据最后上一个节点的消息决定是否执行工具:执行工具或跳转到下一个节点(summary_response)

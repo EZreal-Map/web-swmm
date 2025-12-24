@@ -145,8 +145,16 @@ async def create_raingage_endpoint(raingage_data: RaingageModel):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_rain_gages = INP.check_for_section(RainGage)
 
-    # 检查雨量计名称是否已存在
-    name = remove_timeseries_prefix(raingage_data.timeseries)
+    # create_raingage会从timeseries_name中提取raingage name
+    # 所以这里需要确保timeseries_name有前缀
+    # 如果raingage_data.timeseries已经有RAINGAGE_前缀,则直接使用
+    # 如果没有,需要添加前缀
+    timeseries_name = raingage_data.timeseries
+    if not timeseries_name.startswith("RAINGAGE_"):
+        timeseries_name = f"RAINGAGE_{timeseries_name}"
+
+    # 从timeseries_name提取name来检查是否已存在
+    name = remove_timeseries_prefix(timeseries_name)
     if name in inp_rain_gages:
         raise HTTPException(
             status_code=400,
@@ -156,7 +164,7 @@ async def create_raingage_endpoint(raingage_data: RaingageModel):
     # 创建新的雨量计
     create_raingage(
         INP,
-        timeseries_name=raingage_data.timeseries,
+        timeseries_name=timeseries_name,
         interval=raingage_data.interval,
         x=raingage_data.x,
         y=raingage_data.y,
@@ -174,6 +182,7 @@ async def create_raingage_endpoint(raingage_data: RaingageModel):
     summary="删除指定雨量计",
     description="通过雨量计ID删除雨量计,并清理关联的数据",
 )
+@with_exception_handler(default_message="删除失败,文件有误,发生未知错误")
 async def delete_raingage_endpoint(raingage_id: str):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_rain_gages = INP.check_for_section(RainGage)
@@ -185,8 +194,12 @@ async def delete_raingage_endpoint(raingage_id: str):
             detail=f"删除失败,雨量计 [ {raingage_id} ] 不存在",
         )
 
-    # 删除雨量计
-    delete_raingage(INP, timeseries_name=raingage_id)
+    # 获取该雨量计关联的时间序列名称
+    raingage = inp_rain_gages[raingage_id]
+    timeseries_name = raingage.timeseries
+
+    # 删除雨量计(传入时间序列名称)
+    delete_raingage(INP, timeseries_name=timeseries_name)
 
     # 保存修改
     INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)

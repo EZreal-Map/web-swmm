@@ -48,6 +48,21 @@ export const createJunctionEntity = (
       outlineWidth: 2,
       heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
     },
+    // 标签样式（显示 name）
+    label: {
+      text: name,
+      font: '14px sans-serif',
+      fillColor: Cesium.Color.WHITE,
+      outlineColor: Cesium.Color.BLACK,
+      outlineWidth: 20,
+      style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+      // 标签相对点的位置
+      verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+      horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+      pixelOffset: new Cesium.Cartesian2(8, -8),
+      // 只在相机距离 100km 内显示标签
+      distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 100000),
+    },
     properties: {
       type,
       depthMax,
@@ -86,6 +101,18 @@ export const createOutfallEntity = (
       outlineColor: Cesium.Color.WHITE,
       outlineWidth: 2,
       heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+    }, // 标签样式（显示 name）
+    label: {
+      text: name,
+      font: '14px sans-serif',
+      fillColor: Cesium.Color.WHITE,
+      outlineColor: Cesium.Color.BLACK,
+      outlineWidth: 20,
+      style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+      // 标签相对点的位置
+      verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+      horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+      pixelOffset: new Cesium.Cartesian2(8, -8),
     },
     properties: {
       type,
@@ -124,6 +151,21 @@ export const createConduitEntity = (
   const conduitObject = {
     id: POLYLINEPREFIX + name,
     name: name,
+    // 标签位置：线的中点（动态计算）
+    position: new Cesium.CallbackProperty(() => {
+      const fromNode = viewer.entities.getById(POINTPREFIX + fromNodeId)
+      const toNode = viewer.entities.getById(POINTPREFIX + toNodeId)
+
+      if (!fromNode || !toNode) return null
+
+      const fromPosition = fromNode?.position?.getValue()
+      const toPosition = toNode?.position?.getValue()
+
+      if (!fromPosition || !toPosition) return null
+
+      // 计算中点
+      return Cesium.Cartesian3.midpoint(fromPosition, toPosition, new Cesium.Cartesian3())
+    }, false),
     polyline: {
       positions: new Cesium.CallbackProperty(() => {
         const fromNode = viewer.entities.getById(POINTPREFIX + fromNodeId)
@@ -145,6 +187,20 @@ export const createConduitEntity = (
       material: CONDUIT_DEFAULT_COLOR,
       clampToGround: true, // 让线贴地
       arcType: Cesium.ArcType.GEODESIC, // 让线自动跟随地形曲率
+    },
+    // 标签样式（显示 name）
+    label: {
+      text: name,
+      font: '14px sans-serif',
+      fillColor: Cesium.Color.WHITE,
+      outlineColor: Cesium.Color.BLACK,
+      outlineWidth: 20,
+      style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+      verticalOrigin: Cesium.VerticalOrigin.CENTER,
+      horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+      pixelOffset: new Cesium.Cartesian2(0, -10),
+      // 只在相机距离 30km 内显示标签
+      distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 30000),
     },
     properties: {
       type: type,
@@ -182,10 +238,13 @@ export const createSubcatchmentEntity = (
   }
 
   const positions = polygon.map(([x, y]) => Cesium.Cartesian3.fromDegrees(x, y))
+  // 计算多边形中心点，用于标签位置
+  const centerPosition = getPolygonCenter(positions)
 
   const subcatchmentObject = {
     id: POLYGONPREFIX + name,
     name: name,
+    position: centerPosition, // 标签位置：多边形中心
     polygon: {
       hierarchy: new Cesium.PolygonHierarchy(positions),
       material: Cesium.Color.LIGHTSKYBLUE.withAlpha(0.5), // 设置填充颜色
@@ -194,6 +253,19 @@ export const createSubcatchmentEntity = (
       // height: 0,
       // outline: true,
       // outlineColor: Cesium.Color.SKYBLUE,
+    },
+    // 标签样式（显示 name）
+    label: {
+      text: name,
+      font: '14px sans-serif',
+      fillColor: Cesium.Color.WHITE,
+      outlineColor: Cesium.Color.BLACK,
+      outlineWidth: 20,
+      style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+      verticalOrigin: Cesium.VerticalOrigin.CENTER,
+      horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+      // 只在相机距离 100km 内显示标签
+      distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 100000),
     },
     properties: {
       type: 'subcatchment',

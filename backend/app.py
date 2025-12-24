@@ -7,6 +7,7 @@ from utils.logger import app_logger, api_logger
 from contextlib import asynccontextmanager
 from utils.agent.async_store_manager import AsyncStoreManager
 from utils.agent.graph_manager import GraphInstance
+from utils.agent.llm_manager import LLMRegistry, create_openai_llm
 
 # 路由
 from apis.conduit import conduitRouter
@@ -25,6 +26,9 @@ async def lifespan(app: FastAPI):
     app_logger.info("正在启动后端API服务...")
     # 初始化异步全局StoreManager(异步)
     await AsyncStoreManager.init()  # (不要Agent功能，想要不报错，可以注释掉)
+    # 初始LLM存储器
+    llm = create_openai_llm()  # (不要Agent功能，想要不报错，可以注释掉)
+    LLMRegistry.register("llm", llm)  # (不要Agent功能，想要不报错，可以注释掉)
     # 初始Graph实例
     GraphInstance.init()  # (不要Agent功能，想要不报错，可以注释掉)
     yield

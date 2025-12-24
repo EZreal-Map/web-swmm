@@ -1,9 +1,9 @@
-from schemas.agent.state import State
+from schemas.agent.state import ToolModeSate
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from langchain_core.messages import HumanMessage
 from utils.agent.message_manager import get_split_dialogue_rounds
 from utils.logger import agent_logger
-from utils.agent.llm_manager import create_openai_llm
+from utils.agent.llm_manager import LLMRegistry
 from typing_extensions import TypedDict
 from typing import Literal
 from pydantic import Field
@@ -20,18 +20,21 @@ class CheckOutput(TypedDict):
     retry_count: int = Field(description="工具重试次数")
 
 
-llm = create_openai_llm()
-backend_tool_check_llm = llm.with_structured_output(CheckOutput)
-
-
 # 2.3 后端工具检查节点
 async def backend_tool_check_node(
-    state: State,
+    state: ToolModeSate,
 ) -> dict:
     """后端工具检查节点:检查后端工具执行状态"""
+    backend_tool_check_llm = LLMRegistry.get("backend_tool_check_llm")
+    if not backend_tool_check_llm:
+        llm = LLMRegistry.get("llm")
+        backend_tool_check_llm = llm.with_structured_output(CheckOutput)
+        LLMRegistry.register("backend_tool_check_llm", backend_tool_check_llm)
+
     await ChatMessageSendHandler.send_step(
         state.get("client_id", ""),
         f"[工具检查] AI正在检查后端工具执行状态...",
+        mode=state.get("mode"),
     )
     agent_logger.debug(
         f"{state.get('client_id')} - 后端工具检查节点: messages: {state.get('messages', [])}"

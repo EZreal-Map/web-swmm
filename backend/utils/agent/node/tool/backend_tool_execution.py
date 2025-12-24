@@ -1,11 +1,11 @@
-from schemas.agent.state import State
+from schemas.agent.state import ToolModeSate
 from utils.logger import agent_logger
 from utils.agent.serial_tool_node import SerialToolNode
 from langgraph.prebuilt import ToolNode
-from utils.agent.node.backend_tools import backend_tools
+from utils.agent.node.tool.backend_tools import backend_tools
 
 
-async def backend_tool_execution_node(send_state: State) -> dict:
+async def backend_tool_execution_node(send_state: ToolModeSate) -> dict:
     """后端工具执行节点:实际执行后端工具"""
     if send_state.get("human_in_the_loop", False):
         agent_logger.debug(

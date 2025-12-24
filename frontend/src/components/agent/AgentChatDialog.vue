@@ -6,6 +6,7 @@
         <div class="chat-avatar">🤖</div>
         <span class="chat-title">AI 聊天助手</span>
         <div class="connection-status" :class="{ connected }"></div>
+        <div></div>
       </div>
       <div class="header-actions">
         <button
@@ -16,6 +17,13 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path v-if="collapsed" d="M7 14l5-5 5 5z" />
             <path v-else d="M7 10l5 5 5-5z" />
+          </svg>
+        </button>
+        <button class="header-btn" @click.stop="openSettings" :disabled="isLoading" title="设置">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M19.14 12.94c.04-.31.06-.63.06-.94s-.02-.63-.06-.94l2.03-1.58a.5.5 0 0 0 .11-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a7.1 7.1 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 14.84 2h-3.68a.5.5 0 0 0-.49.41l-.36 2.54a7.1 7.1 0 0 0-1.63.94l-2.39-.96a.5.5 0 0 0-.61.22L3.76 8.47a.5.5 0 0 0 .11.64l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58a.5.5 0 0 0-.11.64l1.92 3.32a.5.5 0 0 0 .61.22l2.39-.96c.5.38 1.05.7 1.63.94l.36 2.54c.04.24.25.41.49.41h3.68c.24 0 .45-.17.49-.41l.36-2.54c.58-.24 1.13-.56 1.63-.94l2.39.96c.23.09.5 0 .61-.22l1.92-3.32a.5.5 0 0 0-.11-.64l-2.03-1.58ZM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7Z"
+            />
           </svg>
         </button>
         <button class="header-btn close-btn" @click.stop="closeDialog" title="关闭">
@@ -40,6 +48,42 @@
     <div class="resize-handle bottom-right" @mousedown.stop="startResize"></div>
     <div class="resize-handle bottom" @mousedown.stop="startResizeVertical"></div>
     <div class="resize-handle right" @mousedown.stop="startResizeHorizontal"></div>
+    <div v-if="showSettingsDialog" class="settings-overlay" @click.self="closeSettings">
+      <div class="settings-dialog">
+        <div class="settings-header">
+          <span>设置</span>
+          <button class="header-btn" @click="closeSettings" title="关闭设置">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+              />
+            </svg>
+          </button>
+        </div>
+        <div class="settings-body">
+          <div class="settings-field">
+            <label for="agent-mode" class="settings-label">Agent 模式</label>
+            <select id="agent-mode" v-model="tempSelectedAgentMode" class="settings-select">
+              <option v-for="option in agentModeOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </div>
+          <div class="settings-field">
+            <label for="model-select" class="settings-label">模型</label>
+            <select id="model-select" v-model="selectedLLMModel" class="settings-select">
+              <option v-for="model in modelOptions" :key="model.value" :value="model.value">
+                {{ model.label }}
+              </option>
+            </select>
+          </div>
+          <div class="settings-footer">
+            <button class="settings-btn ghost" @click="closeSettings">取消</button>
+            <button class="settings-btn primary" @click="confirmSettings">确认</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -50,11 +94,12 @@ import { showConfirmBoxUITool, showEchartsUITool, showHumanInfoUITool } from '@/
 import MessageList from '@/components/agent/MessageList.vue'
 import ChatInput from '@/components/agent/ChatInput.vue'
 import { useAgentStore } from '@/stores/agent'
-import { getChatWSURL } from '@/utils/wsURL'
+import { getChatWSURL } from '@/apis/wsURL'
+import { getAgentModelInfoAxios, updateAgentModelAxios } from '@/apis/chat'
 
 const agentStore = useAgentStore()
 
-// 使用 defineModel 处理 showDialog 的双向绑定
+// 控制对话框显示隐藏，这个参数可以从父组件传入，所以使用 defineModel，双向绑定
 const showDialog = defineModel('showDialog', { type: Boolean, default: false })
 
 // 生成唯一会话ID - 使用模板字符串
@@ -63,6 +108,7 @@ const userId = 'user-123'
 const clientId = `${userId}@@${conversationId}`
 const serverUrl = getChatWSURL(clientId)
 
+// AI助手弹窗关闭函数
 function closeDialog() {
   showDialog.value = false
 }
@@ -87,6 +133,50 @@ const ResponseMessageType = {
   COMPLETE: 'complete',
   ERROR: 'error',
   STEP: 'step',
+}
+
+// Agent模式
+const AgentMode = {
+  TOOL: 'TOOL',
+  PLAN: 'PLAN',
+}
+
+const agentModeOptions = [
+  { value: AgentMode.TOOL, label: '工具模式' },
+  { value: AgentMode.PLAN, label: '计划模式' },
+]
+
+const modelOptions = ref([{ value: 'gpt-4o-mini', label: 'GPT-4o mini' }])
+
+const selectedAgentMode = ref(AgentMode.TOOL)
+const selectedLLMModel = ref(modelOptions.value[0].value)
+
+const tempSelectedAgentMode = ref(selectedAgentMode.value)
+const showSettingsDialog = ref(false)
+
+const openSettings = async () => {
+  const modelInfo = await getAgentModelInfoAxios()
+  selectedLLMModel.value = modelInfo.data.selected_model
+  modelOptions.value = modelInfo.data.models.map((model) => ({
+    value: model,
+    label: model,
+  }))
+  showSettingsDialog.value = true
+}
+
+const closeSettings = () => {
+  showSettingsDialog.value = false
+}
+
+const confirmSettings = async () => {
+  const response = await updateAgentModelAxios(selectedLLMModel.value)
+  const selectOption = agentModeOptions.find(
+    (option) => option.value === tempSelectedAgentMode.value,
+  )
+  selectedAgentMode.value = tempSelectedAgentMode.value
+  ElMessage.success('Agent模式已切换为' + selectOption.label)
+  ElMessage.success(response.message)
+  showSettingsDialog.value = false
 }
 
 /**
@@ -265,7 +355,7 @@ class MessageResponseHandler {
   handleToolMessage(data) {
     // data.content 是 JSON 字符串
     const result = JSON.parse(data.content)
-    console.log('工具消息:', data.tool_name, result)
+    // console.log('工具消息:', data.tool_name, result)
 
     const lastMessage = agentStore.lastAssistantMessage
     // 确保 ToolMessage 的 content里面 都要 message 字段
@@ -363,6 +453,7 @@ class MessageSender {
     return this.wsManager.send({
       message,
       type: RequestMessageType.CHAT,
+      mode: selectedAgentMode.value,
     })
   }
 
@@ -371,6 +462,7 @@ class MessageSender {
       message,
       type: RequestMessageType.FEEDBACK,
       success,
+      mode: selectedAgentMode.value,
     })
   }
 
@@ -635,6 +727,118 @@ onBeforeUnmount(() => {
   gap: 4px;
 }
 
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.settings-dialog {
+  background: #fff;
+  border-radius: 12px;
+  width: 400px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  animation: fadeIn 0.2s ease;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+}
+
+.settings-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  min-width: 80px;
+}
+
+.settings-select {
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+  flex: 1;
+}
+
+.settings-select:focus {
+  border-color: #7c5dfa;
+  box-shadow: 0 0 0 2px rgba(124, 93, 250, 0.15);
+}
+
+.settings-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.settings-btn {
+  min-width: 72px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.settings-btn.ghost {
+  background: transparent;
+  color: #666;
+  border: 1px solid #dcdcdc;
+}
+
+.settings-btn.ghost:hover {
+  border-color: #999;
+  color: #333;
+}
+
+.settings-btn.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  border: none;
+}
+
+.settings-btn.primary:hover {
+  opacity: 0.9;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .header-btn {
   background: rgba(255, 255, 255, 0.1);
   border: none;
@@ -650,6 +854,10 @@ onBeforeUnmount(() => {
 
 .header-btn:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+.header-btn:disabled {
+  cursor: not-allowed;
 }
 
 .close-btn:hover {

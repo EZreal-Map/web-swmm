@@ -6,6 +6,7 @@ from typing_extensions import Annotated
 from langgraph.errors import GraphInterrupt
 from utils.agent.websocket_manager import ChatMessageSendHandler
 import asyncio
+from typing import Any
 
 # 在 LangGraph 的 interrupt 机制下,节点被 resume 时会重新执行整个节点函数,所以 print("human_in_lood 之前") 也会被执行两次(一次是第一次中断时,一次是 resume 时)。这是 LangGraph 的设计:resume 后节点会完整重跑。
 # 只让 print 运行一次的原理与方法
@@ -29,9 +30,7 @@ import asyncio
 @tool
 def fly_to_entity_by_name_tool(
     entity_name: str = Field(description="目标实体的唯一标识名称，必填"),
-    client_id: Annotated[str, InjectedState("client_id")] = Field(
-        description="前端客户端ID，自动注入"
-    ),
+    state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
 ) -> dict:
     """
     地图实体跳转或点击工具(**只能用于单实体,禁止批量或多次调用！**),**多实体信息查询禁止使用此工具**
@@ -88,12 +87,13 @@ def fly_to_entity_by_name_tool(
         # 只执行一次,当第一次interrupt时,Command(resume=...) 恢复节点时 不会再执行下面的代码,但是上面代码每次都会执行
         asyncio.run(
             ChatMessageSendHandler.send_function_call(
-                client_id=client_id,
+                client_id=state.get("client_id"),
                 function_name="flyToEntityByNameTool",
                 args={"entity_name": entity_name},
                 is_direct_feedback=True,
+                mode=state.get("mode"),
                 # 预定义成功消息,当前端执行成功以后,再被返回给后端,后端可以放进Command里去,Command里的信息最终会被封装到ToolMessage里
-                success_message=f"前端界面已跳转到实体:{entity_name},并高亮显示实体和实体信息弹窗。",
+                success_message=f"前端界面已跳转到实体:{entity_name},并高亮显示实体和实体信息弹窗.",
             )
         )
         # 一定要raise异常,否则会导致节点不会中断
@@ -103,9 +103,7 @@ def fly_to_entity_by_name_tool(
 
 @tool
 def init_entities_tool(
-    client_id: Annotated[str, InjectedState("client_id")] = Field(
-        description="前端客户端ID，自动注入"
-    ),
+    state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
 ) -> dict:
     """
     WebGIS实体初始化/刷新工具(用于实体有增删改时,通知前端刷新所有实体)
@@ -139,10 +137,12 @@ def init_entities_tool(
     except GraphInterrupt:
         asyncio.run(
             ChatMessageSendHandler.send_function_call(
-                client_id=client_id,
+                client_id=state.get("client_id"),
                 function_name="initEntitiesTool",
                 args={},
                 is_direct_feedback=True,
+                mode=state.get("mode"),
+                # 预定义成功消息,当前端执行成功以后,再被返回给后端,后端可以放进Command里去,Command里的信息最终会被封装到ToolMessage里
                 success_message="前端已刷新所有实体,展示为最新状态。",
             )
         )
@@ -155,9 +155,7 @@ def human_info_completion_tool(
     input_title: str = Field(
         description="补充信息的标题提示信息，标题提示信息要求尽量详细，参数信息可以分为必要参数信息和可选参数信息。可选参数可以不用强制输入，可以跳过，系统会使用默认值。例如：创建节点J100所需参数补充：请继续提供节点的必要参数：经度、纬度；可选参数：高程、初始水深、最大水深等（可选参数可不输入，系统将使用默认值）。"
     ),
-    client_id: Annotated[str, InjectedState("client_id")] = Field(
-        description="前端客户端ID，自动注入"
-    ),
+    state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
 ) -> str:
     """
     1. 仅用于在**创建、新增**实体的时候，信息不全时,向用户请求补充信息。
@@ -176,10 +174,11 @@ def human_info_completion_tool(
     except GraphInterrupt:
         asyncio.run(
             ChatMessageSendHandler.send_function_call(
-                client_id=client_id,
+                client_id=state.get("client_id"),
                 function_name="showHumanInfoUITool",
                 args={"input_title": input_title},
                 is_direct_feedback=False,
+                mode=state.get("mode"),
                 success_message="前端已刷新所有实体,展示为最新状态。",
             )
         )

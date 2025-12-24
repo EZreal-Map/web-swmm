@@ -252,9 +252,7 @@ async def create_outfall_tool(
 def delete_outfall_tool(
     outfall_id: str = Field(description="要删除的出口ID，如 'O1'"),
     confirm_question: str = Field(description="确认删除的提示问题，需带出口名称"),
-    client_id: Annotated[str, InjectedState("client_id")] = Field(
-        description="前端客户端ID，自动注入"
-    ),
+    state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
 ) -> Dict[str, Any]:
     """删除指定出口.
 
@@ -263,7 +261,6 @@ def delete_outfall_tool(
     Args:
         outfall_id: 要删除的出口ID,比如 "O1"
         confirm_question: 确认删除的提示问题,比如 "您确定要删除 O1 出口吗？",一定要带上具体的出口名称(outfall_id)
-        client_id: 前端会话ID
 
     Returns:
         Dict[str, Any]: 删除结果字典
@@ -286,10 +283,11 @@ def delete_outfall_tool(
         # 第一次 interrupt 时会进入这里,通知前端弹窗
         asyncio.run(
             ChatMessageSendHandler.send_function_call(
-                client_id=client_id,
+                client_id=state.get("client_id"),
                 function_name="showConfirmBoxUITool",
                 args={"confirm_question": confirm_question},
                 is_direct_feedback=False,
+                mode=state.get("mode"),
             )
         )
         raise

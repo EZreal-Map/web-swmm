@@ -1,8 +1,8 @@
-from schemas.agent.state import State
+from schemas.agent.state import ToolModeSate
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from utils.agent.message_manager import get_split_dialogue_rounds
 from utils.logger import agent_logger
-from utils.agent.llm_manager import create_openai_llm
+from utils.agent.llm_manager import LLMRegistry
 
 from tools.junction import (
     get_junctions_tool,
@@ -70,13 +70,16 @@ HIL_backend_tools_name = [
 # 1.3 后端工具集合
 backend_tools = normal_backend_tools + HIL_backend_tools
 
-llm = create_openai_llm()
-backend_llm = llm.bind_tools(tools=backend_tools)
-
 
 # 2. 后端工具节点:根据标记决定是否执行
-async def backend_tools_node(state: State) -> dict:
+async def backend_tools_node(state: ToolModeSate) -> dict:
     """后端工具节点:根据need_backend标记决定是否执行"""
+    backend_llm = LLMRegistry.get("backend_llm")
+    if not backend_llm:
+        llm = LLMRegistry.get("llm")
+        backend_llm = llm.bind_tools(tools=backend_tools)
+        LLMRegistry.register("backend_llm", backend_llm)
+
     need_backend = state.get("need_backend", False)
     user_query = state.get("query", "")
     agent_logger.info(
@@ -93,7 +96,9 @@ async def backend_tools_node(state: State) -> dict:
         )
         return {}
     await ChatMessageSendHandler.send_step(
-        state.get("client_id", ""), "[后端决策] 正在分析后端工具调用..."
+        state.get("client_id", ""),
+        "[后端决策] 正在分析后端工具调用...",
+        state.get("mode"),
     )
     # 获取最后一轮消息
     recent_dialogue_round = get_split_dialogue_rounds(state.get("messages", []), 1)
@@ -119,7 +124,7 @@ async def backend_tools_node(state: State) -> dict:
     )
     # 屏蔽 astream 自动发送 tool_calls(因为有bug,此时的args为空),手动发送,因为此时content='',需要使用强制发送参数
     await ChatMessageSendHandler.send_ai_message(
-        state.get("client_id"), backend_response, True
+        state.get("client_id"), backend_response, state.get("mode"), True
     )
     # 返回包含工具调用的AI消息
     return {"messages": [backend_response], "retry_count": retry_count}

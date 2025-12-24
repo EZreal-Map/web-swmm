@@ -193,9 +193,7 @@ async def create_subcatchment_tool(
 def delete_subcatchment_tool(
     subcatchment_id: str = Field(description="要删除的子汇水区ID，如 'S1'"),
     confirm_question: str = Field(description="确认删除的提示问题，需带子汇水区名称"),
-    client_id: Annotated[str, InjectedState("client_id")] = Field(
-        description="前端客户端ID，自动注入"
-    ),
+    state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
 ) -> Dict[str, Any]:
     """
     删除指定子汇水区。
@@ -227,10 +225,11 @@ def delete_subcatchment_tool(
     except GraphInterrupt:
         asyncio.run(
             ChatMessageSendHandler.send_function_call(
-                client_id=client_id,
+                client_id=state.get("client_id"),
                 function_name="showConfirmBoxUITool",
                 args={"confirm_question": confirm_question},
                 is_direct_feedback=False,
+                mode=state.get("mode"),
             )
         )
         raise

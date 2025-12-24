@@ -1,8 +1,8 @@
-from schemas.agent.state import State
+from schemas.agent.state import ToolModeSate
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from langchain_core.messages import HumanMessage
 from utils.logger import agent_logger
-from utils.agent.llm_manager import create_openai_llm
+from utils.agent.llm_manager import LLMRegistry
 from tools.webgis import fly_to_entity_by_name_tool, init_entities_tool
 
 # 2.1 普通前端工具
@@ -18,13 +18,16 @@ HIL_frontend_tools_name = [
 # 2.3 前端工具集合
 frontend_tools = normal_frontend_tools + HIL_frontend_tools
 
-llm = create_openai_llm()
-frontend_llm = llm.bind_tools(tools=frontend_tools)
-
 
 # 3. 前端工具节点:根据标记决定是否生成工具调用
-async def frontend_tools_node(state: State) -> dict:
+async def frontend_tools_node(state: ToolModeSate) -> dict:
     """前端工具节点:根据need_frontend标记决定是否生成工具调用"""
+    frontend_llm = LLMRegistry.get("frontend_llm")
+    if not frontend_llm:
+        llm = LLMRegistry.get("llm")
+        frontend_llm = llm.bind_tools(tools=frontend_tools)
+        LLMRegistry.register("frontend_llm", frontend_llm)
+
     need_frontend = state.get("need_frontend", False)
     user_query = state.get("query", "")
     agent_logger.info(
@@ -43,7 +46,9 @@ async def frontend_tools_node(state: State) -> dict:
         return {}
 
     await ChatMessageSendHandler.send_step(
-        state.get("client_id", ""), "[前端决策] 正在分析前端工具调用..."
+        state.get("client_id", ""),
+        "[前端决策] 正在分析前端工具调用...",
+        state.get("mode"),
     )
 
     # 构建前端专用的消息,让前端LLM分析问题
@@ -63,7 +68,7 @@ async def frontend_tools_node(state: State) -> dict:
     )
     # 屏蔽 astream 自动发送 tool_calls(因为有bug,此时的args为空),手动发送,因为此时content='',需要使用强制发送参数
     await ChatMessageSendHandler.send_ai_message(
-        state.get("client_id"), frontend_response, True
+        state.get("client_id"), frontend_response, state.get("mode"), True
     )
 
     return {"messages": [frontend_response]}

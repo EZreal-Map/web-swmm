@@ -1,22 +1,22 @@
-from schemas.agent.state import State
+from schemas.agent.state import ToolModeSate
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from langchain_core.messages import AIMessage, HumanMessage
 from utils.agent.message_manager import get_recent_messages_by_type
 from utils.logger import agent_logger
-from utils.agent.llm_manager import create_openai_llm
-
-llm = create_openai_llm()
-question_rewrite_llm = llm
+from utils.agent.llm_manager import LLMRegistry
 
 
 # 0. 问题改写节点:结合记忆补全用户问题
-async def question_rewrite_node(state: State) -> dict:
+async def question_rewrite_node(state: ToolModeSate) -> dict:
     """
     问题改写节点：结合最近3次HumanMessage、最近1次AIMessage和当前query,补全用户问题。
     """
+    question_rewrite_llm = LLMRegistry.get("llm")
+
     await ChatMessageSendHandler.send_step(
         state.get("client_id", ""),
         f"[问题重写] AI正在为你问题重写...",
+        mode=state.get("mode"),
     )
 
     recent_human_msgs = get_recent_messages_by_type(
@@ -70,7 +70,7 @@ async def question_rewrite_node(state: State) -> dict:
     输出：查询节点J1
 
 - 上下文：
-        AI：(历史有“J1节点”)
+        AI：(历史消息最近的一个节点对象是“J1节点”)
         用户：这个节点的流量是多少？
     输出：J1节点的流量是多少？
 """

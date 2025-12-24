@@ -107,11 +107,7 @@ class ChatProcessor:
             # 延迟导入
             from utils.agent.graph_manager import GraphInstance
 
-            # 确保Graph已初始化
-            if not GraphInstance.is_initialized():
-                GraphInstance.init()
-
-            graph = GraphInstance.get_graph()
+            graph = GraphInstance.get_graph(chat_request.mode)
             config = {"configurable": {"thread_id": client_id}}
 
             # states_message = graph.aget_state(config)
@@ -136,12 +132,16 @@ class ChatProcessor:
 
     @staticmethod
     async def handle_normal_request(
-        client_id: str, chat_request: ChatRequest, graph, config: Dict[str, Any]
+        client_id: str,
+        chat_request: ChatRequest,
+        graph,
+        config: Dict[str, Any],
     ) -> None:
         """处理普通聊天请求"""
         state = {
             "messages": [HumanMessage(content=chat_request.message)],
             "client_id": client_id,
+            "mode": chat_request.mode,
         }
 
         websocket_logger.info(
@@ -150,12 +150,15 @@ class ChatProcessor:
         # 发送开始响应头,提醒前端(可以新建一个对话窗口)
         await ChatMessageSendHandler.send_start(client_id)
         await StreamProcessor.send_stream_graph_messages(
-            client_id, graph, state, config
+            client_id, graph, state, config, chat_request.mode
         )
 
     @staticmethod
     async def handle_feedback_request(
-        client_id: str, chat_request: ChatRequest, graph, config: Dict[str, Any]
+        client_id: str,
+        chat_request: ChatRequest,
+        graph,
+        config: Dict[str, Any],
     ) -> None:
         """处理反馈请求(流式处理)"""
         try:
@@ -167,7 +170,7 @@ class ChatProcessor:
             # 然后继续执行 graph
             human_command = Command(resume=chat_request.model_dump())
             await StreamProcessor.send_stream_graph_messages(
-                client_id, graph, human_command, config
+                client_id, graph, human_command, config, chat_request.mode
             )
         except Exception as e:
             websocket_logger.error(f"处理反馈请求失败: {e}")
@@ -184,6 +187,7 @@ class StreamProcessor:
         graph,
         state_or_command,
         config,
+        mode: str,  # 这里必须传 mode 参数，因为 Command 和 state 这里不是统一的 .get("mode")或者 .mode能取到 mode的值，为了统一处理，直接传 mode 参数
     ):
         """统一处理 graph.astream 下的流式消息分发和连接检查"""
         # 检查连接状态
@@ -198,9 +202,13 @@ class StreamProcessor:
                 websocket_logger.info(f"客户端 {client_id} 已断开,停止流式响应")
                 break
             if isinstance(message_chunk, AIMessage):
-                await ChatMessageSendHandler.send_ai_message(client_id, message_chunk)
+                await ChatMessageSendHandler.send_ai_message(
+                    client_id, message_chunk, mode
+                )
             elif isinstance(message_chunk, ToolMessage):
-                await ChatMessageSendHandler.send_tool_message(client_id, message_chunk)
+                await ChatMessageSendHandler.send_tool_message(
+                    client_id, message_chunk, mode
+                )
             else:
                 websocket_logger.warning(f"未知消息类型: {type(message_chunk)}")
 
@@ -237,14 +245,14 @@ class ChatMessageSendHandler:
 
     @staticmethod
     async def send_ai_message(
-        client_id: str, message: AIMessage, forceSend: bool = False
+        client_id: str, message: AIMessage, mode: str, force_send: bool = False
     ) -> None:
         """处理AI普通消息,直接渲染content"""
-        # forceSend 解决 astream 会自动捕捉 aimessage 的 tool_calls,但是此时的tool_calls 有个bug args为空（content='' 拦截）
+        # force_send 解决 astream 会自动捕捉 aimessage 的 tool_calls,但是此时的tool_calls 有个bug args为空（content='' 拦截）
         # 所有增加一个 forcesend 参数，除了astream发送aimessage，当工具节点生成调用的时候，手动发送完整的aimessage
         content = message.content or ""
         tool_calls = message.tool_calls
-        if not forceSend and not content:
+        if not force_send and not content:
             # AI消息内容为空,且不是强制发送，跳过发送
             return
         await ChatMessageSendHandler._send_response(
@@ -252,6 +260,7 @@ class ChatMessageSendHandler:
             ResponseMessageType.AI_MESSAGE,
             content=content,
             tool_calls=tool_calls,
+            mode=mode,
         )
         # 分段发送,打印太多了,注释掉
         # websocket_logger.debug(
@@ -259,13 +268,16 @@ class ChatMessageSendHandler:
         # )
 
     @staticmethod
-    async def send_tool_message(client_id: str, message: ToolMessage) -> None:
+    async def send_tool_message(
+        client_id: str, message: ToolMessage, mode: str
+    ) -> None:
         """处理工具消息"""
         await ChatMessageSendHandler._send_response(
             client_id,
             ResponseMessageType.TOOL_MESSAGE,
             content=message.content,
             name=message.name,
+            mode=mode,
         )
         websocket_logger.debug(
             f"{client_id} - 发送工具消息: name: {message.name} -- content: {message.content}"
@@ -277,6 +289,7 @@ class ChatMessageSendHandler:
         function_name: str,
         args: dict,
         is_direct_feedback: bool,
+        mode: str,
         success_message: str = None,
     ) -> None:
         """处理函数调用"""
@@ -287,6 +300,7 @@ class ChatMessageSendHandler:
             args=args,
             is_direct_feedback=is_direct_feedback,
             success_message=success_message,
+            mode=mode,
         )
         websocket_logger.debug(
             f"{client_id} - 发送函数调用消息: function_name: {function_name} -- args: {args} -- is_direct_feedback: {is_direct_feedback} -- success_message: {success_message}"
@@ -315,9 +329,9 @@ class ChatMessageSendHandler:
         )
 
     @staticmethod
-    async def send_step(client_id: str, content: str) -> None:
+    async def send_step(client_id: str, content: str, mode: str) -> None:
         """发送步骤信息"""
         await ChatMessageSendHandler._send_response(
-            client_id, ResponseMessageType.STEP, content=content
+            client_id, ResponseMessageType.STEP, content=content, mode=mode
         )
         websocket_logger.info(f"{client_id} - 发送步骤信息: {content}")

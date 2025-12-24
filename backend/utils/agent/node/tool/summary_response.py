@@ -1,4 +1,4 @@
-from schemas.agent.state import State
+from schemas.agent.state import ToolModeSate
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from langchain_core.messages import HumanMessage
 from utils.logger import agent_logger
@@ -6,18 +6,18 @@ from utils.agent.message_manager import (
     get_recent_messages_by_type,
     get_split_dialogue_rounds,
 )
-from utils.agent.llm_manager import create_openai_llm
-
-llm = create_openai_llm()
-summary_llm = llm  # 纯聊天用的LLM
+from utils.agent.llm_manager import LLMRegistry
 
 
 # 4. 最终总结节点
-async def summary_response_node(state: State) -> dict:
+async def summary_response_node(state: ToolModeSate) -> dict:
     """最终总结节点:基于所有执行结果生成总结回答"""
+    summary_llm = LLMRegistry.get("llm")
+
     await ChatMessageSendHandler.send_step(
         state.get("client_id", ""),
         f"[总结回答] AI正在为你整理最终回答...",
+        mode=state.get("mode"),
     )
     agent_logger.info(f"{state.get('client_id')} - 进入总结节点")
     user_query = state.get("query", "")

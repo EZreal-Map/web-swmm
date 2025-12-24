@@ -1,16 +1,19 @@
-from schemas.agent.state import State
+from schemas.agent.state import ToolModeSate
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from langchain_core.messages import HumanMessage
 from utils.logger import agent_logger
-from utils.agent.llm_manager import create_openai_llm
-
-llm = create_openai_llm()
-intent_llm = llm
+from utils.agent.llm_manager import LLMRegistry
 
 
-async def intent_classifier_node(state: State) -> dict:
+# 1. 意图识别节点:分析并标记需要的工具类型
+async def intent_classifier_node(state: ToolModeSate) -> dict:
+    """意图识别节点：分析问题并标记需要后端/前端工具"""
+    intent_llm = LLMRegistry.get("llm")
+
     await ChatMessageSendHandler.send_step(
-        state.get("client_id", ""), "[意图识别] 正在进行AI意图识别..."
+        state.get("client_id", ""),
+        "[意图识别] 正在进行AI意图识别...",
+        state.get("mode"),
     )
     """意图识别节点:分析问题并标记需要后端/前端工具"""
     # 提取用户查询

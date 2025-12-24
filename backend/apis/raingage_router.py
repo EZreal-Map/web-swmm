@@ -142,18 +142,21 @@ async def create_raingage_endpoint(raingage_data: RaingageModel):
     """
     创建雨量计信息
     """
+    from schemas.timeseries import TIMESERIES_PREFIXES_MAP, TimeSeriesTypeModel
+
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
     inp_rain_gages = INP.check_for_section(RainGage)
 
-    # create_raingage会从timeseries_name中提取raingage name
-    # 所以这里需要确保timeseries_name有前缀
-    # 如果raingage_data.timeseries已经有RAINGAGE_前缀,则直接使用
-    # 如果没有,需要添加前缀
+    # create_raingage extracts the raingage name from timeseries_name
+    # so we need to ensure timeseries_name has the RAINGAGE prefix
+    # If raingage_data.timeseries already has RAINGAGE_ prefix, use it directly
+    # Otherwise, add the prefix
+    raingage_prefix = TIMESERIES_PREFIXES_MAP[TimeSeriesTypeModel.RAINGAGE]
     timeseries_name = raingage_data.timeseries
-    if not timeseries_name.startswith("RAINGAGE_"):
-        timeseries_name = f"RAINGAGE_{timeseries_name}"
+    if not timeseries_name.startswith(raingage_prefix):
+        timeseries_name = f"{raingage_prefix}{timeseries_name}"
 
-    # 从timeseries_name提取name来检查是否已存在
+    # Extract name from timeseries_name to check if it already exists
     name = remove_timeseries_prefix(timeseries_name)
     if name in inp_rain_gages:
         raise HTTPException(

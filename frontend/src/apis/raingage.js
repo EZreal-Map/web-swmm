@@ -1,16 +1,16 @@
 import request from '@/utils/request'
 
-// 获取所有雨量计名称
+// Get all raingage names
 export const getAllRaingageNamesAxios = () => request.get('/swmm/raingage/name')
 
-// 通过雨量计ID获取雨量计信息
+// Get raingage information by ID
 export const getRaingageByIdAxios = (id) => request.get(`/swmm/raingage/${id}`)
 
-// 通过雨量计ID更新雨量计信息
+// Update raingage information by ID
 export const updateRaingageByIdAxios = (id, data) => request.put(`/swmm/raingage/${id}`, data)
 
-// 创建新的雨量计
+// Create a new raingage
 export const createRaingageAxios = (data) => request.post('/swmm/raingage', data)
 
-// 删除雨量计
+// Delete a raingage by ID
 export const deleteRaingageByIdAxios = (id) => request.delete(`/swmm/raingage/${id}`)

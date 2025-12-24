@@ -5,7 +5,7 @@ from schemas.agent.chat import AgentMode
 
 
 class GraphRegistry:
-    _graphs: Dict[str, StateGraph] = {}
+    _graphs: Dict[AgentMode, StateGraph] = {}
 
     @classmethod
     def register(cls, mode: AgentMode, graph: StateGraph):

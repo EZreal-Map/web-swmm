@@ -89,6 +89,12 @@ const ResponseMessageType = {
   STEP: 'step',
 }
 
+// Agent模式
+const AgentMode = {
+  TOOL: "TOOL",
+  PLAN: "PLAN",
+}
+
 /**
  * WebSocket 连接管理器
  */
@@ -265,7 +271,7 @@ class MessageResponseHandler {
   handleToolMessage(data) {
     // data.content 是 JSON 字符串
     const result = JSON.parse(data.content)
-    console.log('工具消息:', data.tool_name, result)
+    // console.log('工具消息:', data.tool_name, result)
 
     const lastMessage = agentStore.lastAssistantMessage
     // 确保 ToolMessage 的 content里面 都要 message 字段

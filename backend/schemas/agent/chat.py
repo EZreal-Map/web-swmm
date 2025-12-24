@@ -25,6 +25,13 @@ class ResponseMessageType(str, Enum):
     ERROR = "error"
     STEP = "step"
 
+# Agent模式
+class AgentMode(str, Enum):
+    """Agent模式常量"""
+
+    TOOL = "TOOL"
+    PLAN = "PLAN"
+
 
 class ChatRequest(BaseModel):
     """聊天请求模型"""
@@ -36,6 +43,9 @@ class ChatRequest(BaseModel):
     success: bool = Field(
         default=True,
         description="用于HIL反馈函数执行成功与否,当type为RequestMessageType.FEEDBACK时有效,其余默认为True",
+    )
+    mode: AgentMode = Field(
+        default=AgentMode.TOOL, description="Agent模式"
     )
 
     @field_validator("message")

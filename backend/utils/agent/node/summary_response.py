@@ -18,6 +18,7 @@ async def summary_response_node(state: State) -> dict:
     await ChatMessageSendHandler.send_step(
         state.get("client_id", ""),
         f"[总结回答] AI正在为你整理最终回答...",
+        mode=state.get("mode"),
     )
     agent_logger.info(f"{state.get('client_id')} - 进入总结节点")
     user_query = state.get("query", "")

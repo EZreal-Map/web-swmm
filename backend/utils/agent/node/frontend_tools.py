@@ -43,7 +43,9 @@ async def frontend_tools_node(state: State) -> dict:
         return {}
 
     await ChatMessageSendHandler.send_step(
-        state.get("client_id", ""), "[前端决策] 正在分析前端工具调用..."
+        state.get("client_id", ""),
+        "[前端决策] 正在分析前端工具调用...",
+        state.get("mode"),
     )
 
     # 构建前端专用的消息,让前端LLM分析问题
@@ -63,7 +65,7 @@ async def frontend_tools_node(state: State) -> dict:
     )
     # 屏蔽 astream 自动发送 tool_calls(因为有bug,此时的args为空),手动发送,因为此时content='',需要使用强制发送参数
     await ChatMessageSendHandler.send_ai_message(
-        state.get("client_id"), frontend_response, True
+        state.get("client_id"), frontend_response, state.get("mode"), True
     )
 
     return {"messages": [frontend_response]}

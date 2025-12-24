@@ -17,6 +17,7 @@ async def question_rewrite_node(state: State) -> dict:
     await ChatMessageSendHandler.send_step(
         state.get("client_id", ""),
         f"[问题重写] AI正在为你问题重写...",
+        mode=state.get("mode"),
     )
 
     recent_human_msgs = get_recent_messages_by_type(

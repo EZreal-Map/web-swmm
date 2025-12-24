@@ -10,7 +10,9 @@ intent_llm = llm
 
 async def intent_classifier_node(state: State) -> dict:
     await ChatMessageSendHandler.send_step(
-        state.get("client_id", ""), "[意图识别] 正在进行AI意图识别..."
+        state.get("client_id", ""),
+        "[意图识别] 正在进行AI意图识别...",
+        state.get("mode"),
     )
     """意图识别节点:分析问题并标记需要后端/前端工具"""
     # 提取用户查询

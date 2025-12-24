@@ -313,9 +313,7 @@ async def create_junction_tool(
 def delete_junction_tool(
     junction_id: str = Field(description="要删除的节点ID，如 'J1'"),
     confirm_question: str = Field(description="确认删除的提示问题，需带节点名称"),
-    client_id: Annotated[str, InjectedState("client_id")] = Field(
-        description="前端客户端ID，自动注入"
-    ),
+    state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
 ) -> Dict[str, Any]:
     """删除指定节点.
 
@@ -350,10 +348,11 @@ def delete_junction_tool(
         # 第一次 interrupt 时会进入这里,通知前端弹窗
         asyncio.run(
             ChatMessageSendHandler.send_function_call(
-                client_id=client_id,
+                client_id=state.get("client_id"),
                 function_name="showConfirmBoxUITool",
                 args={"confirm_question": confirm_question},
                 is_direct_feedback=False,
+                mode=state.get("mode"),
             )
         )
         raise

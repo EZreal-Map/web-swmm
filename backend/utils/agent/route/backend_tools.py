@@ -34,6 +34,7 @@ async def backend_tools_route(
         await ChatMessageSendHandler.send_step(
             state.get("client_id", ""),
             "[后端执行] AI正在执行后端工具...",
+            mode=state.get("mode"),
         )
         # 2.后端有工具调用
         # 记录 Send 返回结果
@@ -51,6 +52,7 @@ async def backend_tools_route(
                         "client_id": state["client_id"],
                         "query": state["query"],
                         "human_in_the_loop": False,
+                        "mode": state.get("mode"),
                     },
                 )
             )
@@ -64,6 +66,7 @@ async def backend_tools_route(
                         "client_id": state["client_id"],
                         "query": state["query"],
                         "human_in_the_loop": True,
+                        "mode": state.get("mode"),
                     },
                 )
             )

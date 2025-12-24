@@ -32,6 +32,7 @@ async def backend_tool_check_node(
     await ChatMessageSendHandler.send_step(
         state.get("client_id", ""),
         f"[工具检查] AI正在检查后端工具执行状态...",
+        mode=state.get("mode"),
     )
     agent_logger.debug(
         f"{state.get('client_id')} - 后端工具检查节点: messages: {state.get('messages', [])}"

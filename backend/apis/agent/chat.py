@@ -30,7 +30,6 @@ async def chat_health_check():
     """聊天服务健康检查"""
     return {
         "status": "healthy",
-        "graph_initialized": GraphInstance.is_initialized(),
         "active_connections": websocket_manager.get_connection_count(),
         "connected_clients": len(websocket_manager.get_connected_clients()),
     }

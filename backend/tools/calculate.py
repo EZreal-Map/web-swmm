@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from utils.agent.websocket_manager import ChatMessageSendHandler
 from langgraph.prebuilt import InjectedState
 from typing_extensions import Annotated
+from typing import Any
 
 
 # @tool
@@ -57,9 +58,7 @@ from typing_extensions import Annotated
 def query_calculate_result_tool(
     name: str = Field(description="对象名称（如节点名、管道名），必填"),
     variable_label: str = Field(description="查询变量名称(中文)，必填"),
-    client_id: Annotated[str, InjectedState("client_id")] = Field(
-        description="前端客户端ID，自动注入"
-    ),
+    state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
 ):
     """
     计算结果查询工具。
@@ -131,7 +130,7 @@ def query_calculate_result_tool(
         # 第一次 interrupt 时会进入这里,通知前端弹窗
         asyncio.run(
             ChatMessageSendHandler.send_function_call(
-                client_id=client_id,
+                client_id=state.get("client_id"),
                 function_name="showEchartsUITool",
                 args={
                     "name": name,
@@ -139,6 +138,7 @@ def query_calculate_result_tool(
                     "variable": variable,
                 },
                 is_direct_feedback=True,
+                mode=state.get("mode"),
                 success_message=success_message,
             )
         )

@@ -93,7 +93,9 @@ async def backend_tools_node(state: State) -> dict:
         )
         return {}
     await ChatMessageSendHandler.send_step(
-        state.get("client_id", ""), "[后端决策] 正在分析后端工具调用..."
+        state.get("client_id", ""),
+        "[后端决策] 正在分析后端工具调用...",
+        state.get("mode"),
     )
     # 获取最后一轮消息
     recent_dialogue_round = get_split_dialogue_rounds(state.get("messages", []), 1)
@@ -119,7 +121,7 @@ async def backend_tools_node(state: State) -> dict:
     )
     # 屏蔽 astream 自动发送 tool_calls(因为有bug,此时的args为空),手动发送,因为此时content='',需要使用强制发送参数
     await ChatMessageSendHandler.send_ai_message(
-        state.get("client_id"), backend_response, True
+        state.get("client_id"), backend_response, state.get("mode"), True
     )
     # 返回包含工具调用的AI消息
     return {"messages": [backend_response], "retry_count": retry_count}

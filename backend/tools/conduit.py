@@ -292,16 +292,13 @@ async def create_conduit_tool(
 def delete_conduit_tool(
     conduit_id: str = Field(description="要删除的渠道ID，如 'C1'"),
     confirm_question: str = Field(description="确认删除的提示问题，需带渠道名称"),
-    client_id: Annotated[str, InjectedState("client_id")] = Field(
-        description="前端客户端ID，自动注入"
-    ),
+    state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
 ) -> Dict[str, Any]:
     """删除指定渠道.
     通过渠道ID删除渠道,并清理关联的断面数据。
     Args:
         conduit_id: 要删除的渠道ID,比如 "C1"
         confirm_question: 确认删除的提示问题,比如 "您确定要删除 C1 渠道吗？",一定要带上具体的渠道名称(conduit_id)
-        client_id: 前端会话ID
     Returns:
         Dict[str, Any]: 删除结果字典
     """
@@ -323,10 +320,11 @@ def delete_conduit_tool(
         # 第一次 interrupt 时会进入这里,通知前端弹窗
         asyncio.run(
             ChatMessageSendHandler.send_function_call(
-                client_id=client_id,
+                client_id=state.get("client_id"),
                 function_name="showConfirmBoxUITool",
                 args={"confirm_question": confirm_question},
                 is_direct_feedback=False,
+                mode=state.get("mode"),
             )
         )
         raise

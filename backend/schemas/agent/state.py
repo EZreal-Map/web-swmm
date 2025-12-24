@@ -14,3 +14,4 @@ class State(TypedDict):
     need_frontend: Optional[bool]  # 是否需要执行前端工具
     retry_count: Optional[int]  # 工具重试次数
     next_step: Optional[str]  # 下一步执行节点名称
+    mode: Optional[str]  # 代理模式

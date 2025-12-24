@@ -8,18 +8,18 @@ class GraphRegistry:
     _graphs: Dict[str, StateGraph] = {}
 
     @classmethod
-    def register(cls, mode: str, graph: StateGraph):
+    def register(cls, mode: AgentMode, graph: StateGraph):
         cls._graphs[mode] = graph
         agent_logger.info(f"Graph 注册成功: mode={mode.value}")
 
     @classmethod
-    def get(cls, mode: str) -> StateGraph:
+    def get(cls, mode: AgentMode) -> StateGraph:
         if mode not in cls._graphs:
             raise ValueError(f"未找到 graph, mode={mode}")
         return cls._graphs[mode]
 
     @classmethod
-    def exists(cls, mode: str) -> bool:
+    def exists(cls, mode: AgentMode) -> bool:
         return mode in cls._graphs
 
     @classmethod
@@ -41,5 +41,5 @@ class GraphInstance:
         #     GraphRegistry.register(AgentMode.PLAN, build_plan_graph())
 
     @classmethod
-    def get_graph(cls, mode: str):
+    def get_graph(cls, mode: AgentMode):
         return GraphRegistry.get(mode)

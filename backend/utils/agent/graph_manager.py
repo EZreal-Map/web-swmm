@@ -30,9 +30,9 @@ class GraphRegistry:
 class GraphInstance:
     @classmethod
     def init(cls):
-        from utils.agent.graph.tool_graph import build_tool_graph
+        from utils.agent.graph import build_tool_graph
 
-        # from utils.agent.graph.plan_graph import build_plan_graph
+        # from utils.agent.graph import build_plan_graph
 
         if not GraphRegistry.exists(AgentMode.TOOL):
             GraphRegistry.register(AgentMode.TOOL, build_tool_graph())

@@ -14,6 +14,7 @@ from apis.junction import junctionsRouter
 from apis.outfall import outfallRouter
 from apis.transect import transectsRouter
 from apis.timeseries import timeseriesRouter
+from apis.raingage_router import raingageRouter
 from apis.calculate import calculateRouter
 from apis.subcatchment import subcatchment
 from apis.agent.chat import chatRouter
@@ -73,6 +74,7 @@ application.include_router(conduitRouter, prefix="/swmm", tags=["渠道"])
 application.include_router(outfallRouter, prefix="/swmm", tags=["出口"])
 application.include_router(transectsRouter, prefix="/swmm", tags=["不规则断面"])
 application.include_router(timeseriesRouter, prefix="/swmm", tags=["时间序列"])
+application.include_router(raingageRouter, prefix="/swmm", tags=["雨量计"])
 application.include_router(calculateRouter, prefix="/swmm", tags=["计算"])
 application.include_router(subcatchment, prefix="/swmm", tags=["子汇水区域"])
 

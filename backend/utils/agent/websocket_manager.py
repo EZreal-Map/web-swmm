@@ -202,10 +202,12 @@ class StreamProcessor:
                 websocket_logger.info(f"客户端 {client_id} 已断开,停止流式响应")
                 break
             if isinstance(message_chunk, AIMessage):
+                # llm异步流式返回的 AIMessages，就会被这里捕获
                 await ChatMessageSendHandler.send_ai_message(
                     client_id, message_chunk, mode
                 )
             elif isinstance(message_chunk, ToolMessage):
+                # 节点 return 执行结果（ToolMessage）的时候，会被这里捕获
                 await ChatMessageSendHandler.send_tool_message(
                     client_id, message_chunk, mode
                 )
@@ -223,6 +225,14 @@ class ChatMessageSendHandler:
         **kwargs,
     ) -> None:
         """统一的响应发送方法(私有,仅供本类内部调用)"""
+        if client_id is None:
+            websocket_logger.error("客户端ID为空,无法发送响应")
+            return
+        if not websocket_manager.is_connected(client_id):
+            websocket_logger.warning(
+                f"客户端 {client_id} 已断开,跳过发送响应: {response_type}"
+            )
+            return
         base_data = {
             "type": response_type,
             "timestamp": int(time.time() * 1000),

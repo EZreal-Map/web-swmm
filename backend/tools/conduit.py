@@ -75,7 +75,7 @@ async def batch_get_conduits_by_ids_tool(
     ids: List[str] = Field(description="渠道ID列表，如 ['C1', 'C2', 'C3']"),
 ):
     """
-    渠道信息批量获取工具,通过渠道ID列表批量获取渠道的详细信息。
+    渠道配置，属性信息批量查询工具,通过渠道ID列表批量查询渠道的详细信息。
 
     **功能特性**:
         - 支持通过渠道ID列表查询多个渠道的详细信息

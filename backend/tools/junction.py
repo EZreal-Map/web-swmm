@@ -74,7 +74,7 @@ async def batch_get_junctions_by_ids_tool(
     ids: List[str] = Field(description="节点ID列表，如 ['J1', 'J2', 'J3']"),
 ):
     """
-    节点信息批量获取工具,通过节点ID列表批量获取节点的详细信息。
+    节点配置，属性信息批量查询工具,通过节点ID列表批量查询节点的详细信息。
 
     **功能特性**：
         - 支持通过节点ID列表查询多个节点的详细信息

@@ -27,7 +27,7 @@ from apis.subcatchment import (
 @with_result_exception_handler
 async def get_subcatchments_tool() -> str:
     """
-    子汇水区信息批量获取工具,一次性获取所有子汇水区的详细信息,包括地理与水文参数。
+    子汇水区信息批量查询工具,一次性查询所有子汇水区的详细信息,包括地理与水文参数。
 
     **功能特性**：
             - 获取所有子汇水区的基础属性和边界
@@ -66,7 +66,7 @@ async def batch_get_subcatchments_by_names_tool(
     names: List[str] = Field(description="子汇水区名称列表，如 ['S1', 'S2']"),
 ):
     """
-    子汇水区信息批量获取工具,通过名称列表批量获取子汇水区的详细信息。
+    子汇水区配置，属性信息批量获取工具,通过名称列表批量获取子汇水区的详细信息。
 
     **参数**：
             - names (List[str]): 子汇水区名称列表,如 ["S1", "S2"]

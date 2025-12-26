@@ -9,7 +9,7 @@ DEFAULT_TEMPERATURE = 0.7
 DEFAULT_MODEL = "gpt-4o-mini"
 
 # 默认模型列表,用于前端下拉等
-DEFAULT_MODELS: List[str] = ["gpt-4o-mini", "gpt-4o"]
+DEFAULT_MODELS: List[str] = ["gpt-4o-mini", "gpt-4o", "gpt-5-mini", "gpt-5"]
 SELECTED_MODEL = DEFAULT_MODEL
 
 

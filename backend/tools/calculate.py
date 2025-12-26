@@ -61,7 +61,8 @@ def query_calculate_result_tool(
     state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
 ):
     """
-    计算结果查询工具。
+    **用于查询计算结果工具**
+    **注意：此工具只能用于查询**计算**信息，不是用于查询**属性**或**配置**等信息**
     查询指定对象（节点/链接）的模拟计算时序结果，支持多种变量类型。
 
     **功能特性**：

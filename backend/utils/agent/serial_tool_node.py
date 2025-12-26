@@ -10,17 +10,18 @@ class SerialToolNode(ToolNode):
     def __init__(self, tools: list):
         super().__init__(tools)
 
-    def invoke(self, input, config=None, **kwargs):
+    def invoke(self, state, config=None, **kwargs):
         """串行执行工具调用,按tool_calls顺序执行,支持interrupt"""
-        if isinstance(input, list):
-            message = input[-1]
-        elif messages := input.get("messages", []):
+        # 如果工具需要发送信息给前端，一定要用dict包裹messages，并且包含client_id字段
+        if isinstance(state, list):
+            message = state[-1]
+        elif messages := state.get("messages", []):
             message = messages[-1]
         else:
-            raise ValueError("No message found in input")
+            raise ValueError("No message found in state")
 
         if not hasattr(message, "tool_calls") or not message.tool_calls:
-            return input
+            return state
 
         outputs = []
         # 按照tool_calls的顺序串行执行每个工具
@@ -36,13 +37,13 @@ class SerialToolNode(ToolNode):
                 )
 
                 # 构造单个工具调用的输入
-                single_tool_input = {
-                    **input,
+                single_tool_state = {
+                    **state,
                     "messages": [single_call_message],
                 }
 
                 # 使用父类的invoke方法执行单个工具
-                result = super().invoke(single_tool_input, config, **kwargs)
+                result = super().invoke(single_tool_state, config, **kwargs)
 
                 # 收集结果
                 if "messages" in result:

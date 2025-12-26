@@ -30,14 +30,10 @@ class GraphInstance:
     @classmethod
     def init(cls):
         from utils.agent.graph.tool_graph import build_tool_graph
+        from utils.agent.graph.plan_graph import build_plan_graph
 
-        # from utils.agent.graph.plan_graph import build_plan_graph
-
-        if not GraphRegistry.exists(AgentMode.TOOL):
-            GraphRegistry.register(AgentMode.TOOL, build_tool_graph())
-
-        # if not GraphRegistry.exists(AgentMode.PLAN):
-        #     GraphRegistry.register(AgentMode.PLAN, build_plan_graph())
+        GraphRegistry.register(AgentMode.TOOL, build_tool_graph())
+        GraphRegistry.register(AgentMode.PLAN, build_plan_graph())
 
     @classmethod
     def get_graph(cls, mode: str):

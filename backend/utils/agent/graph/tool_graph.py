@@ -74,6 +74,6 @@ def build_tool_graph() -> StateGraph:
     checkpointer = AsyncStoreManager.checkpointer
     store = AsyncStoreManager.store
     agent_logger.info(
-        "Graph创建成功 - 拆分架构: 问题重写 -> 意图识别 -> 后端决策/执行 -> 前端决策/执行 -> 最终总结"
+        "Graph 创建成功 - 拆分架构: 问题重写 -> 意图识别 -> 后端决策/执行 -> 前端决策/执行 -> 最终总结"
     )
     return graph_builder.compile(checkpointer=checkpointer, store=store)

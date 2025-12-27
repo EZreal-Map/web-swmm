@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Set, Tuple
+from typing import Dict, Iterable, List, Set, Tuple
 import os
 import geopandas as gpd
 from shapely.geometry import Point, LineString, Polygon

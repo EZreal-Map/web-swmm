@@ -93,7 +93,7 @@ import { flyToEntityByNameTool, initEntitiesTool } from '@/tools/webgis'
 import { showConfirmBoxUITool, showEchartsUITool, showHumanInfoUITool } from '@/tools/webui'
 import MessageList from '@/components/agent/MessageList.vue'
 import ChatInput from '@/components/agent/ChatInput.vue'
-import { useAgentStore } from '@/stores/agent'
+import { useAgentStore, AgentModeType } from '@/stores/agent'
 import { getChatWSURL } from '@/apis/wsURL'
 import { getAgentModelInfoAxios, updateAgentModelAxios } from '@/apis/chat'
 
@@ -135,22 +135,17 @@ const ResponseMessageType = {
   STEP: 'step',
 }
 
-// Agent模式
-const AgentMode = {
-  TOOL: 'TOOL',
-  PLAN: 'PLAN',
-}
-
 const agentModeOptions = [
-  { value: AgentMode.TOOL, label: '工具模式' },
-  { value: AgentMode.PLAN, label: '计划模式' },
+  { value: AgentModeType.TOOL, label: '工具模式' },
+  { value: AgentModeType.PLAN, label: '计划模式' },
 ]
 
 const modelOptions = ref([{ value: 'gpt-4o-mini', label: 'GPT-4o mini' }])
 
 // 选择的Agent模式和模型
 // TODO: 把selectedAgentMode使用pinia存储起来（还是放在后端变量吧）
-const selectedAgentMode = ref(AgentMode.PLAN)
+
+const selectedAgentMode = ref(agentStore.agentMode)
 const selectedLLMModel = ref(modelOptions.value[0].value)
 
 const tempSelectedAgentMode = ref(selectedAgentMode.value)
@@ -175,6 +170,8 @@ const confirmSettings = async () => {
   const selectOption = agentModeOptions.find(
     (option) => option.value === tempSelectedAgentMode.value,
   )
+  // 更新 Pinia 中的 agentMode
+  agentStore.setAgentMode(tempSelectedAgentMode.value)
   selectedAgentMode.value = tempSelectedAgentMode.value
   ElMessage.success('Agent模式已切换为' + selectOption.label)
   ElMessage.success(response.message)

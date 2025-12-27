@@ -19,6 +19,7 @@ from apis.calculate import calculateRouter
 from apis.subcatchment import subcatchment
 from apis.agent.chat import chatRouter
 from apis.show import showRouter
+from apis.river import riverRouter
 
 
 @asynccontextmanager
@@ -81,6 +82,8 @@ application.include_router(calculateRouter, prefix="/swmm", tags=["计算"])
 application.include_router(subcatchment, prefix="/swmm", tags=["子汇水区域"])
 
 application.include_router(showRouter, prefix="/swmm", tags=["首页滚动展示数据"])
+# 水系相关路由
+application.include_router(riverRouter, prefix="/river", tags=["水系"])
 # agent相关路由
 application.include_router(chatRouter, prefix="/agent", tags=["agent聊天"])
 

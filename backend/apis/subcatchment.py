@@ -7,6 +7,7 @@ from swmm_api.input_file.sections import (
     InfiltrationHorton,
     Polygon,
     RainGage,
+    OptionSection,
 )
 from swmm_api.input_file.sections import Junction, Outfall
 from utils.swmm_constant import (
@@ -26,6 +27,19 @@ from utils.utils import with_exception_handler
 subcatchment = APIRouter()
 
 
+def check_infiltration_section_mode(INP: SwmmInput):
+    """确保下渗模型为 Horton 并返回最新 INP"""
+    try:
+        INP.check_for_section(Infiltration)
+    except Exception:
+        # 没有 Infiltration 节,尝试获取 Horton 模型
+        inp_options = INP.check_for_section(OptionSection)
+        inp_options.set_infiltration("HORTON")  # 固定为Horton入渗模型
+        INP.write_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+        INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    return INP
+
+
 # 获取子汇水区(产流)模型参数 和 子汇水区边界
 @subcatchment.get(
     "/subcatchments",
@@ -35,6 +49,7 @@ subcatchment = APIRouter()
 @with_exception_handler(default_message="获取失败,文件有误,发生未知错误")
 async def get_subcatchments():
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    INP = check_infiltration_section_mode(INP)
     inp_subcatchments = INP.check_for_section(SubCatchment)
     inp_polygons = INP.check_for_section(Polygon)
     data = []
@@ -70,6 +85,7 @@ async def get_subcatchments():
 async def batch_get_subcatchments_by_names(names: list[str]):
     """通过子汇水区名称列表批量获取子汇水区信息"""
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    INP = check_infiltration_section_mode(INP)
     inp_subcatchments = INP.check_for_section(SubCatchment)
     inp_polygons = INP.check_for_section(Polygon)
 
@@ -109,6 +125,7 @@ async def update_subcatchment(
     subcatchment_id: str, subcatchment_update: SubCatchmentModel
 ):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    INP = check_infiltration_section_mode(INP)
     inp_subcatchments = INP.check_for_section(SubCatchment)
     inp_junctions = INP.check_for_section(Junction)
     inp_outfalls = INP.check_for_section(Outfall)
@@ -198,6 +215,7 @@ async def update_subcatchment(
 @with_exception_handler(default_message="新建失败,文件有误,发生未知错误")
 async def create_subcatchment(polygon_data: PolygonModel):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    INP = check_infiltration_section_mode(INP)
     inp_subcatchments = INP.check_for_section(SubCatchment)
     inp_subareas = INP.check_for_section(SubArea)
     inp_infiltrations = INP.check_for_section(Infiltration)
@@ -250,6 +268,7 @@ async def create_subcatchment(polygon_data: PolygonModel):
 @with_exception_handler(default_message="删除失败,文件有误,发生未知错误")
 async def delete_subcatchment(subcatchment_id: str):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    INP = check_infiltration_section_mode(INP)
     inp_subcatchments = INP.check_for_section(SubCatchment)
     inp_subareas = INP.check_for_section(SubArea)
     inp_infiltrations = INP.check_for_section(Infiltration)
@@ -285,6 +304,7 @@ async def delete_subcatchment(subcatchment_id: str):
 @with_exception_handler(default_message="获取失败,文件有误,发生未知错误")
 async def get_polygon(name: str = Query(..., description="子汇水区名称")):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    INP = check_infiltration_section_mode(INP)
     inp_polygons = INP.check_for_section(Polygon)
 
     if name not in inp_polygons:
@@ -309,6 +329,7 @@ async def get_polygon(name: str = Query(..., description="子汇水区名称")):
 @with_exception_handler(default_message="保存失败,文件有误,发生未知错误")
 async def save_polygon(data: PolygonModel):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    INP = check_infiltration_section_mode(INP)
     inp_polygons = INP.check_for_section(Polygon)
 
     if data.subcatchment not in inp_polygons:
@@ -339,6 +360,7 @@ async def save_polygon(data: PolygonModel):
 @with_exception_handler(default_message="获取失败,文件有误,发生未知错误")
 async def get_infiltration(subcatchment_name=Query(..., description="子汇水区名称")):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    INP = check_infiltration_section_mode(INP)
     inp_infiltration = INP.check_for_section(Infiltration)
 
     # 查找对应子汇水区名称的参数
@@ -374,6 +396,7 @@ async def update_infiltration(
 ):
     # 读取已有配置
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    INP = check_infiltration_section_mode(INP)
     inp_infiltration = INP.check_for_section(Infiltration)
 
     # 查找是否存在此子汇水区
@@ -407,6 +430,7 @@ async def update_infiltration(
 @with_exception_handler(default_message="获取失败,文件有误,发生未知错误")
 async def get_subarea(subcatchment_name=Query(..., description="子汇水区名称")):
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    INP = check_infiltration_section_mode(INP)
     inp_subareas = INP.check_for_section(SubArea)
 
     # 查找对应子汇水区名称的参数
@@ -445,6 +469,7 @@ async def update_subarea(
 ):
     # 读取已有配置
     INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    INP = check_infiltration_section_mode(INP)
     inp_subareas = INP.check_for_section(SubArea)
 
     # 检查子汇水区是否存在

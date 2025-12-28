@@ -2547,14 +2547,14 @@ full = ["httpx (>=0.27.0,<0.29.0)", "itsdangerous", "jinja2", "python-multipart 
 
 [[package]]
 name = "swmm-api"
-version = "0.4.69"
+version = "0.4.70"
 description = "API for reading, manipulating and running US-EPA-SWMM-Projects"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "swmm_api-0.4.69-py3-none-any.whl", hash = "sha256:1c4985348a4da8abed0c210e3e5e68c3bb1de7b7ef499708f72348c15e6bc298"},
-    {file = "swmm_api-0.4.69.tar.gz", hash = "sha256:aecf8a3e3701834e09886dfbe473b6d815fedcd5c6e8ca4d9a4b0bb9b3d0aa91"},
+    {file = "swmm_api-0.4.70-py3-none-any.whl", hash = "sha256:32263a8195222f3e97d940dc3a2549c5486470f11fabbabb250fca70d92a93c0"},
+    {file = "swmm_api-0.4.70.tar.gz", hash = "sha256:0e01f54f7ed34a8b4bf45b164633ad629e20ded2e974a2ff0ccfdfd9c03796a3"},
 ]
 
 [package.dependencies]

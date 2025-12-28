@@ -97,7 +97,7 @@
         </div>
       </el-form>
       <div class="popup-footer">
-        <el-button type="danger" @click="deleteConduitEntity">删除</el-button>
+        <el-button type="danger" @click="deleteSubcatchmentEntity">删除</el-button>
         <el-button type="primary" @click="saveSubcatchment">保存</el-button>
       </div>
     </el-card>
@@ -177,13 +177,12 @@ const saveSubcatchment = () => {
     })
 }
 
-const deleteConduitEntity = () => {
+const deleteSubcatchmentEntity = () => {
   if (polygonEditing.value) {
     ElMessage.warning('请先结束多边形编辑')
     return
   }
   deleteSubcatchmentByIdAxios(subcatchmentEntity.value.id)
-    // TODO: 添加所以删除 dialog 再确定
     .then((res) => {
       ElMessage.success(res.message)
       // 更新 Cesium 中的实体数据

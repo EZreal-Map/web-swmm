@@ -143,8 +143,6 @@ const agentModeOptions = [
 const modelOptions = ref([{ value: 'gpt-4o-mini', label: 'GPT-4o mini' }])
 
 // 选择的Agent模式和模型
-// TODO: 把selectedAgentMode使用pinia存储起来（还是放在后端变量吧）
-
 const selectedAgentMode = ref(agentStore.agentMode)
 const selectedLLMModel = ref(modelOptions.value[0].value)
 

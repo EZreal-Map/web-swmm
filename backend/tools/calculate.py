@@ -57,7 +57,9 @@ from typing import Any
 @tool
 def query_calculate_result_tool(
     name: str = Field(description="对象名称（如节点名、管道名），必填"),
-    variable_label: str = Field(description="查询变量名称(中文)，必填"),
+    variable_label: str = Field(
+        description="查询变量名称(中文)，必填，如果没有指明就使用默认值，如深度"
+    ),
     state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
 ):
     """

@@ -250,7 +250,7 @@ async def create_outfall_tool(
 
 @tool
 def delete_outfall_tool(
-    outfall_id: str = Field(description="要删除的出口ID，如 'O1'"),
+    outfall_id: str = Field(description="要删除的出口ID，如 'O1，乌江渡'"),
     confirm_question: str = Field(description="确认删除的提示问题，需带出口名称"),
     state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
 ) -> Dict[str, Any]:
@@ -259,7 +259,7 @@ def delete_outfall_tool(
     通过出口ID删除出口,并清理关联的渠道和坐标数据。
 
     Args:
-        outfall_id: 要删除的出口ID,比如 "O1"
+        outfall_id: 要删除的出口ID,比如 "O1，乌江渡"
         confirm_question: 确认删除的提示问题,比如 "您确定要删除 O1 出口吗？",一定要带上具体的出口名称(outfall_id)
 
     Returns:

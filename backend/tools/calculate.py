@@ -2,7 +2,6 @@ from langchain_core.tools import tool
 from pydantic import Field
 from apis.calculate import query_entity_kind_select, query_calculate_result
 from utils.utils import with_result_exception_handler
-import asyncio
 from langgraph.types import interrupt
 from langgraph.errors import GraphInterrupt
 from schemas.result import Result
@@ -55,7 +54,7 @@ from typing import Any
 
 
 @tool
-def query_calculate_result_tool(
+async def query_calculate_result_tool(
     name: str = Field(description="对象名称（如节点名、管道名），必填"),
     variable_label: str = Field(
         description="查询变量名称(中文)，必填，如果没有指明就使用默认值，如深度"
@@ -102,7 +101,7 @@ def query_calculate_result_tool(
         返回: Result.error(...)
     """
     try:
-        kind_result = asyncio.run(query_entity_kind_select(name))
+        kind_result = await query_entity_kind_select(name)
         if not kind_result.data:
             return kind_result.model_dump()
         kind = kind_result.data.get("kind")
@@ -131,19 +130,17 @@ def query_calculate_result_tool(
 
     except GraphInterrupt:
         # 第一次 interrupt 时会进入这里,通知前端弹窗
-        asyncio.run(
-            ChatMessageSendHandler.send_function_call(
-                client_id=state.get("client_id"),
-                function_name="showEchartsUITool",
-                args={
-                    "name": name,
-                    "kind": kind,
-                    "variable": variable,
-                },
-                is_direct_feedback=True,
-                mode=state.get("mode"),
-                success_message=success_message,
-            )
+        await ChatMessageSendHandler.send_function_call(
+            client_id=state.get("client_id"),
+            function_name="showEchartsUITool",
+            args={
+                "name": name,
+                "kind": kind,
+                "variable": variable,
+            },
+            is_direct_feedback=True,
+            mode=state.get("mode"),
+            success_message=success_message,
         )
         raise
     except HTTPException as e:

@@ -2,7 +2,6 @@ from langchain_core.tools import tool
 from typing import Dict, Any, Optional
 from pydantic import Field
 from schemas.outfall import OutfallModel
-import asyncio
 from utils.logger import tools_logger
 from langgraph.prebuilt import InjectedState
 from langgraph.types import interrupt
@@ -249,7 +248,7 @@ async def create_outfall_tool(
 
 
 @tool
-def delete_outfall_tool(
+async def delete_outfall_tool(
     outfall_id: str = Field(description="要删除的出口ID，如 'O1，乌江渡'"),
     confirm_question: str = Field(description="确认删除的提示问题，需带出口名称"),
     state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
@@ -274,21 +273,19 @@ def delete_outfall_tool(
             }
         )
         if frontend_feedback.get("success", False):
-            result = asyncio.run(delete_outfall(outfall_id))
+            result = await delete_outfall(outfall_id)
             tools_logger.info(f"删除出口: {result} ")
             return result.model_dump()
         else:
             return frontend_feedback
     except GraphInterrupt:
         # 第一次 interrupt 时会进入这里,通知前端弹窗
-        asyncio.run(
-            ChatMessageSendHandler.send_function_call(
-                client_id=state.get("client_id"),
-                function_name="showConfirmBoxUITool",
-                args={"confirm_question": confirm_question},
-                is_direct_feedback=False,
-                mode=state.get("mode"),
-            )
+        await ChatMessageSendHandler.send_function_call(
+            client_id=state.get("client_id"),
+            function_name="showConfirmBoxUITool",
+            args={"confirm_question": confirm_question},
+            is_direct_feedback=False,
+            mode=state.get("mode"),
         )
         raise
     except HTTPException as e:

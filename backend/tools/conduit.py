@@ -2,7 +2,6 @@ from langchain_core.tools import tool
 from typing import List, Dict, Any, Optional
 from pydantic import Field
 from schemas.conduit import ConduitRequestModel
-import asyncio
 from utils.logger import tools_logger
 from langgraph.prebuilt import InjectedState
 from langgraph.types import interrupt
@@ -289,7 +288,7 @@ async def create_conduit_tool(
 
 
 @tool
-def delete_conduit_tool(
+async def delete_conduit_tool(
     conduit_id: str = Field(description="要删除的渠道ID，如 'C1'"),
     confirm_question: str = Field(description="确认删除的提示问题，需带渠道名称"),
     state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
@@ -311,22 +310,21 @@ def delete_conduit_tool(
             }
         )
         if frontend_feedback.get("success", False):
-            result = asyncio.run(delete_conduit(conduit_id))
+            result = await delete_conduit(conduit_id)
             tools_logger.info(f"删除渠道: {result} ")
             return result.model_dump()
         else:
             return frontend_feedback
     except GraphInterrupt:
         # 第一次 interrupt 时会进入这里,通知前端弹窗
-        asyncio.run(
-            ChatMessageSendHandler.send_function_call(
-                client_id=state.get("client_id"),
-                function_name="showConfirmBoxUITool",
-                args={"confirm_question": confirm_question},
-                is_direct_feedback=False,
-                mode=state.get("mode"),
-            )
+        await ChatMessageSendHandler.send_function_call(
+            client_id=state.get("client_id"),
+            function_name="showConfirmBoxUITool",
+            args={"confirm_question": confirm_question},
+            is_direct_feedback=False,
+            mode=state.get("mode"),
         )
+
         raise
     except HTTPException as e:
         return Result.error(message=str(e.detail)).model_dump()

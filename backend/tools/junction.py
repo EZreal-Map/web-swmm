@@ -1,7 +1,6 @@
 from langchain_core.tools import tool
 from typing import List, Dict, Any, Optional
 from schemas.junction import JunctionModel
-import asyncio
 from utils.logger import tools_logger
 from langgraph.prebuilt import InjectedState
 from utils.agent.websocket_manager import ChatMessageSendHandler
@@ -310,7 +309,7 @@ async def create_junction_tool(
 
 
 @tool
-def delete_junction_tool(
+async def delete_junction_tool(
     junction_id: str = Field(description="要删除的节点ID，如 'J1'"),
     confirm_question: str = Field(description="确认删除的提示问题，需带节点名称"),
     state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
@@ -338,7 +337,7 @@ def delete_junction_tool(
         )
         if frontend_feedback.get("success", False):
             # success 为 True,表示用户确认删除
-            result = asyncio.run(delete_junction(junction_id))
+            result = await delete_junction(junction_id)
             tools_logger.info(f"删除节点: {result} ")
             return result.model_dump()
         else:
@@ -346,14 +345,12 @@ def delete_junction_tool(
             return frontend_feedback
     except GraphInterrupt:
         # 第一次 interrupt 时会进入这里,通知前端弹窗
-        asyncio.run(
-            ChatMessageSendHandler.send_function_call(
-                client_id=state.get("client_id"),
-                function_name="showConfirmBoxUITool",
-                args={"confirm_question": confirm_question},
-                is_direct_feedback=False,
-                mode=state.get("mode"),
-            )
+        await ChatMessageSendHandler.send_function_call(
+            client_id=state.get("client_id"),
+            function_name="showConfirmBoxUITool",
+            args={"confirm_question": confirm_question},
+            is_direct_feedback=False,
+            mode=state.get("mode"),
         )
         raise
     except HTTPException as e:

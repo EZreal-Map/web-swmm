@@ -29,7 +29,7 @@ async def executor_node(state: PlanModeState) -> dict:
     }
     if tool_call_name in HIL_tools_name:
         backend_execution = SerialToolNode(tools=tools)
-        result = backend_execution.invoke(tool_state)
+        result = await backend_execution.ainvoke(tool_state)
     else:
         backend_execution = ToolNode(tools=tools)
         result = await backend_execution.ainvoke(tool_state)

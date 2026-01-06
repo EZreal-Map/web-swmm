@@ -5,7 +5,6 @@ from langgraph.prebuilt import InjectedState
 from typing_extensions import Annotated
 from langgraph.errors import GraphInterrupt
 from utils.agent.websocket_manager import ChatMessageSendHandler
-import asyncio
 from typing import Any
 
 # 在 LangGraph 的 interrupt 机制下,节点被 resume 时会重新执行整个节点函数,所以 print("human_in_lood 之前") 也会被执行两次(一次是第一次中断时,一次是 resume 时)。这是 LangGraph 的设计:resume 后节点会完整重跑。
@@ -28,7 +27,7 @@ from typing import Any
 # 而是直接返回你 resume 时传入的值(即 resume_value)。
 # 所以这次不会进入 except,print 也不会再执行,直接 return。
 @tool
-def fly_to_entity_by_name_tool(
+async def fly_to_entity_by_name_tool(
     entity_name: str = Field(description="目标实体的唯一标识名称，必填"),
     state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
 ) -> dict:
@@ -85,16 +84,14 @@ def fly_to_entity_by_name_tool(
         return frontend_feedback
     except GraphInterrupt:
         # 只执行一次,当第一次interrupt时,Command(resume=...) 恢复节点时 不会再执行下面的代码,但是上面代码每次都会执行
-        asyncio.run(
-            ChatMessageSendHandler.send_function_call(
-                client_id=state.get("client_id"),
-                function_name="flyToEntityByNameTool",
-                args={"entity_name": entity_name},
-                is_direct_feedback=True,
-                mode=state.get("mode"),
-                # 预定义成功消息,当前端执行成功以后,再被返回给后端,后端可以放进Command里去,Command里的信息最终会被封装到ToolMessage里
-                success_message=f"前端界面已跳转到实体:{entity_name},并高亮显示实体和实体信息弹窗.",
-            )
+        await ChatMessageSendHandler.send_function_call(
+            client_id=state.get("client_id"),
+            function_name="flyToEntityByNameTool",
+            args={"entity_name": entity_name},
+            is_direct_feedback=True,
+            mode=state.get("mode"),
+            # 预定义成功消息,当前端执行成功以后,再被返回给后端,后端可以放进Command里去,Command里的信息最终会被封装到ToolMessage里
+            success_message=f"前端界面已跳转到实体:{entity_name},并高亮显示实体和实体信息弹窗.",
         )
         # 一定要raise异常,否则会导致节点不会中断
         # 一定不要带参数 会把刚刚捕获到的 GraphInterrupt 原样抛出,LangGraph 能正确识别和恢复
@@ -102,7 +99,7 @@ def fly_to_entity_by_name_tool(
 
 
 @tool
-def init_entities_tool(
+async def init_entities_tool(
     state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
 ) -> dict:
     """
@@ -135,23 +132,21 @@ def init_entities_tool(
         )
         return frontend_feedback
     except GraphInterrupt:
-        asyncio.run(
-            ChatMessageSendHandler.send_function_call(
-                client_id=state.get("client_id"),
-                function_name="initEntitiesTool",
-                args={},
-                is_direct_feedback=True,
-                mode=state.get("mode"),
-                # 预定义成功消息,当前端执行成功以后,再被返回给后端,后端可以放进Command里去,Command里的信息最终会被封装到ToolMessage里
-                success_message="前端已刷新所有实体,展示为最新状态。",
-            )
+        await ChatMessageSendHandler.send_function_call(
+            client_id=state.get("client_id"),
+            function_name="initEntitiesTool",
+            args={},
+            is_direct_feedback=True,
+            mode=state.get("mode"),
+            # 预定义成功消息,当前端执行成功以后,再被返回给后端,后端可以放进Command里去,Command里的信息最终会被封装到ToolMessage里
+            success_message="前端已刷新所有实体,展示为最新状态。",
         )
         raise
 
 
 # 人类信息补充工具
 @tool
-def human_info_completion_tool(
+async def human_info_completion_tool(
     input_title: str = Field(
         description="补充信息的标题提示信息，标题提示信息要求尽量详细，参数信息可以分为必要参数信息和可选参数信息。可选参数可以不用强制输入，可以跳过，系统会使用默认值。例如：创建节点J100所需参数补充：请继续提供节点的必要参数：经度、纬度；可选参数：高程、初始水深、最大水深等（可选参数可不输入，系统将使用默认值）。"
     ),
@@ -172,14 +167,12 @@ def human_info_completion_tool(
         resume_value = interrupt({"input_title": input_title})
         return resume_value
     except GraphInterrupt:
-        asyncio.run(
-            ChatMessageSendHandler.send_function_call(
-                client_id=state.get("client_id"),
-                function_name="showHumanInfoUITool",
-                args={"input_title": input_title},
-                is_direct_feedback=False,
-                mode=state.get("mode"),
-                success_message="前端已刷新所有实体,展示为最新状态。",
-            )
+        await ChatMessageSendHandler.send_function_call(
+            client_id=state.get("client_id"),
+            function_name="showHumanInfoUITool",
+            args={"input_title": input_title},
+            is_direct_feedback=False,
+            mode=state.get("mode"),
+            success_message="前端已刷新所有实体,展示为最新状态。",
         )
         raise

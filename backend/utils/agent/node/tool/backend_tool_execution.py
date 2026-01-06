@@ -12,7 +12,7 @@ async def backend_tool_execution_node(send_state: ToolModeState) -> dict:
             f"{send_state.get('client_id')} - 开始执行后端工具(人类参与): messages: {send_state.get('messages', [])}"
         )
         backend_tool_node = SerialToolNode(tools=backend_tools)
-        result = backend_tool_node.invoke(send_state)
+        result = await backend_tool_node.ainvoke(send_state)
         agent_logger.debug(
             f"{send_state.get('client_id')} - 后端工具(人类参与)执行结果: {result}"
         )

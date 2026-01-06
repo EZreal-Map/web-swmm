@@ -15,7 +15,7 @@ async def frontend_tool_execution_node(send_state: ToolModeState) -> dict:
             f"{send_state.get('client_id')} - 开始执行前端工具(人类参与): messages: {send_state.get('messages', [])}"
         )
         frontend_tool_node = SerialToolNode(tools=frontend_tools)
-        result = frontend_tool_node.invoke(send_state)
+        result = await frontend_tool_node.ainvoke(send_state)
         agent_logger.debug(
             f"{send_state.get('client_id')} - 前端工具(人类参与)执行结果: {result}"
         )

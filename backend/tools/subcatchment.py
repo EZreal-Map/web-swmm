@@ -2,7 +2,6 @@ from langchain_core.tools import tool
 from typing import List, Dict, Any, Optional
 from pydantic import Field
 from schemas.subcatchment import SubCatchmentModel, PolygonModel
-import asyncio
 from utils.logger import tools_logger
 from schemas.result import Result
 from langgraph.prebuilt import InjectedState
@@ -190,7 +189,7 @@ async def create_subcatchment_tool(
 
 
 @tool
-def delete_subcatchment_tool(
+async def delete_subcatchment_tool(
     subcatchment_id: str = Field(description="要删除的子汇水区ID，如 'S1'"),
     confirm_question: str = Field(description="确认删除的提示问题，需带子汇水区名称"),
     state: Annotated[Any, InjectedState] = Field(description="自动注入的状态对象"),
@@ -216,21 +215,19 @@ def delete_subcatchment_tool(
         )
         if frontend_feedback.get("success", False):
             # 用户确认删除
-            result = asyncio.run(delete_subcatchment(subcatchment_id))
+            result = await delete_subcatchment(subcatchment_id)
             tools_logger.info(f"删除子汇水区: {result}")
             return result.model_dump()
         else:
             # 用户取消删除
             return frontend_feedback
     except GraphInterrupt:
-        asyncio.run(
-            ChatMessageSendHandler.send_function_call(
-                client_id=state.get("client_id"),
-                function_name="showConfirmBoxUITool",
-                args={"confirm_question": confirm_question},
-                is_direct_feedback=False,
-                mode=state.get("mode"),
-            )
+        await ChatMessageSendHandler.send_function_call(
+            client_id=state.get("client_id"),
+            function_name="showConfirmBoxUITool",
+            args={"confirm_question": confirm_question},
+            is_direct_feedback=False,
+            mode=state.get("mode"),
         )
         raise
     except HTTPException as e:

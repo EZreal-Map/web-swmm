@@ -39,7 +39,7 @@ async def planner_node(state: PlanModeState) -> dict:
             "[计划制定中] 正在根据用户问题生成计划...",
             state.get("mode"),
         )
-          planner_prompt = f"""
+        planner_prompt = f"""
      你是一个SWMM水力模型系统的智能规划助手，负责将用户关于SWMM模型的诉求拆解为可执行的工具调用计划。
 
      【重要】系统业务领域
@@ -102,7 +102,7 @@ async def planner_node(state: PlanModeState) -> dict:
             "[计划制定中] 正在根据用户问题和错误反馈重新生成计划...",
             state.get("mode"),
         )
-          planner_prompt = f"""
+        planner_prompt = f"""
      你是一个SWMM水力模型系统的计划纠错与重新规划专家，需要在已有执行痕迹基础上给出可继续推进的工具链方案。
 
      【重要】系统业务领域

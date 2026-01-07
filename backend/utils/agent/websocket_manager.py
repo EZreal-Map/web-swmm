@@ -165,8 +165,8 @@ class ChatProcessor:
             websocket_logger.info(
                 f"{client_id} - 收到前端反馈请求,继续执行graph: Command:{chat_request}"
             )
-            # 发送人类反馈消息,把chat_request 发送给 interrupt
-            # 然后interrupt函数按照return的逻辑,被ToolMessage封装
+            # 发送人类反馈消息,把chat_request 通过Command的resume参数，发送给 interrupt函数接收并返回
+            # 然后interrupt函数按照return的逻辑,被ToolMessage封装 [ 所以这里的resume参数会被封装到 ToolMessage 的content里]
             # 然后继续执行 graph
             human_command = Command(resume=chat_request.model_dump())
             await StreamProcessor.send_stream_graph_messages(

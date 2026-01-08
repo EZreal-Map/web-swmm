@@ -58,6 +58,37 @@ class RiverClipRequest(BaseModel):
         return value
 
 
+class RiverNetworkImportRequest(BaseModel):
+    """根据 GeoJSON 导入节点与渠道请求模型"""
+
+    geojson: dict
+
+    @field_validator("geojson", mode="before")
+    def validate_geojson(cls, value):
+        if not isinstance(value, dict):
+            raise HTTPException(status_code=400, detail="geojson 必须是字典类型")
+
+        if "type" not in value:
+            raise HTTPException(status_code=400, detail="geojson 必须包含 type 字段")
+
+        geojson_type = value.get("type")
+        if geojson_type not in [
+            "FeatureCollection",
+            "Feature",
+            "LineString",
+            "MultiLineString",
+        ]:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"不支持的 GeoJSON 类型: {geojson_type}，仅支持 "
+                    "FeatureCollection, Feature, LineString, MultiLineString"
+                ),
+            )
+
+        return value
+
+
 class RiverClipResponse(BaseModel):
     """水系切割响应模型"""
 

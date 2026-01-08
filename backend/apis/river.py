@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pathlib import Path
-from typing import Dict, Iterable, List, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 import os
 import geopandas as gpd
 from shapely.geometry import Point, LineString, Polygon
@@ -8,11 +8,20 @@ import pandas as pd
 import json
 from collections import defaultdict
 import tempfile
+import uuid
 
 
-from schemas.river import RiverClipRequest, RiverNetworkRequest
+from schemas.river import (
+    RiverClipRequest,
+    RiverNetworkRequest,
+    RiverNetworkImportRequest,
+)
+from schemas.junction import JunctionModel
+from schemas.conduit import ConduitRequestModel
 from schemas.result import Result
 from utils.utils import with_exception_handler
+from apis.junction import create_junction as create_junction_api
+from apis.conduit import create_conduit as create_conduit_api
 
 riverRouter = APIRouter()
 
@@ -26,6 +35,32 @@ DEFAULT_CRS = "EPSG:4326"  # WGS84
 METRIC_EPSG = 3857  # Web Mercator，方便按"米"计算长度
 
 CoordKey = Tuple[float, float]
+
+
+# ==================== GeoJSON 导入辅助函数 ====================
+
+
+def normalize_identifier(value) -> Optional[str]:
+    """将数值/字符串 ID 统一为字符串,便于匹配"""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        if float(value).is_integer():
+            return str(int(value))
+        return str(value)
+    text = str(value).strip()
+    return text or None
+
+
+def extract_point_coordinates(feature: dict) -> Optional[Tuple[float, float]]:
+    geometry = feature.get("geometry") or {}
+    coords = geometry.get("coordinates")
+    if not isinstance(coords, (list, tuple)) or len(coords) < 2:
+        return None
+    lon, lat = coords[0], coords[1]
+    if not isinstance(lon, (int, float)) or not isinstance(lat, (int, float)):
+        return None
+    return float(lon), float(lat)
 
 
 # ==================== 水系打断相关函数 ====================
@@ -237,6 +272,9 @@ def build_river_network(
     link_records: List[dict] = []
     link_geoms: List[LineString] = []
 
+    # 为渠道顺序编号，便于下游直接使用 node_id 作为唯一标识
+    link_id = 1
+
     if "line_idx" not in pts_full.columns or "s_m" not in pts_full.columns:
         raise ValueError(
             "generate_points_along_rivers 输出必须包含 line_idx 和 s_m 字段"
@@ -278,20 +316,40 @@ def build_river_network(
             link_geoms.append(LineString([from_geom, to_geom]))
 
             rec = {
+                "node_id": link_id,
                 "from_id": from_id,
                 "to_id": to_id,
             }
 
             link_records.append(rec)
+            link_id += 1
             prev_row = row
 
     links_gdf = gpd.GeoDataFrame(link_records, geometry=link_geoms, crs=gdf.crs)
 
     nodes_out = nodes_gdf.copy()
     nodes_out["type"] = "node"
+    # 使用短前缀避免前端标注过长
+    base_prefix = uuid.uuid4().hex[:2].upper()
+
+    # 为节点生成唯一 id，并记录映射方便渠道引用
+    node_id_map: Dict[int, str] = {}
+    for idx, row in enumerate(nodes_out.itertuples(), start=1):
+        node_id_map[int(row.node_id)] = f"{base_prefix}-J{idx}"
+
+    nodes_out["id"] = nodes_out["node_id"].apply(lambda x: node_id_map[int(x)])
+    nodes_out = nodes_out.drop(columns=["node_id"])
 
     links_out = links_gdf.copy()
     links_out["type"] = "link"
+    link_id_map: Dict[int, str] = {}
+    for idx, row in enumerate(links_out.itertuples(), start=1):
+        link_id_map[int(row.node_id)] = f"{base_prefix}-C{idx}"
+
+    links_out["id"] = links_out["node_id"].apply(lambda x: link_id_map[int(x)])
+    links_out["from_id"] = links_out["from_id"].apply(lambda x: node_id_map[int(x)])
+    links_out["to_id"] = links_out["to_id"].apply(lambda x: node_id_map[int(x)])
+    links_out = links_out.drop(columns=["node_id"])
 
     network_gdf = gpd.GeoDataFrame(
         pd.concat([nodes_out, links_out], ignore_index=True), crs=nodes_gdf.crs
@@ -551,3 +609,168 @@ async def generate_river_network(request: RiverNetworkRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"处理失败: {str(e)}")
+
+
+@riverRouter.post(
+    "/import",
+    summary="根据 GeoJSON 创建节点与渠道",
+    description="提取 GeoJSON 中的节点/渠道特征,自动创建 Junction 与 Conduit",
+    response_model=Result,
+)
+@with_exception_handler(default_message="导入失败，发生未知错误")
+async def import_river_network(payload: RiverNetworkImportRequest):
+    geojson = payload.geojson
+    geojson_type = geojson.get("type")
+
+    if geojson_type == "FeatureCollection":
+        features = geojson.get("features", [])
+        if not isinstance(features, list):
+            raise HTTPException(status_code=400, detail="geojson.features 必须是列表")
+    else:
+        features = [geojson]
+
+    if not features:
+        raise HTTPException(status_code=400, detail="geojson 中没有可用的 features")
+
+    node_features = [
+        f for f in features if (f.get("properties") or {}).get("type") == "node"
+    ]
+    link_features = [
+        f for f in features if (f.get("properties") or {}).get("type") == "link"
+    ]
+
+    if not node_features:
+        raise HTTPException(
+            status_code=400, detail="geojson 中缺少节点 (type=node) 数据"
+        )
+    # 如果id和name是分开的，就使用字典
+    node_id_to_name: Dict[str, str] = {}
+    # 如果id和name是一个东西，就使用集合
+    available_node_ids: Set[str] = set()
+    created_junctions: List[str] = []
+    junction_errors: List[dict] = []
+
+    for feature in node_features:
+        props = feature.get("properties") or {}
+        raw_node_id = props.get("id")
+        normalized_id = normalize_identifier(raw_node_id)
+        if normalized_id is None:
+            junction_errors.append(
+                {
+                    "id": raw_node_id,
+                    "reason": "节点缺少 id，无法生成名称",
+                }
+            )
+            continue
+
+        if normalized_id in available_node_ids:
+            continue
+
+        node_name = normalized_id
+        available_node_ids.add(normalized_id)
+
+        coords = extract_point_coordinates(feature)
+        if coords is None:
+            junction_errors.append(
+                {
+                    "name": node_name,
+                    "reason": "节点缺少有效经纬度",
+                }
+            )
+            available_node_ids.discard(normalized_id)
+            continue
+
+        lon, lat = coords
+        junction_payload = JunctionModel(name=node_name, lon=lon, lat=lat)
+
+        try:
+            await create_junction_api(junction_payload)
+            created_junctions.append(node_name)
+        except HTTPException as exc:
+            reason = getattr(exc, "detail", str(exc))
+            reason_text = (
+                json.dumps(reason, ensure_ascii=False)
+                if isinstance(reason, dict)
+                else str(reason)
+            )
+            junction_errors.append(
+                {
+                    "name": node_name,
+                    "reason": reason_text,
+                }
+            )
+            if "已存在" not in reason_text:
+                # 创建失败，移除可用节点
+                available_node_ids.discard(normalized_id)
+
+    conduit_names_in_use: Set[str] = set()
+    created_conduits: List[str] = []
+    conduit_errors: List[dict] = []
+
+    for idx, feature in enumerate(link_features, start=1):
+        props = feature.get("properties") or {}
+        raw_link_id = props.get("id")
+        normalized_link_id = normalize_identifier(raw_link_id)
+        base_name = normalized_link_id if normalized_link_id else f"AUTO_{idx}"
+        link_name = base_name
+        suffix = 1
+        while link_name in conduit_names_in_use:
+            suffix += 1
+            link_name = f"{base_name}_{suffix}"
+        conduit_names_in_use.add(link_name)
+
+        from_id = normalize_identifier(props.get("from_id"))
+        to_id = normalize_identifier(props.get("to_id"))
+
+        if not from_id or not to_id:
+            conduit_errors.append(
+                {
+                    "name": link_name,
+                    "reason": "渠道缺少 from_id 或 to_id",
+                }
+            )
+            continue
+
+        if from_id not in available_node_ids or to_id not in available_node_ids:
+            conduit_errors.append(
+                {
+                    "name": link_name,
+                    "reason": "渠道引用的节点不存在",
+                }
+            )
+            continue
+
+        conduit_payload = ConduitRequestModel(
+            name=link_name,
+            from_node=from_id,
+            to_node=to_id,
+        )
+
+        try:
+            await create_conduit_api(conduit_payload)
+            created_conduits.append(link_name)
+        except HTTPException as exc:
+            conduit_errors.append(
+                {
+                    "name": link_name,
+                    "reason": getattr(exc, "detail", str(exc)),
+                }
+            )
+
+    message = (
+        f"导入完成: 创建节点 {len(created_junctions)} 个, "
+        f"渠道 {len(created_conduits)} 条"
+    )
+
+    response_payload = {
+        "junctions": {
+            "created": created_junctions,
+            "failed": junction_errors,
+        },
+        "conduits": {
+            "created": created_conduits,
+            "failed": conduit_errors,
+        },
+    }
+
+    return Result.success_result(data=response_payload, message=message)

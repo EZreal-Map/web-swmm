@@ -91,7 +91,7 @@ import { createJunctionAxios } from '@/apis/junction'
 import { createConduitAxios } from '@/apis/conduit'
 import { createOutfallAxios } from '@/apis/outfall'
 import { createSubcatchmentAxios } from '@/apis/subcatchment'
-import { getRiverNetworkAxios, breakRiverAxios } from '@/apis/river'
+import { getRiverNetworkAxios, breakRiverAxios, importRiverAxios } from '@/apis/river'
 import * as Cesium from 'cesium'
 import { ref } from 'vue'
 import { getStringAfterFirstDash } from '@/utils/convert'
@@ -466,6 +466,22 @@ let watershedBoundaryEntity = null // 持久保留的研究区域边界
 let watershedDataSource = ref(null) // 用于存储原始切割水系 GeoJSON 数据（蓝色）
 let brokenRiverDataSource = ref(null) // 用于存储打断后的水系 GeoJSON 数据（红色节点和线）
 
+const clearRiverLayers = () => {
+  const viewer = viewerStore.viewer
+  if (brokenRiverDataSource.value) {
+    viewer.dataSources.remove(brokenRiverDataSource.value)
+    brokenRiverDataSource.value = null
+  }
+  if (watershedDataSource.value) {
+    viewer.dataSources.remove(watershedDataSource.value)
+    watershedDataSource.value = null
+  }
+  if (watershedBoundaryEntity) {
+    viewer.entities.remove(watershedBoundaryEntity)
+    watershedBoundaryEntity = null
+  }
+}
+
 const startDrawingWatershedBoundary = () => {
   ElMessage.success('请在地图上依次点击研究区域顶点，右键完成绘制')
   watershedDrawing = true
@@ -683,8 +699,24 @@ const saveRiverNetwork = () => {
     return
   }
 
-  // TODO: 实现保存功能 - 保存打断后的红色节点和线数据
-  ElMessage.info('保存功能开发中...')
+  importRiverAxios({ geojson: brokenRiverDataSource.value._geojson })
+    .then((res) => {
+      ElMessage.success(res.message)
+      clearRiverLayers()
+      initEntities(viewerStore)
+      const junctionFailed = res.data?.junctions?.failed || []
+      const conduitFailed = res.data?.conduits?.failed || []
+      junctionFailed.forEach((item) => {
+        ElMessage.warning(item.reason)
+      })
+      conduitFailed.forEach((item) => {
+        ElMessage.warning(item.reason)
+      })
+    })
+    .catch((error) => {
+      console.error('保存河流网络失败:', error)
+      ElMessage.error('保存河流网络失败')
+    })
 }
 
 // 4. 计算事件

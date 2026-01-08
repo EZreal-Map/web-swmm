@@ -59,7 +59,7 @@ export const createJunctionEntity = (
       // 标签相对点的位置
       verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
       horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
-      pixelOffset: new Cesium.Cartesian2(8, -8),
+      pixelOffset: new Cesium.Cartesian2(4, -4),
       // 只在相机距离 100km 内显示标签
       distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 100000),
     },
@@ -112,7 +112,7 @@ export const createOutfallEntity = (
       // 标签相对点的位置
       verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
       horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
-      pixelOffset: new Cesium.Cartesian2(8, -8),
+      pixelOffset: new Cesium.Cartesian2(4, -4),
     },
     properties: {
       type,
@@ -198,7 +198,7 @@ export const createConduitEntity = (
       style: Cesium.LabelStyle.FILL_AND_OUTLINE,
       verticalOrigin: Cesium.VerticalOrigin.CENTER,
       horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-      pixelOffset: new Cesium.Cartesian2(0, -10),
+      pixelOffset: new Cesium.Cartesian2(0, -4),
       // 只在相机距离 30km 内显示标签
       distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 30000),
     },

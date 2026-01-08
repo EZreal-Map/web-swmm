@@ -4,7 +4,7 @@
       <!-- 1. Assistant 消息使用 markdown 渲染 -->
       <div v-if="message.role === 'assistant'">
         <!-- 1.1 文本 -->
-        <div class="markdown-content" v-html="renderedMarkdown"></div>
+        <div ref="markdownRef" class="markdown-content" v-html="renderedMarkdown"></div>
         <!-- 1.2 额外组件 -->
         <div v-for="(item, index) in message.extra" :key="index">
           <!-- 确认弹窗 -->
@@ -40,20 +40,15 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import ConfirmBoxUI from '@/components/agent/ConfirmBoxUI.vue'
 import EchartsUI from '@/components/agent/EchartsUI.vue'
 import HumanInfoUI from '@/components/agent/HumanInfoUI.vue'
 
-// 配置 marked
+// 配置 marked：仅保留 Markdown 行为，由 highlight.js 在渲染后统一处理
 marked.setOptions({
-  highlight: function (code, lang) {
-    const language = hljs.getLanguage(lang) ? lang : 'plaintext'
-    return hljs.highlight(code, { language }).value
-  },
-  langPrefix: 'hljs language-',
   breaks: true,
   gfm: true,
 })
@@ -76,6 +71,29 @@ const renderedMarkdown = computed(() => {
   }
   return props.message.text
 })
+
+const markdownRef = ref(null)
+
+const highlightCodeBlocks = () => {
+  if (!markdownRef.value) return
+  const blocks = markdownRef.value.querySelectorAll('pre code')
+  blocks.forEach((block) => {
+    hljs.highlightElement(block)
+  })
+}
+
+onMounted(() => {
+  highlightCodeBlocks()
+})
+
+watch(
+  () => renderedMarkdown.value,
+  () => {
+    nextTick(() => {
+      highlightCodeBlocks()
+    })
+  },
+)
 
 function formatTime(date) {
   return date.toLocaleTimeString('zh-CN', {

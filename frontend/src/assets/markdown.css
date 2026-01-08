@@ -101,8 +101,6 @@
 }
 
 .markdown-content pre {
-  background: #1e293b;
-  color: #e2e8f0;
   padding: 12px;
   border-radius: 8px;
   margin: 12px 0;
@@ -111,14 +109,18 @@
   font-size: 13px;
   line-height: 1.4;
   border: 1px solid #334155;
+  background: transparent;
 }
 
 .markdown-content pre code {
-  background: none;
-  color: inherit;
+  display: block;
   padding: 0;
   border: none;
   border-radius: 0;
+}
+
+.markdown-content pre code.hljs {
+  background: transparent;
 }
 
 .markdown-content table {

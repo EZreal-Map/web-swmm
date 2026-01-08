@@ -107,6 +107,7 @@ def update_raingage(
     related_entity_ids = []  # 用于记录更新了哪些子汇水区的雨量计名称 (也是返回值)
 
     # 把 timeseries_name 转换为 raingage 的 name
+    # timeseries_name 和 new_timeseries_name 带有前缀, 而 raingage 的 name 不带前缀, 并且 子汇水区引用的也是raingage的 name
     name = remove_timeseries_prefix(timeseries_name)
     new_name = remove_timeseries_prefix(new_timeseries_name)
 

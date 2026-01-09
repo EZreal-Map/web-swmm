@@ -43,4 +43,7 @@ async def executor_node(state: PlanModeState) -> dict:
 `参数为{args}`
 执行结果：{result}
 """
-    return {"executed_tools": executed_tool_record}
+    return {
+        "executed_tools": executed_tool_record,
+        "current_step": state.get("current_step"),
+    }

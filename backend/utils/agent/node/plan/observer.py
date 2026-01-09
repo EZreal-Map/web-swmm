@@ -1,5 +1,4 @@
 from typing import Literal
-
 from pydantic import Field
 from typing_extensions import TypedDict
 from langgraph.types import Send
@@ -41,25 +40,27 @@ async def observer_node(state: PlanModeState) -> dict:
 【当前状态】
 - 用户问题：{state.get("query")}
 - 完整计划：{state.get("plans")}
-- 当前已执行到第 {state.get("current_step")} 步（该值表示“最近完成的步骤编号”，判断其执行结果后再决定下一步）
+- current_step = {state.get("current_step")}（这是刚执行完的步骤编号）
 - 最近5次执行记录：{state.get("executed_tools", [])[-5:]}
 
-【判定规则】
-1. 阅读完整计划，确认步骤总数与顺序。
-2. 结合最近执行记录，判断最新一步是否成功以及对应的计划编号。
-3. 若最新完成的步骤已经是计划中的最后一步，或 state.current_step 已等于/超过计划最大编号 → next_node = "summary"，next_step 设为 state.current_step。
-4. 若还有步骤待执行：
-    - 最新执行成功 → next_node = "tool_execution"，next_step = state.current_step + 1（继续下一计划步骤）。
-    - 临时性失败且可重试 → next_node = "tool_execution"，next_step = state.current_step（重新执行同一步）。
-    - 若最近执行记录/提示词表明该步骤由用户或人工手动取消（如“人为取消”“手动取消”等），直接进入总结，或者判断还能否执行下一步，不要重复执行该工具，也不应该重新回到规划计划。
-    - 如果觉得把执行失败的信息补充上，有很大的概率能够继续执行成功，就重新生成计划（一定要有很大的成功概率才回到计划起点) → next_node = "planner"，next_step = 0（回到计划起点，重新生成计划）。
+【判定规则-严格遵守】
+1. **首先解析完整计划,提取所有步骤编号(如:步骤1、步骤2、步骤3)**,确定计划总步骤数。
+2. **查看最近执行记录的最后一条**,确认current_step对应的步骤是否执行成功:
+   - 如果记录中明确包含"步骤{state.get("current_step")}"且显示success=true或执行成功 → 该步骤已完成
+   - 如果记录显示失败或错误 → 该步骤失败
+3. **根据执行结果决定next_step**:
+   - 若步骤{state.get("current_step")}执行成功 且 还有后续步骤 → next_step = {state.get("current_step")} + 1
+   - 若步骤{state.get("current_step")}执行成功 且 已是最后一步 → next_node="summary", next_step = {state.get("current_step")}
+   - 若步骤{state.get("current_step")}失败但可重试 → next_step = {state.get("current_step")}(保持不变)
+   - 若多次失败或用户取消 → next_node="summary", next_step = 计划步骤总数 + 1
+   - 若需重新规划 → next_node="planner", next_step = 0
 
-    - 多次失败或无法继续 → next_node = "summary"，next_step = state.current_step，并说明原因。
+4. **防止循环执行**:如果最近5条记录中有3条以上都是执行同一步骤且都成功,说明陷入循环,应强制推进到下一步或进入summary。
 
 【输出要求】
-- next_node: "tool_execution"、"planner" 或 "summary"。
-- next_step: 下一步要执行的计划编号（遵循上面规则）。
-- reason: 第几步骤执行成功还是失败，准备进入哪一步骤，及其理由，简要说明决策原因，尤其是重新计划，要特别说明原因和重新指定计划的建议，已便后续计划的生成。
+- next_node: "tool_execution"、"planner" 或 "summary"
+- next_step: 下一步要执行的计划编号(必须是整数)
+- reason: 明确说明:步骤X执行[成功/失败],下一步执行步骤Y,原因是...
     """
     response = await observerllm.ainvoke(observer_prompt)
     if response.get("reason"):

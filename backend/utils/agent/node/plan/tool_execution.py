@@ -43,5 +43,6 @@ async def tool_execution_node(state: PlanModeState) -> dict:
         "messages": [response],
         "client_id": state.get("client_id"),
         "mode": state.get("mode"),
+        "current_step": state.get("current_step"),
     }
     return Send("executor", tool_state)

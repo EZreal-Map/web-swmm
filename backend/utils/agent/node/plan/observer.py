@@ -52,7 +52,7 @@ async def observer_node(state: PlanModeState) -> dict:
    - 若步骤{state.get("current_step")}执行成功 且 还有后续步骤 → next_step = {state.get("current_step")} + 1
    - 若步骤{state.get("current_step")}执行成功 且 已是最后一步 → next_node="summary", next_step = {state.get("current_step")}
    - 若步骤{state.get("current_step")}失败但可重试 → next_step = {state.get("current_step")}(保持不变)
-   - 若多次失败或用户取消 → next_node="summary", next_step = 计划步骤总数 + 1
+   - 若多次失败或用户取消 → next_node="summary", next_step = 总计划步骤数 + 1
    - 若需重新规划 → next_node="planner", next_step = 0
 
 4. **防止循环执行**:如果最近5条记录中有3条以上都是执行同一步骤且都成功,说明陷入循环,应强制推进到下一步或进入summary。

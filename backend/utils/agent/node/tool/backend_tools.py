@@ -13,6 +13,7 @@ from tools.junction import (
 )
 from tools.outfall import (
     get_outfalls_tool,
+    batch_get_outfalls_by_ids_tool,
     update_outfall_tool,
     create_outfall_tool,
     delete_outfall_tool,
@@ -42,6 +43,7 @@ normal_backend_tools = [
     batch_get_junctions_by_ids_tool,
     update_junction_tool,
     get_outfalls_tool,
+    batch_get_outfalls_by_ids_tool,
     update_outfall_tool,
     create_outfall_tool,
     delete_outfall_tool,

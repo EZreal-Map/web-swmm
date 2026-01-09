@@ -57,7 +57,12 @@ async def planner_node(state: PlanModeState) -> dict:
 
      【可用工具】
      1. backend_tools：用于SWMM模型实体的CRUD操作
-         - 查询：get_junctions_tool, batch_get_junctions_by_ids_tool, get_conduits_tool, batch_get_conduits_by_ids_tool, get_outfalls_tool, get_subcatchments_tool, batch_get_subcatchments_by_names_tool, query_calculate_result_tool
+         - 查询（优先级规则：有名字时优先批量查询→批量查询失败尝试全部查询找相似匹配→无名字时直接全部查询）：
+             · 节点查询：get_junctions_tool, batch_get_junctions_by_ids_tool
+             · 渠道查询：get_conduits_tool, batch_get_conduits_by_ids_tool
+             · 出口查询：get_outfalls_tool, batch_get_outfalls_by_ids_tool
+             · 子汇水区查询：get_subcatchments_tool, batch_get_subcatchments_by_names_tool
+             · 计算结果查询：query_calculate_result_tool
          - 创建：create_junction_tool, create_conduit_tool, create_outfall_tool, create_subcatchment_tool
          - 更新：update_junction_tool, update_conduit_tool, update_outfall_tool, update_subcatchment_tool
          - 删除：delete_junction_tool, delete_conduit_tool, delete_outfall_tool, delete_subcatchment_tool
@@ -124,7 +129,12 @@ async def planner_node(state: PlanModeState) -> dict:
 
      【可用工具】
      1. backend_tools：用于SWMM模型实体的CRUD操作
-         - 查询：get_junctions_tool, batch_get_junctions_by_ids_tool, get_conduits_tool, batch_get_conduits_by_ids_tool, get_outfalls_tool, get_subcatchments_tool, batch_get_subcatchments_by_names_tool, query_calculate_result_tool
+         - 查询（优先级规则：有名字时优先批量查询→批量查询失败尝试全部查询找相似匹配→无名字时直接全部查询）：
+             · 节点查询：get_junctions_tool, batch_get_junctions_by_ids_tool
+             · 渠道查询：get_conduits_tool, batch_get_conduits_by_ids_tool
+             · 出口查询：get_outfalls_tool, batch_get_outfalls_by_ids_tool
+             · 子汇水区查询：get_subcatchments_tool, batch_get_subcatchments_by_names_tool
+             · 计算结果查询：query_calculate_result_tool
          - 创建：create_junction_tool, create_conduit_tool, create_outfall_tool, create_subcatchment_tool
          - 更新：update_junction_tool, update_conduit_tool, update_outfall_tool, update_subcatchment_tool
          - 删除：delete_junction_tool, delete_conduit_tool, delete_outfall_tool, delete_subcatchment_tool

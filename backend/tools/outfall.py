@@ -1,5 +1,5 @@
 from langchain_core.tools import tool
-from typing import Dict, Any, Optional
+from typing import List, Dict, Any, Optional
 from pydantic import Field
 from schemas.outfall import OutfallModel
 from utils.logger import tools_logger
@@ -15,6 +15,7 @@ from pydantic.fields import FieldInfo
 
 from apis.outfall import (
     get_outfalls,
+    batch_get_outfalls_by_ids,
     update_outfall,
     create_outfall,
     delete_outfall,
@@ -63,6 +64,48 @@ async def get_outfalls_tool() -> str:
         if result.data
         else "无出口信息"
     )
+    return result.model_dump()
+
+
+@tool
+@with_result_exception_handler
+async def batch_get_outfalls_by_ids_tool(
+    ids: List[str] = Field(description="出口ID列表，如 ['O1', 'O2', 'O3', '乌江渡']"),
+):
+    """
+    出口配置、属性信息批量查询工具,通过出口ID列表批量查询出口的详细信息。
+
+    **功能特性**：
+        - 支持通过出口ID列表查询多个出口的详细信息
+        - 返回出口的地理与水力参数,便于前端直接消费
+
+    **使用场景**：
+        - 批量查询多个出口信息
+        - 表格展示多个出口数据
+
+    **参数**：
+        - ids (List[str]): 出口ID列表(**可以一次性查询多个，不必多次调用**),比如 ["O1", "O2", "O3"]
+
+    **返回值**：
+        Result.success_result(
+            data=outfalls, message=f"成功获取指定出口数据({len(outfalls)}个)"
+        )
+        其中 data(outfalls)为 OutfallModel 列表,每个出口结构如下：
+        [
+            {
+                "name": str,              # 出口名称
+                "lon": float,             # 出口经度
+                "lat": float,             # 出口纬度
+                "elevation": float,       # 出口高程(米)
+                "kind": str,              # 出流类型(FREE、NORMAL、FIXED)
+                "data": float | None      # 固定水位值(仅当kind为FIXED时有值)
+            },
+            ...
+        ]
+    """
+    result = await batch_get_outfalls_by_ids(ids)
+    if not result.data:
+        return Result.error(message=f"未找到出口 `{ids}` 数据").model_dump()
     return result.model_dump()
 
 

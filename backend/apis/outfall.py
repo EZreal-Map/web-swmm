@@ -5,6 +5,7 @@ from swmm_api.input_file.sections.node_component import Coordinate
 from swmm_api.input_file.sections import Junction
 from swmm_api.input_file.sections.link import Conduit
 from swmm_api.input_file.sections.link_component import CrossSection
+from typing import List
 
 from utils.coordinate_converter import utm_to_wgs84, wgs84_to_utm
 from schemas.outfall import OutfallModel
@@ -54,6 +55,49 @@ async def get_outfalls():
     ]
     return Result.success_result(
         data=outfalls, message=f"成功获取所有出口数据,共({len(outfalls)}个)"
+    )
+
+
+@outfallRouter.post(
+    "/outfalls/batch",
+    summary="批量获取指定出口的信息",
+    description="通过出口ID列表批量获取出口的基本信息,包括名称、地理坐标(经纬度)、高程、出流类型及固定水位值(如果适用)。",
+)
+@with_exception_handler(default_message="获取失败,文件有误,发生未知错误")
+async def batch_get_outfalls_by_ids(ids: List[str]):
+    """通过出口ID列表批量获取出口信息"""
+    INP = SwmmInput.read_file(SWMM_FILE_INP_PATH, encoding=ENCODING)
+    inp_outfalls = INP.check_for_section(Outfall)
+    inp_coordinates = INP.check_for_section(Coordinate)
+
+    outfalls = []
+    outfalls_name = []
+
+    for outfall_id in ids:
+        outfall = inp_outfalls.get(outfall_id)
+        if not outfall:
+            continue
+
+        # 获取坐标
+        coord = inp_coordinates.get(outfall.name)
+        lon_lat = utm_to_wgs84(coord.x, coord.y)
+        lon = lon_lat[0]
+        lat = lon_lat[1]
+
+        # 构造 OutfallModel 对象并添加到列表
+        outfall_model = OutfallModel(
+            name=outfall.name,
+            lon=lon,
+            lat=lat,
+            elevation=outfall.elevation,
+            kind=outfall.kind,
+            data=outfall.data if outfall.kind == "FIXED" else None,
+        )
+        outfalls.append(outfall_model)
+        outfalls_name.append(outfall.name)
+
+    return Result.success_result(
+        data=outfalls, message=f"成功获取 {outfalls_name} 出口数据"
     )
 
 

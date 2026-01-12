@@ -50,7 +50,7 @@ async def observer_node(state: PlanModeState) -> dict:
    - 如果记录显示失败或错误 → 该步骤失败
 3. **根据执行结果决定next_step**:
    - 若步骤{state.get("current_step")}执行成功 且 还有后续步骤 → next_step = {state.get("current_step")} + 1
-   - 若步骤{state.get("current_step")}执行成功 且 已是最后一步 → next_node="summary", next_step = {state.get("current_step")}
+   - 若步骤{state.get("current_step")}执行成功 且 已是最后一步(计划中已没有步骤{state.get("current_step") + 1}) → next_node="summary", next_step = {state.get("current_step")} + 1
    - 若步骤{state.get("current_step")}失败但可重试 → next_step = {state.get("current_step")}(保持不变)
    - 若多次失败或用户取消 → next_node="summary", next_step = 总计划步骤数 + 1
    - 若需重新规划 → next_node="planner", next_step = 0
